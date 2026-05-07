@@ -97,7 +97,7 @@ class Segment(ImageFeature):
         return image
 
     def get_cropped_segment_image(self):
-        s = nputils.index2slice(self.get_cropped_index())
+        s = tuple(nputils.index2slice(self.get_cropped_index()))
         image = self.segmented_image.get_img().data[s].copy()
         labels = self.segmented_image.get_labels()
         image[labels[s] != self.get_segmentid()] = 0
@@ -146,7 +146,7 @@ class Segment(ImageFeature):
             i = self.get_cropped_index()
             # crop the labels, adding just a small border to get the interface
             index = [max(0, i[0] - 1), max(0, i[1] - 1), i[2] + 1, i[3] + 1]
-            labels = segments.get_labels()[nputils.index2slice(index)]
+            labels = segments.get_labels()[tuple(nputils.index2slice(index))]
             interface = nputils.get_interface(labels, self.segmentid)
             self.interface = dict([(segments.get_segment_from_id(k), v) for k, v in list(interface.items())])
         return self.interface

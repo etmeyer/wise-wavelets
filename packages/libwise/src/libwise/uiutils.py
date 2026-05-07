@@ -48,7 +48,7 @@ def select_folder():
     return str(res)
 
 
-def erro_msg(msg, parent=None):
+def error_msg(msg, parent=None):
     dial = QtWidgets.QMessageBox.warning(parent, "", msg, QtWidgets.QMessageBox.Close)
 
 
@@ -672,7 +672,7 @@ class TestExperience(Experience):
 
 def test_qt():
     app = QtWidgets.QApplication(sys.argv)
-    # print erro_msg("This is a test")
+    # print(error_msg("This is a test"))
 
     gui = UI(400, 300, "This is a test")
 

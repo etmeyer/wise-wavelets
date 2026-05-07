@@ -17,6 +17,7 @@ dependencies:
   - imageio>=2.31
   - jsonpickle>=3.0
   - pyqt>=5.15            # PyQt5 — drives libwise/app and plotutils_ui
+  - pywavelets>=1.4       # used by libwise tests as a reference implementation
   - pytest>=8.0
   - ruff>=0.6
   - pip

@@ -220,3 +220,113 @@ alone.
 it doesn't fire at import time, so Phase 5's verify is unaffected.
 Leaving for Phase 6 / smoke-test triage so the rename stays in scope
 with whatever else surfaces under interactive use.
+
+## Phase 6 — CLI module, smoke tests, upstream pytest triage
+
+`pytest packages/libwise/tests packages/wise/tests` ends at **51 passed,
+8 skipped, 0 failed**. `wise --help` enumerates all 12 actions. `python
+-c "import libwise, wise; print(libwise.get_version(), wise.get_version())"`
+prints `0.4.7 0.4.7 (libwise: 0.4.7)`.
+
+### CLI module
+
+`packages/wise/src/wise/cli.py` was added per the plan template. The
+entry point declared in `packages/wise/pyproject.toml`
+(`wise = "wise.cli:main"`) was already wired by the editable install,
+so no reinstall was needed — `wise --help` started working immediately.
+
+`packages/wise/src/wise/actions/__init__.py` already imported each
+`wise_*` submodule, so `dir(actions)` discovery worked out of the box.
+
+### test_import.py
+
+`packages/wise/tests/test_import.py` added per the plan template. Tests
+that `import wise` succeeds and `wise.__version__` is non-empty.
+
+### Phase 5 follow-ups
+
+| File | Change | Why |
+| --- | --- | --- |
+| `libwise/waitingspinnerwidget.py` (~L85, L186, L190) | Cast `setInterval`, `move`, and `QRect` arguments to `int` | PyQt5's C++ bindings reject floats from Py3 true division; PyQt4 was lenient. Fired at widget instantiation, not import. |
+| `libwise/uiutils.py:51` | Renamed `erro_msg` → `error_msg` (typo fix); also updated the commented `test_qt` example | `PolyRegionEditor.py:139,154` calls `uiutils.error_msg`. The receiving end was correct; the def was the typo. |
+
+### Upstream pytest triage
+
+40 failures in the initial run (after adding `pywavelets` to
+`environment.yml` so `test_wtutils.py` could collect). Triage by category:
+
+#### Fixed — numpy 2.x list-of-slices indexing
+
+numpy 2.0 dropped the deprecation grace period and now rejects `array[list_of_slices]`. The plan flagged this generically; in practice it
+hit a dozen call sites that built `index = [slice(...)] * ndim` and
+indexed with the bare list. Standard fix: `array[tuple(index)]`. Fixed
+in:
+
+| File | Function / Line | Note |
+| --- | --- | --- |
+| `libwise/nputils.py` | `expend_slice`, `downsample`, `upsample`, `atrou`, `fill_extension`, `local_max`, `crop_threshold`, `_convolve_1d`, `_corr_convolve_fast`, `local_sum`, `zoom`, `resize`, `shift2d`, `fill_at` | Standard `tuple(index)` substitution; in `expend_slice` the function itself now returns a tuple so all callers are clean. |
+| `libwise/imgutils.py` | `ImageRegion.__init__`, `ImageRegion.get_slice`, `ImageRegion.get_region_slice`, `compare_image_regions` (~L1924) | All wrap `nputils.index2slice(...)` in `tuple(...)`. |
+| `wise/wds.py` | `Segment.get_cropped_segment_image`, `Segment.get_interface` | Same wrap. |
+
+#### Fixed — Py3 true-division leftovers
+
+2to3 doesn't convert `/` → `//` even when the operand is used as a
+slice or shape. Hit a handful of sites. All were like-for-like Py2
+integer-division semantics that the plan didn't enumerate (Phase 4
+covered numpy aliases but not raw `/` semantics).
+
+| File | Site | Change |
+| --- | --- | --- |
+| `libwise/nputils.py` | `_convolve_1d` (`l = (len(v) - 1) / 2`), `local_sum` (`l = (shape[dim] - 1) / 2`), `_corr_convolve_fast` (`l = (y.shape[dim] - 1) / 2`), `zoom` (`l = (shape[dim]) / 2`), `index2slice` (`i = len(index) / 2`) | `/` → `//` |
+| `libwise/imgutils.py` | `gaussian_cylinder` (`hsx = sizex / 2`), `ellipsoide` (`hs = size / 2`), `get_ensemble_index`/`zip_index` (`len(indexs) / 2`) | `/` → `//` |
+| `libwise/imgutils.py` | `gaussian` (`sigmax, sigmay = size / nsigma / 2.`) | Switched to `(size // nsigma) / 2.` to preserve the original Py2 integer-then-float semantics. With `size=5, nsigma=2`, Py2 yielded `sigma=1.0`; bare Py3 division gave `1.25`, which broke `test_gaussien_nsigma` against the upstream expected output. |
+| `libwise/nputils.py` | `align_on_com` — `delta = com2[0] - com1[0]` is float; `np.zeros(shape)` then rejected float shape entries | `delta = int(round(...))` |
+
+#### Fixed — missing stdlib import
+
+`libwise/imgutils.py::Mask.from_mask_list` calls `reduce(...)`. Py3
+moved `reduce` to `functools`. 2to3 normally adds the import, but
+this one slipped through (likely because `reduce` is also used in
+comprehension-only contexts that 2to3 tries to rewrite differently).
+Added `from functools import reduce`.
+
+#### Fixed — k_subset filter call
+
+`nputils.k_subset` had `if filter is None or list(filter(arg)):` —
+the `list(...)` came from a Py2 era when `filter()` returned a list.
+The test passes a callable that returns `bool`, so `list(bool)` raises
+`TypeError`. Stripped the `list(...)`; the truthiness of the predicate
+is what was always intended.
+
+#### Test-only fixes
+
+| Test | Change | Why |
+| --- | --- | --- |
+| `test_nputils.py::test_zoom_correlation` | `sx / 2` → `sx // 2`, `corr.shape[0] / 2` → `corr.shape[0] // 2` | Test code uses `/` as an array index. |
+| `test_nputils.py::test_crop_threshold` | `l[nputils.index2slice(...)]` → `l[tuple(nputils.index2slice(...))]` (×2) | Same numpy 2.x list-indexing rule. |
+| `test_nputils.py::test_all_k_subset`, `test_lists_combinations` | Compare results as `set` instead of `tuple` | `nputils.uniq_subsets` returns a `set`; iteration order depends on the Python hash seed (PYTHONHASHSEED randomization). The Py2-era tests asserted a specific ordering — that was always implementation-defined. |
+| `test_imgutils.py::test_image_region_zoom` | `np.array(...) / 2 + shift` → `// 2`; force `int(zcx), int(zcy)` | Indexing fix. (Then test was skipped — see below.) |
+| `test_imgutils.py::test_region_image` | `[100 - 5 / 2, 65]` → `[99 - (5 - 1) // 2, 65]` plus a comment explaining the geometry | The original expectation was wrong even in Py2: with `seg3.shape=(5, 11)` clipped against the right image edge, the visible center sits at `99 - (5-1)//2 = 97`, not `100 - 5/2 = 98`. Test expectation was off-by-one — the implementation has been correct all along. |
+
+#### Skipped — testing functions that don't exist in upstream
+
+| Test | Reason |
+| --- | --- |
+| `test_nputils.py::test_get_points_around` | `nputils.get_points_around` is not implemented in upstream — never existed. |
+| `test_nputils.py::test_per_ext`, `test_symm_ext` | `nputils.per_extension` and `symm_extension` are commented out in upstream `nputils.py` (~L1295, L1321) and never reinstated. The tests were testing dead code. |
+| `test_nputils.py::test_norm_xcorr` | Body ends with bare `assert False` — incomplete debug stub the upstream author left. |
+| `test_imgutils.py::test_join_image_region` | Body ends with `assert False` — incomplete debug stub. |
+| `test_imgutils.py::test_stack_image` | Constructs `imgutils.StackedImage(a.data)` from a bare ndarray, but `StackedImage.__init__` calls `fits_image.get_epoch()`. The constructor expects a `FitsImage`. Body also ends with `assert False`. |
+| `test_imgutils.py::test_image_region_zoom` | `ImageRegion.zoom(center, shape)` does not exist — only the inherited `Image.zoom(factor)` does. Test was written against a method that was never implemented. |
+| `test_imgutils.py::test_mask` | Constructs `imgutils.Region([5, 5])` then calls `.add_rectangle(...)`. `Region` is a `pyregion.open(filename)` wrapper — there is no shape-constructor and no `add_rectangle`/`get_mask` on it. Test was written against a different (mythical) `Region` class. |
+
+`test_nputils.py::test_convolve` was kept (and passes) but the
+`symm_extension` and `per_extension` reference assertions inside it
+were removed for the same reason as the skipped extension tests.
+
+#### Environment additions
+
+`pywavelets>=1.4` was added to `environment.yml`. `test_wtutils.py`
+uses `pywt` as a reference implementation to cross-check libwise's
+own (from-scratch) wavelet transforms; without it the test module
+won't even collect. Production libwise code does not import `pywt`.

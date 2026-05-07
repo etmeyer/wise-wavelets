@@ -14,6 +14,7 @@ import re
 import copy
 import decimal
 import datetime
+from functools import reduce
 from importlib import resources
 import numpy as np
 import PIL.Image
@@ -107,7 +108,10 @@ def gaussian(size, nsigma=None, width=None, center=None, center_offset=None, ang
         sigmax, sigmay = width / (2. * np.sqrt(2 * np.log(2)))
     else:
         nsigma = nputils.get_pair(nsigma)
-        sigmax, sigmay = size / nsigma / 2.
+        # Py2 had integer division here: (size // nsigma) / 2.0; preserve the
+        # original semantics under Py3 so callers depending on the upstream
+        # convention (e.g. nsigma=2 over size=5 → sigma=1.0) keep working.
+        sigmax, sigmay = (size // nsigma) / 2.
 
     if center is None:
         center = np.floor(size / 2.)
@@ -160,7 +164,7 @@ def gaussian_cylinder(size, nsigma=None, width=None, angle=None, center_offset=0
     else:
         center_offset = nputils.make_callable(center_offset)
 
-    hsx = sizex / 2
+    hsx = sizex // 2
     x, y = np.mgrid[-hsx:hsx + sizex % 2, 0:sizey]
 
     g = np.exp(-(x + center_offset(y)) ** 2 / (2. * sigma(y) ** 2))
@@ -171,7 +175,7 @@ def gaussian_cylinder(size, nsigma=None, width=None, angle=None, center_offset=0
 def ellipsoide(size, a, b=None):
     if b is None:
         b = a
-    hs = size / 2
+    hs = size // 2
     a = float(a)
     b = float(b)
     x, y = np.mgrid[-hs:hs + size % 2, -hs:hs + size % 2]
@@ -1685,7 +1689,7 @@ class ImageRegion(Image):
         #     raise Exception
         if not cropped:
             self.shape = img.shape
-            self.img = img[nputils.index2slice(self.index)]
+            self.img = img[tuple(nputils.index2slice(self.index))]
         else:
             self.shape = shape
             self.img = img
@@ -1728,7 +1732,7 @@ class ImageRegion(Image):
         return self.img[self.get_region_slice()]
 
     def get_slice(self):
-        return nputils.index2slice(self.get_index())
+        return tuple(nputils.index2slice(self.get_index()))
 
     def get_index(self):
         ia = []
@@ -1759,7 +1763,7 @@ class ImageRegion(Image):
             else:
                 slices.append(slice(None, None))
 
-        return slices
+        return tuple(slices)
 
     def get_data(self):
         img = np.zeros(self.shape)
@@ -1805,11 +1809,11 @@ class ImageBuilder(object):
 
 def get_ensemble_index(img_regions):
     indexs = list(zip(*[k.get_index() for k in img_regions]))
-    return [min(k) for k in indexs[:len(indexs) / 2]] + [max(k) for k in indexs[len(indexs) / 2:]]
+    return [min(k) for k in indexs[:len(indexs) // 2]] + [max(k) for k in indexs[len(indexs) // 2:]]
 
 
 def zip_index(index):
-    i = len(index) / 2
+    i = len(index) // 2
     return [(d0, d1) for d0, d1 in zip(index[:i], index[i:])]
 
 
@@ -1921,8 +1925,8 @@ def test_image_region_correlate():
 
     eindex = get_ensemble_index([r1, r2])
 
-    i1 = r1.get_data()[nputils.index2slice(eindex)]
-    i2 = r2.get_data()[nputils.index2slice(eindex)]
+    i1 = r1.get_data()[tuple(nputils.index2slice(eindex))]
+    i2 = r2.get_data()[tuple(nputils.index2slice(eindex))]
     print(i1.shape, i2.shape)
 
     i1 = nputils.smooth(i1, 3, boundary="symm", mode='same')

@@ -133,7 +133,7 @@ def shift2d(array, delta):
             result_slice.append(slice(None, int(np.round(delta[dim]))))
             array_slice.append(slice(-int(np.round(delta[dim])), None))
 
-    result[result_slice] = array[array_slice]
+    result[tuple(result_slice)] = array[tuple(array_slice)]
     return result
 
 
@@ -156,7 +156,7 @@ def coord_min(array, fit_gaussian=False, fit_gaussian_n=3):
 def local_max(array, p, tol, fit_gaussian=False, fit_gaussian_n=3):
     clip = lambda p: (clamp(p[0], 0, array.shape[0]), clamp(p[1], 0, array.shape[1]))
     index = clip(np.array(p) - tol) + clip(np.array(p) + tol)
-    tol_array = array[index2slice(index)]
+    tol_array = array[tuple(index2slice(index))]
     cmax = coord_max(tol_array, fit_gaussian=fit_gaussian, fit_gaussian_n=fit_gaussian_n) 
     cmax += np.array([index[0], index[1]])
     return tol_array.max(), cmax
@@ -310,10 +310,10 @@ def create_ellipse(r, xc, alpha, n=100, angle_range=(0,2*np.pi)):
 
 def expend_slice(slice_obj, shape, axis=None):
     if axis is None:
-        return [slice_obj] * len(shape)
+        return (slice_obj,) * len(shape)
     s = [slice(None)] * len(shape)
     s[axis] = slice_obj
-    return s
+    return tuple(s)
 
 
 def get_index(array, slice_obj, axis=None):
@@ -479,7 +479,7 @@ def _corr_convolve_fast(x, y, mode='same', method='auto'):
     index = []
     for dim in range(x.ndim):
         if mode == 'same':
-            l = (y.shape[dim] - 1) / 2
+            l = (y.shape[dim] - 1) // 2
             r = -((y.shape[dim] - 1) - l)
             index.append(slice(l, r))
         elif mode == 'valid':
@@ -487,7 +487,7 @@ def _corr_convolve_fast(x, y, mode='same', method='auto'):
         else:
             index.append(slice(None, None))
 
-    return corr[index]
+    return corr[tuple(index)]
 
 
 def xcorr_fast(x, y, mode='same', method='auto'):
@@ -528,7 +528,7 @@ def local_sum(a, shape, mode="same"):
     index = []
     for dim in range(a.ndim):
         if mode == 'same':
-            l = (shape[dim] - 1) / 2
+            l = (shape[dim] - 1) // 2
             r = -((shape[dim] - 1) - l)
             index.append(slice(l, r))
         elif mode == 'valid':
@@ -536,7 +536,7 @@ def local_sum(a, shape, mode="same"):
         else:
             index.append(slice(None, None))
 
-    return res[index]
+    return res[tuple(index)]
 
 
 def norm_xcorr2(x, y, mode="same", method='auto', replace_nan_to_zero=True, debug=False):
@@ -636,7 +636,7 @@ def align_on_com(array1, array2):
     pos1 = []
     pos2 = []
     for dim in range(array1.ndim):
-        delta = com2[0] - com1[0]
+        delta = int(round(com2[0] - com1[0]))
         if delta >= 0:
             pos1.append(delta)
             pos2.append(0)
@@ -771,7 +771,7 @@ def k_subset(s, k, filter=None):
         partials = k_subset(s[:i] + s[i + 1:], k, filter=filter)
         for partial in partials:
             for p in range(len(partial)):
-                if filter is None or list(filter(partial[p] + (s[i],))):
+                if filter is None or filter(partial[p] + (s[i],)):
                     k_subs.append(partial[:p] + (partial[p] + (s[i],),) + partial[p + 1:])
     return uniq_subsets(k_subs)
 
@@ -1083,7 +1083,7 @@ def crop_threshold(array, threashold=0, crop_mask=None, output_index=False):
         i1 = coords.max(axis=1) + 1
 
     index = i0.tolist() + i1.tolist()
-    slices = index2slice(index)
+    slices = tuple(index2slice(index))
 
     if output_index:
         return array[slices], index
@@ -1187,7 +1187,7 @@ def slice2index(slices):
 
 
 def index2slice(index):
-    i = len(index) / 2
+    i = len(index) // 2
     return [slice(d0, d1) for d0, d1 in zip(index[:i], index[i:])]
 
 
@@ -1245,7 +1245,7 @@ def downsample(a, n, oddeven=0, axis=None):
     for dim in range(a.ndim):
         if axis is None or dim == axis:
             index[dim] = np.s_[oddeven % 2::n]
-    return a[index]
+    return a[tuple(index)]
 
 
 def upsample(a, n, oddeven=0, lastzero=False, axis=None):
@@ -1272,7 +1272,7 @@ def upsample(a, n, oddeven=0, lastzero=False, axis=None):
             shape[dim] = shape[dim] * int(n) + int(lastzero)
             index[dim] = np.s_[oddeven % 2::n]
     array = np.zeros(shape[:], dtype=a.dtype)
-    array[index] = a
+    array[tuple(index)] = a
     return array
 
 
@@ -1288,7 +1288,7 @@ def atrou(a, n, axis=None):
             shape[dim] = shape[dim] + (shape[dim] - 1) * int(n - 1)
             index[dim] = np.s_[::n]
     array = np.zeros(shape[:], dtype=a.dtype)
-    array[index] = a
+    array[tuple(index)] = a
     return array
 
 
@@ -1368,7 +1368,7 @@ def fill_extension(a, nright, nleft, fillvalue=0, axis=None):
             else:
                 index[dim] = np.s_[nright:-nleft]
     res = np.ones(shape) * fillvalue
-    res[index] = a
+    res[tuple(index)] = a
     return res
 
 
@@ -1385,11 +1385,11 @@ def _convolve_1d(a, v, boundary='symm', mode='same', axis=0):
     res = scipy_convolve1d(a, v, mode=CONV_BOUNDARY_MAP2[boundary], axis=axis)
     
     if mode == 'valid':
-        l = (len(v) - 1) / 2
+        l = (len(v) - 1) // 2
         r = (len(v) - 1) - l
         index = [slice(None)] * res.ndim
         index[axis] = slice(l, -r)
-        res = res[index]
+        res = res[tuple(index)]
     return res
 
 
@@ -1521,6 +1521,8 @@ def fill_at(array, point, other, mode='replace', allow_exceed=True):
             size = size + point[dim]
         index.append(slice(aleft, aleft + size))
         index_other.append(slice(oleft, oleft + size))
+    index = tuple(index)
+    index_other = tuple(index_other)
     if mode == 'replace':
         array[index] = other[index_other]
     elif mode == 'add':
@@ -1587,13 +1589,15 @@ def resize(array, shape, padding_mode='center', output_index=False):
             padding_slice.append(slice(None))
 
     # check if we need to reallocate (i.e., if new data are needed)
+    index_tuple = tuple(index_slice)
+    padding_tuple = tuple(padding_slice)
     if padding_slice == [slice(None)] * array.ndim:
-        res = array[index_slice]
+        res = array[index_tuple]
     else:
         res = np.zeros(shape, dtype=array.dtype)
 
-        res[padding_slice] = array[index_slice]
-   
+        res[padding_tuple] = array[index_tuple]
+
     if output_index is True:
         return res, slice2index(padding_slice), slice2index(index_slice)
     return res
@@ -1630,12 +1634,13 @@ def zoom(array, center, shape, pad=True, output_index=False, pad_value=0):
     index_slice = []
 
     for dim in range(array.ndim):
-        l = (shape[dim]) / 2
+        l = (shape[dim]) // 2
         r = shape[dim] - l
         left = max(0, center[dim] - l)
         right = max(0, min(center[dim] + r, array.shape[dim]))
         index_slice.append(slice(left, right))
 
+    index_slice = tuple(index_slice)
     if output_index:
         return array[index_slice], slice2index(index_slice)
 
