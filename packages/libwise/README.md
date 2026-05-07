@@ -36,5 +36,4 @@ You need to install (if not done by pip/conda) the following packages:
 - pandas
 - pyregion (https://pypi.python.org/pypi/pyregion)
 - uncertainties (https://pypi.python.org/pypi/uncertainties)
-- pymorph (https://pypi.python.org/pypi/pymorph)
 

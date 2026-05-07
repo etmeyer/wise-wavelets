@@ -39,6 +39,5 @@ You need to install (if not done by pip/conda) the following packages for WISE t
 - pandas
 - pyregion (https://pypi.python.org/pypi/pyregion)
 - uncertainties (https://pypi.python.org/pypi/uncertainties)
-- pymorph (https://pypi.python.org/pypi/pymorph)
 - jsonpickle (https://pypi.org/project/jsonpickle/)
 

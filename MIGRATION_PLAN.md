@@ -191,6 +191,7 @@ the scikit-image equivalent. Mapping:
 | `pymorph.gradm(img)` | `skimage.filters.rank.gradient(img, footprint)` (footprint required) |
 | `pymorph.thin(img)` | `skimage.morphology.thin(img)` |
 | `pymorph.sebox(r)` / `pymorph.sedisk(r)` | `skimage.morphology.square(2*r+1)` / `disk(r)` |
+| `pymorph.secross(r)` | `skimage.morphology.diamond(r)` (L1-ball footprint; not in original table — added during Phase 3) |
 
 Pay attention to **return type and shape**:
 - `pymorph.label` returned `(labels, nlabels)` from some entry points and just
@@ -199,8 +200,21 @@ Pay attention to **return type and shape**:
 - `pymorph` operated on uint8 binary arrays implicitly; `skimage` is mostly
   bool/float. Cast as needed.
 
-Drop the `pymorph` line from `install_requires`. Add a `# was pymorph.X`
-comment at each replacement so future-you can verify behavioral parity.
+The modern per-package `pyproject.toml` files don't list `pymorph` (we
+never added it), and `environment.yml` doesn't either — so there's nothing
+to remove from install metadata. Just delete every `import pymorph`
+statement and replace the call sites. The audit trail for each
+substitution lives in `MIGRATION_NOTES.md` (file, pymorph call, skimage
+replacement, judgment-call rationale) rather than as inline `# was
+pymorph.X` comments — that keeps the verify grep at zero.
+
+**Reality from Phase 3 execution:** the upstream code only ever called
+`pymorph.secross` (one site, in `libwise/nputils.py`). None of `dilate`,
+`erode`, `open`, `close`, `label`, `regmin`, `regmax`, `gradm`, `thin`,
+`sebox`, or `sedisk` appeared, so the label-unpacking and gradm-footprint
+hazards above never materialized. The README dependency lists for both
+packages also mentioned `pymorph`; those lines were dropped here so the
+verify grep is clean. (Phase 7 rewrites the READMEs in full.)
 
 **Verify:** `grep -rn "pymorph" packages/` returns zero. Existing tests in
 `packages/libwise/tests/test_imgutils.py` should still pass for any image-op

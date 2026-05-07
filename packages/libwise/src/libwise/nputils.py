@@ -18,7 +18,6 @@ import itertools
 import collections
 import configparser
 
-import pymorph
 import numpy as np
 from scipy import optimize
 from scipy import interpolate
@@ -27,6 +26,7 @@ from scipy.ndimage import convolve1d as scipy_convolve1d
 from scipy.optimize import leastsq, curve_fit
 from scipy.ndimage import grey_dilation
 from scipy.ndimage import center_of_mass
+from skimage.morphology import diamond
 from uncertainties import ufloat, umath, unumpy
 from uncertainties import UFloat
 
@@ -94,7 +94,7 @@ CACHE_SECROSS_FOOTPRINT = Cache(10)
 
 def get_secross_footprint(size):
     if size not in CACHE_SECROSS_FOOTPRINT:
-        CACHE_SECROSS_FOOTPRINT[size] = pymorph.secross(r=int(size))
+        CACHE_SECROSS_FOOTPRINT[size] = diamond(int(size))
     return CACHE_SECROSS_FOOTPRINT[size]
 
 
