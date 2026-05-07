@@ -664,9 +664,9 @@ class ExtendedNavigationToolbar(NavigationToolbar):
     def __init__(self, canvas, window, profile=True):
         self.toolitems = list(self.toolitems)
         self.toolitems.insert(6, ('Profile', 'Get the profile of a line in an image',
-                                  os.path.join(imgutils.RESSOURCE_PATH, "profile"), 'profile'))
+                                  os.path.join(imgutils.RESOURCE_PATH, "profile"), 'profile'))
         self.toolitems.insert(7, ('Stats', 'Get statistics on a portion of an image/line',
-                                  os.path.join(imgutils.RESSOURCE_PATH, "stats"), 'stats'))
+                                  os.path.join(imgutils.RESOURCE_PATH, "stats"), 'stats'))
         NavigationToolbar.__init__(self, canvas, window)
         self._actions['profile'].setCheckable(True)
         self._actions['stats'].setCheckable(True)
@@ -675,7 +675,7 @@ class ExtendedNavigationToolbar(NavigationToolbar):
         self.toogle_off_all_active()
 
     def _icon(self, name):
-        if name.startswith(imgutils.RESSOURCE_PATH):
+        if name.startswith(imgutils.RESOURCE_PATH):
             img = QtGui.QImage()
             img.loadFromData(pkg_resources.resource_string(imgutils.__name__, name))
             return QtGui.QIcon(QtGui.QPixmap.fromImage(img))

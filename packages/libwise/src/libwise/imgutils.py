@@ -31,13 +31,13 @@ from astropy.time import TimeDelta
 
 import matplotlib.ticker as mticker
 
-RESSOURCE_PATH = 'ressource'
+RESOURCE_PATH = 'resources'
 
 import nputils
 import signalutils
 
 
-GALAXY_GIF_PATH = os.path.join(RESSOURCE_PATH, "aa.gif")
+GALAXY_GIF_PATH = os.path.join(RESOURCE_PATH, "aa.gif")
 
 cosmology.default_cosmology.set(cosmology.WMAP9)
 
