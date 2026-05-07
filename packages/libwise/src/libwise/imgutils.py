@@ -12,16 +12,14 @@ Requirement: astropy version >= 0.3
 import os
 import re
 import copy
-import imghdr
 import decimal
 import datetime
 import pkg_resources
 import numpy as np
 import PIL.Image
+import skimage.data
 
-from scipy import misc
-from scipy.ndimage import measurements
-from scipy.ndimage.interpolation import rotate, zoom
+from scipy.ndimage import center_of_mass, rotate, zoom
 
 import astropy.units as u
 import astropy.wcs as pywcs
@@ -212,7 +210,7 @@ def galaxy():
 
 
 def lena():
-    return misc.face()
+    return skimage.data.chelsea()
 
 
 # def function(inp, x1, x2, fct, value):
@@ -274,7 +272,11 @@ def is_fits(file):
 
 
 def is_img(file):
-    return imghdr.what(file) is not None
+    try:
+        with PIL.Image.open(file) as img:
+            return img.format is not None
+    except (OSError, PIL.UnidentifiedImageError):
+        return False
 
 
 def guess_and_open(file, fits_extension=0, check_stack_img=False):
@@ -1740,7 +1742,7 @@ class ImageRegion(Image):
 
     def get_center_of_mass(self):
         # TODO: optimize PERF ISSUE
-        return np.array(measurements.center_of_mass(self.get_data()))
+        return np.array(center_of_mass(self.get_data()))
 
     def get_coord_max(self):
         # TODO: optimize PERF ISSUE
@@ -1830,7 +1832,7 @@ def join_image_region(img_regions, target_shape, fill_mode='add'):
     for img_region, new_position in zip(img_regions, new_positions):
         nputils.fill_at(out, new_position, img_region.get_region(), mode=fill_mode)
 
-    com_out = measurements.center_of_mass(out)
+    com_out = center_of_mass(out)
     initial_regions = ImageRegion.from_list(img_regions)
     com_initial = initial_regions.get_center_of_mass()
     x0 = np.clip(np.round(com_initial - com_out), 0, initial_regions.get_shape())

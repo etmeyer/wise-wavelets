@@ -22,11 +22,11 @@ import pymorph
 import numpy as np
 from scipy import optimize
 from scipy import interpolate
-from scipy.ndimage.interpolation import map_coordinates
-from scipy.ndimage.filters import convolve1d as scipy_convolve1d
+from scipy.ndimage import map_coordinates
+from scipy.ndimage import convolve1d as scipy_convolve1d
 from scipy.optimize import leastsq, curve_fit
-from scipy.ndimage.morphology import grey_dilation
-from scipy.ndimage.measurements import center_of_mass
+from scipy.ndimage import grey_dilation
+from scipy.ndimage import center_of_mass
 from uncertainties import ufloat, umath, unumpy
 from uncertainties import UFloat
 
@@ -2802,9 +2802,8 @@ class DummyFilter(AbstractFilter):
 def test_upsample():
     import time
     from . import plotutils, imgutils
-    from scipy.misc import lena
     from matplotlib.mlab import csd, detrend_mean
-    from scipy.ndimage.interpolation import rotate
+    from scipy.ndimage import rotate
     from scipy.spatial.distance import cdist
 
     i1 = imgutils.gaussian(50, width=10, center=[25.2, 25])

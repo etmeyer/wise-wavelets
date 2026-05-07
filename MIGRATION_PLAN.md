@@ -120,7 +120,9 @@ the 2to3 output — so the mechanical-vs-manual changes are separable in the dif
 
 **Verify:** `grep -rn "print [^(]" packages/` returns nothing (other than
 docstrings/comments). `grep -rn "from types import NoneType" packages/`
-returns 1–2 hits, kept until phase 2.
+returns ~4 hits in `packages/wise/src/wise/scc.py` — kept until phase 2.
+2to3 also auto-converts `import ConfigParser` → `import configparser`
+(observed in `libwise/nputils.py`); phase 2 audits the call sites.
 
 ### Phase 2 — Fix imports: implicit-relative, removed stdlib, moved scipy
 
@@ -144,8 +146,8 @@ as long as the package is installed — leave it alone.
 
 | Old | New |
 | --- | --- |
-| `import ConfigParser` | `import configparser as ConfigParser` (alias keeps call sites unchanged) or rename call sites |
-| `from types import NoneType` | delete; replace usage with `type(None)` |
+| `import ConfigParser` | 2to3 already rewrites the import to `import configparser`. Audit the call sites and update any that still reference the `ConfigParser.` prefix to `configparser.` (alias if too noisy). |
+| `from types import NoneType` | delete; replace usage with `type(None)`. (Observed: ~4 sites in `wise/scc.py` after Phase 1.) |
 | `import imghdr` | removed in 3.13 — replace with `from PIL import Image` and detect via `Image.open(path).format` |
 | `from cStringIO import StringIO` | `from io import BytesIO` (binary) or `StringIO` (text) — pick by call-site |
 
@@ -161,6 +163,9 @@ Submodules are deprecated since SciPy 1.10 and *gone* in newer releases:
 | `from scipy.ndimage.morphology import grey_dilation` | `from scipy.ndimage import grey_dilation` |
 | `from scipy.ndimage import measurements` (then `measurements.label`) | `from scipy import ndimage as ndi` then `ndi.label` |
 | `from scipy import misc` (image read/save/imresize) | `imageio.v3` for I/O; `skimage.transform.resize` for resize. Pick the right one per call site. |
+| `from scipy import misc` (sample image, e.g. `misc.face()`) | `skimage.data.chelsea()` (or another `skimage.data.*`). Plan didn't anticipate sample-image use. Encountered in `libwise/imgutils.py::lena()`. |
+| `from scipy.ndimage import measurements` (then `measurements.center_of_mass`) | Either `from scipy.ndimage import center_of_mass` and call directly, or alias the module. Encountered alongside `center_of_mass` in `libwise/imgutils.py`; consolidated into the direct import. |
+| `from scipy.misc import lena` (Py2-era sample image, removed long ago) | The function is dead in `libwise/nputils.py::test_upsample` (imported but never referenced) — drop the import. |
 
 Quick scan command after edits:
 ```
@@ -203,7 +208,31 @@ tests (or fail with informative output identifying what behavior shifted).
 
 **Commit:** `refactor: replace pymorph with scikit-image equivalents`
 
-### Phase 4 — Update skimage / astropy / matplotlib drift
+### Phase 4 — Update numpy 2.x / skimage / astropy / matplotlib drift
+
+#### numpy 2.x
+
+The conda solve pulls numpy ≥ 2.0 (2.4 observed). Several aliases the
+upstream code likely uses were removed in numpy 2.0. Audit and replace:
+
+| Old | New |
+| --- | --- |
+| `np.float_` | `np.float64` |
+| `np.complex_` | `np.complex128` |
+| `np.int_` | `np.intp` (or `int`, by use) |
+| `np.unicode_` | `np.str_` |
+| `np.row_stack` | `np.vstack` |
+| `np.cast[dtype](x)` | `np.asarray(x, dtype=dtype)` or `x.astype(dtype)` |
+| `np.product` | `np.prod` |
+| `np.alltrue` / `np.sometrue` | `np.all` / `np.any` |
+| `np.in1d` | `np.isin` |
+| `np.PINF` / `np.NINF` / `np.NAN` | `np.inf` / `-np.inf` / `np.nan` |
+| `np.compat.*` | gone — most callers want plain Python equivalents |
+| Implicit `__array__()` no-arg | now requires `dtype` and `copy` kwargs in numpy 2.x |
+
+`numpy.testing` still exists. `np.bool8` and `np.object0` are gone — use
+`bool` / `object`. If `nputils.py` defines its own dtype helpers, expect
+hits there.
 
 #### scikit-image
 

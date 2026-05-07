@@ -1,8 +1,7 @@
 import datetime
-from types import NoneType
 
 import numpy as np
-from scipy.ndimage.interpolation import rotate, zoom
+from scipy.ndimage import rotate, zoom
 
 from libwise import nputils, imgutils, plotutils
 
@@ -18,15 +17,15 @@ class SCCConfiguration(nputils.BaseConfiguration):
         data = [
         ["unit", u.mas / u.year, "Velocity unit", nputils.validator_is(u.Unit)],
         ["bounds", [1, 1, 1, 1], "Velocity bounds", nputils.validator_list(4, (int, float))],
-        ["filter1", None, "Filter for the first image", nputils.validator_is((NoneType, nputils.AbstractFilter))],
-        ["filter2", None, "Filter for the second image", nputils.validator_is((NoneType, nputils.AbstractFilter))],
+        ["filter1", None, "Filter for the first image", nputils.validator_is((type(None), nputils.AbstractFilter))],
+        ["filter2", None, "Filter for the second image", nputils.validator_is((type(None), nputils.AbstractFilter))],
         ["tol_pix_range", [4, 25], "Allowed range of pixel velocity resolution", nputils.validator_list(2, int)],
         ["ncc_threshold", 0.6, "Threshold for the NCC", nputils.validator_is(bool)],
         ["factor", 10, "Zoom factor of the resulting map", nputils.validator_in_range(1, 20)],
         ["method", 'ncc_peaks_direct', "Method used to compute the SCC", lambda v: v in ['ncc', 'ncc_peaks', 'ncc_peaks_direct']],
-        ["vector_direction", None, "Project the result on this direction", lambda v: v == 'position_angle' or nputils.is_callable(v) or isinstance(v, (list, np.ndarray, NoneType))],
+        ["vector_direction", None, "Project the result on this direction", lambda v: v == 'position_angle' or nputils.is_callable(v) or isinstance(v, (list, np.ndarray, type(None)))],
         ["velocity_trans", None, "Do any transform on the velocity vector, pre projection", lambda v: nputils.is_callable(v)],
-        ["rnd_pos_shift", False, "Randomly shift the segments position", nputils.validator_is((bool, NoneType))],
+        ["rnd_pos_shift", False, "Randomly shift the segments position", nputils.validator_is((bool, type(None)))],
         ["rnd_pos_factor", 1.5, "Factor of the standart deviation of the shift", nputils.validator_in_range(0.1, 5)],
         ["img_rnd_shift", 0, "Randomly shift the images (pixel std)", nputils.validator_in_range(0, 10)],
         ["shuffle", False, "Suffle the list of images", nputils.validator_is(bool)],
