@@ -5,7 +5,7 @@ import matplotlib
 
 from . import nputils
 
-import pkg_resources
+from importlib import resources
 
 RC_DEFAULTS = matplotlib.RcParams(matplotlib.rcParams.copy())
 
@@ -35,7 +35,7 @@ def get_all_user_presets_names():
 
 
 def get_all_default_presets_names():
-    return pkg_resources.resource_listdir(__name__, 'presets')
+    return [p.name for p in resources.files(__package__).joinpath('presets').iterdir()]
 
 
 def get_all_presets():
@@ -190,8 +190,8 @@ class RcPreset(object):
 
     @staticmethod
     def _load_default(file_name):
-        stream = pkg_resources.resource_stream(__name__, os.path.join('presets', file_name))
-        return RcPreset._load_stream(file_name, stream)
+        with resources.files(__package__).joinpath('presets', file_name).open('r') as fd:
+            return RcPreset._load_stream(file_name, fd)
 
     @staticmethod
     def _load_user(file_name):

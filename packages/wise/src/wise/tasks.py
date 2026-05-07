@@ -1076,7 +1076,7 @@ def build_detection_stack_image(ctx, preprocess=True, smooth=False):
             # img.data[segments.get_labels() == 0] = 0
             stack_mgr_file_snr.add(img, action='mean')
 
-            img.data = (segments.get_labels() > 0).astype(np.float)
+            img.data = (segments.get_labels() > 0).astype(float)
             stack_mgr_file_count.add(img, action='max')
 
         stack_mgr_snr.add(stack_mgr_file_snr.get(), action='add')

@@ -15,9 +15,9 @@ def do_gaussien_cylinder(exp, size, nsigma=None, width=None,
     res = imgutils.gaussian_cylinder(size, nsigma=nsigma,
                                      width=width, center_offset=center_offset,
                                      angle=angle)
-    print((res * 1000).astype(np.int))
+    print((res * 1000).astype(int))
     print(exp)
-    return np.equal(exp, (res * 1000).astype(np.int)).all()
+    return np.equal(exp, (res * 1000).astype(int)).all()
 
 
 def test_gaussien_cylinder_nsigma():
@@ -105,7 +105,7 @@ def test_gaussien_no_arg():
 
 def do_gaussien(exp, size, nsigma=None, width=None):
     res = imgutils.gaussian(size, nsigma=nsigma, width=width)
-    return np.equal(exp, (res * 1000).astype(np.int)).all()
+    return np.equal(exp, (res * 1000).astype(int)).all()
 
 
 def test_gaussien_nsigma():

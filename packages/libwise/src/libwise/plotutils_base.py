@@ -5,7 +5,6 @@ import random
 import tempfile
 import datetime
 import numpy as np
-from scipy.ndimage import measurements
 
 import matplotlib
 import matplotlib.animation as animation
@@ -20,17 +19,28 @@ from matplotlib.image import AxesImage
 from matplotlib.artist import ArtistInspector
 from matplotlib.colors import LogNorm, Normalize
 from matplotlib.figure import Figure, SubplotParams
-from matplotlib.patches import PathPatch, Rectangle, Shadow
+from matplotlib.patches import Ellipse, PathPatch, Rectangle, Shadow
 from matplotlib.ticker import ScalarFormatter
+from matplotlib.offsetbox import AnchoredOffsetbox, AuxTransformBox
 
 from matplotlib.backends.backend_pdf import PdfPages
 
 from mpl_toolkits.axisartist import Subplot
-from mpl_toolkits.axes_grid1.anchored_artists import AnchoredEllipse
 from mpl_toolkits.axisartist.grid_helper_curvelinear import GridHelperCurveLinear
 from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+
+
+class AnchoredEllipse(AnchoredOffsetbox):
+    # Inlined from mpl_toolkits.axes_grid1.anchored_artists; removed in matplotlib 3.8.
+    def __init__(self, transform, width, height, angle, loc,
+                 pad=0.1, borderpad=0.1, prop=None, frameon=True):
+        self._box = AuxTransformBox(transform)
+        self.ellipse = Ellipse((0, 0), width, height, angle=angle)
+        self._box.add_artist(self.ellipse)
+        super().__init__(loc, pad=pad, borderpad=borderpad,
+                         child=self._box, prop=prop, frameon=frameon)
 
 from . import imgutils
 from . import nputils

@@ -1456,7 +1456,7 @@ class ScaleMatcherMSCC2(BaseScaleMatcher):
         if min(img1.shape) < 2:
             return result
 
-        # shape2 = imgutils.Image((self.segments2.get_labels() > 0).astype(np.float)).zoom(zoi_center, zoi_shape).get_region()
+        # shape2 = imgutils.Image((self.segments2.get_labels() > 0).astype(float)).zoom(zoi_center, zoi_shape).get_region()
 
         region2 = img2.zoom(zoi_center, zoi_shape)
         shift = zoi_center - region2.get_center()
@@ -1468,7 +1468,7 @@ class ScaleMatcherMSCC2(BaseScaleMatcher):
         xcorr = nputils.resize(xcorr, [(tol) * 2] * 2)
         # print "Subpixel:", nputils.fit_gaussian_on_max(xcorr, n=2)
 
-        # xcorr = nputils.norm_xcorr2(shape2, (img1 > 0).astype(np.float), mode='same')
+        # xcorr = nputils.norm_xcorr2(shape2, (img1 > 0).astype(float), mode='same')
         # xcorr = nputils.resize(xcorr, [(tol) * 2] * 2)
 
         # ssd = nputils.weighted_ssd_fast(img2, img1, weight, mode='same')
@@ -1494,7 +1494,7 @@ class ScaleMatcherMSCC2(BaseScaleMatcher):
         #     result.append(np.array([0, 0]))
 
         for minimum in nputils.find_peaks(corr, 2, threshold):
-            delta = (minimum - center).astype(np.int)
+            delta = (minimum - center).astype(int)
             print("Min:", delta, corr[minimum[0], minimum[1]], np.linalg.norm(delta), tol - 1)
             if np.linalg.norm(delta) <= tol - 1 and region1.check_shift(delta):
                 result.append(delta)
@@ -1728,7 +1728,7 @@ class ScaleMatcherMSCC(BaseScaleMatcher):
         if min(img1.shape) < 2:
             return result
 
-        # shape2 = imgutils.Image((self.segments2.get_labels() > 0).astype(np.float)).zoom(zoi_center, zoi_shape).get_region()
+        # shape2 = imgutils.Image((self.segments2.get_labels() > 0).astype(float)).zoom(zoi_center, zoi_shape).get_region()
 
         region2 = img2.get_region(zoi_center, zoi_shape)
         shift = zoi_center - region2.get_center()
@@ -1740,7 +1740,7 @@ class ScaleMatcherMSCC(BaseScaleMatcher):
         xcorr = nputils.resize(xcorr, [(tol) * 2] * 2)
         # print "Subpixel:", nputils.fit_gaussian_on_max(xcorr, n=2)
 
-        # xcorr = nputils.norm_xcorr2(shape2, (img1 > 0).astype(np.float), mode='same')
+        # xcorr = nputils.norm_xcorr2(shape2, (img1 > 0).astype(float), mode='same')
         # xcorr = nputils.resize(xcorr, [(tol) * 2] * 2)
 
         # ssd = nputils.weighted_ssd_fast(img2, img1, weight, mode='same')
@@ -1778,7 +1778,7 @@ class ScaleMatcherMSCC(BaseScaleMatcher):
         #     result.append(np.array([0, 0]))
 
         for minimum in nputils.find_peaks(corr, 2, threshold):
-            delta = (minimum - center).astype(np.int)
+            delta = (minimum - center).astype(int)
             coef = corr[minimum[0], minimum[1]]
             if np.linalg.norm(delta) <= tol - 1 and region1.check_shift(delta) and np.isfinite(coef):
                 # print "Min:", delta, coef, np.linalg.norm(delta), tol - 1

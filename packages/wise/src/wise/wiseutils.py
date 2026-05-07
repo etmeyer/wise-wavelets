@@ -15,7 +15,7 @@ import matplotlib.dates as mdates
 from mpl_toolkits.axisartist.grid_finder import MaxNLocator
 
 from scipy.optimize import curve_fit
-from scipy.ndimage import measurements
+from scipy import ndimage as ndi
 
 import astropy.units as u
 import astropy.constants as const
@@ -1012,7 +1012,7 @@ def align_image_on_cores_com(img, bg):
     for core in cores:
         img_cores += core.get_segment_image()
 
-    com = measurements.center_of_mass(img_cores)
+    com = ndi.center_of_mass(img_cores)
 
     print("COM:", com)
     return com
@@ -1121,7 +1121,7 @@ def align_image_on_cores_cos(img, bg):
     for id in [k.get_segmentid() for k in cores]:
         img_cores[group.get_labels() == id] = 1
 
-    cos = measurements.center_of_mass(img_cores)
+    cos = ndi.center_of_mass(img_cores)
 
     print("COS:", cos)
     return cos

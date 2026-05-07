@@ -1092,7 +1092,7 @@ def crop_threshold(array, threashold=0, crop_mask=None, output_index=False):
 
 def nextpow2(n):
     '''get the next power of 2 that's greater than n'''
-    return 2 ** np.ceil(np.log2(n)).astype(np.int)
+    return 2 ** np.ceil(np.log2(n)).astype(int)
 
 
 def angle(v1, v2):
@@ -1862,7 +1862,7 @@ def movingaverage(interval, window_size, boundary='zero', mode='valid'):
 def gaussian_support(sigma=None, width=None, nsigma=4):
     if sigma is None:
         sigma = gaussian_fwhm_to_sigma(width)
-    return np.int(np.ceil(2 * nsigma * sigma))
+    return int(np.ceil(2 * nsigma * sigma))
 
 
 def gaussian_sigma_to_fwhm(sigma):
@@ -1928,7 +1928,7 @@ def make_callable(obj):
 
 def _get_next_oddeven(n, testeven):
     if isinstance(n, np.ndarray):
-        if not n.dtype == np.int:
+        if not n.dtype == int:
             n = n.astype(int)
         if (n % 2 == testeven).any():
             m = n.copy()
@@ -2056,7 +2056,7 @@ def fitgaussian(data, params, base_null=True):
 # def modelfit(data):
 
 #     def errorfunction(*p):
-#         indices = np.indices(np.array(data.shape, dtype=np.int))
+#         indices = np.indices(np.array(data.shape, dtype=int))
 #         p = [0, p[2], p[0], p[1], p[3], p[3], 0]
 
 #         err = np.ravel(data - gaussian_fct(*p)(indices))

@@ -28,7 +28,18 @@ else:
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
-from matplotlib.mlab import dist_point_to_segment
+
+
+def dist_point_to_segment(p, s0, s1):
+    p = np.asarray(p, dtype=float)
+    s0 = np.asarray(s0, dtype=float)
+    s1 = np.asarray(s1, dtype=float)
+    seg = s1 - s0
+    sq_len = np.dot(seg, seg)
+    if sq_len == 0:
+        return np.linalg.norm(p - s0)
+    t = np.clip(np.dot(p - s0, seg) / sq_len, 0.0, 1.0)
+    return np.linalg.norm(p - (s0 + t * seg))
 
 
 class PolyRegionEditor(uiutils.UI):

@@ -1,4 +1,4 @@
-import pkg_resources
+from importlib import resources
 
 try:
     __import__('PyQt5')
@@ -16,10 +16,11 @@ if use_pyqt5:
     from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 else:
     from PyQt4 import QtGui, QtCore
-    from matplotlib.backends.backend_qt4agg import FigureCanvasQTAgg as FigureCanvas
-    from matplotlib.backends.backend_qt4agg import NavigationToolbar2QT as NavigationToolbar
+    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+    from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
 import matplotlib.backends.qt_editor.figureoptions as figureoptions
+from scipy import ndimage as ndi
 
 from . import uiutils
 
@@ -254,7 +255,7 @@ class ProfileLine(AbstractTwoPointsRequest):
                 if length == 0:
                     continue
                 x, y = np.linspace(x0, x1, length), np.linspace(y0, y1, length)
-                zi = data[y.astype(np.int), x.astype(np.int)]
+                zi = data[y.astype(int), x.astype(int)]
                 xdata = itr_x(x)  # get the middle of the pixel
                 ydata = itr_y(y)
 
@@ -469,7 +470,7 @@ class StatsWindow(uiutils.UI):
         vbox.addRow(QtGui.QLabel("<b>Standart deviation:</b>"), QtGui.QLabel("%g" % data.std()))
         vbox.addRow(QtGui.QLabel("<b>P90:</b>"), QtGui.QLabel("%g" % np.percentile(data, 90)))
 
-        coord_com = fct_index2coord(measurements.center_of_mass(data))
+        coord_com = fct_index2coord(ndi.center_of_mass(data))
         vbox.addRow(QtGui.QLabel("<b>Center of mass:</b>"), QtGui.QLabel(str(np.round(coord_com, decimals=2))))
 
         self.notebook.addTab(tab, title)
@@ -677,7 +678,7 @@ class ExtendedNavigationToolbar(NavigationToolbar):
     def _icon(self, name):
         if name.startswith(imgutils.RESOURCE_PATH):
             img = QtGui.QImage()
-            img.loadFromData(pkg_resources.resource_string(imgutils.__name__, name))
+            img.loadFromData(resources.files(imgutils.__package__).joinpath(name).read_bytes())
             return QtGui.QIcon(QtGui.QPixmap.fromImage(img))
         return NavigationToolbar._icon(self, name)
 

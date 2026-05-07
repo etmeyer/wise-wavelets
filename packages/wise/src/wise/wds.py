@@ -1,6 +1,7 @@
 import numpy as np
-from skimage.morphology import watershed
-from scipy.ndimage import measurements, gaussian_filter
+from skimage.segmentation import watershed
+from scipy import ndimage as ndi
+from scipy.ndimage import gaussian_filter
 
 from libwise import nputils, imgutils, wtutils, wavelets
 from libwise.nputils import validator_is, is_callable, validator_in_range, str2jsonfunction
@@ -132,7 +133,7 @@ class Segment(ImageFeature):
     def get_total_intensity(self):
         labels = self.segmented_image.get_labels()
         img = self.segmented_image.get_img().data
-        return measurements.sum(img, labels, self.segmentid)
+        return ndi.sum(img, labels, self.segmentid)
 
     def get_cropped_index(self):
         if self.crop_index is None:
@@ -237,11 +238,11 @@ class SegmentedImages(DatedFeaturesGroup):
         img = self.img.data
         if mask is not None:
             img = img * mask
-        self.labels, n = measurements.label(img, structure=structure)
+        self.labels, n = ndi.label(img, structure=structure)
         self.labels += 1
 
         for id in range(2, n + 2):
-            coord = measurements.maximum_position(img, self.labels, id)
+            coord = ndi.maximum_position(img, self.labels, id)
             intensity = img[tuple(coord)]
             segment = Segment(coord, intensity, id, self)
 
@@ -317,7 +318,7 @@ class SegmentedImages(DatedFeaturesGroup):
         mask1 = segment.get_segmented_image().get_mask(segment)
         if delta is not None:
             mask1 = nputils.shift2d(mask1, delta)
-        count = np.bincount((self.labels * mask1).flatten().astype(np.int))
+        count = np.bincount((self.labels * mask1).flatten().astype(int))
         count[0] = 0
         imax = np.argmax(count)
         ratio = count.flatten()[imax] / float(mask1.sum())
@@ -417,7 +418,7 @@ class SegmentedImages(DatedFeaturesGroup):
             img = self.get_img()
             # ids = self.get_segmentids()
             ids = np.unique(labels)
-            coms = measurements.center_of_mass(img.data, labels, ids)
+            coms = ndi.center_of_mass(img.data, labels, ids)
             self.center_of_mass = dict(list(zip(ids, np.array(coms))))
         return self.center_of_mass.get(segment.get_segmentid(), segment.get_coord(mode="lm"))
 
@@ -426,7 +427,7 @@ class SegmentedImages(DatedFeaturesGroup):
             labels = self.get_labels()
             # ids = self.get_segmentids()
             ids = np.unique(labels)
-            coss = measurements.center_of_mass(labels, labels, ids)
+            coss = ndi.center_of_mass(labels, labels, ids)
             self.center_of_shape = dict(list(zip(ids, np.array(coss))))
         return self.center_of_shape.get(segment.get_segmentid(), segment.get_coord(mode="lm"))
 
@@ -474,7 +475,7 @@ class SegmentedScale(AbstractScale, SegmentedImages):
         return self.original_image
 
     def get_feature_snr(self, segment):
-        return measurements.maximum(self.original_image.data, self.labels, segment.get_segmentid()) / self.rms_noise
+        return ndi.maximum(self.original_image.data, self.labels, segment.get_segmentid()) / self.rms_noise
 
     def copy(self):
         new = SegmentedScale(self.img, [k.copy() for k in self.features], self.labels.copy(), self.rms_noise,

@@ -14,7 +14,7 @@ import re
 import copy
 import decimal
 import datetime
-import pkg_resources
+from importlib import resources
 import numpy as np
 import PIL.Image
 import skimage.data
@@ -114,7 +114,7 @@ def gaussian(size, nsigma=None, width=None, center=None, center_offset=None, ang
     if center_offset is not None:
         center += nputils.get_pair(center_offset)
 
-    indices = np.indices(np.array(size, dtype=np.int))
+    indices = np.indices(np.array(size, dtype=int))
     p = [0, 1, center, [sigmax, sigmay], angle]
 
     return nputils.gaussian_fct(*p)(indices)
@@ -175,7 +175,7 @@ def ellipsoide(size, a, b=None):
     a = float(a)
     b = float(b)
     x, y = np.mgrid[-hs:hs + size % 2, -hs:hs + size % 2]
-    x = x.astype(np.complex)
+    x = x.astype(complex)
     z = np.sqrt(1 - x ** 2 / a ** 2 - y ** 2 / b ** 2).real
     return z / z.max()
 
@@ -185,7 +185,7 @@ def ellipsoide(size, a, b=None):
 #     a = float(a)
 #     b = float(b)
 #     x, z = np.mgrid[-hs:hs + size % 2, 0:size]
-#     x = x.astype(np.complex)
+#     x = x.astype(complex)
 #     y = b * np.sqrt(-x ** 2 / a ** 2 + z).real
 #     return y
 
@@ -194,7 +194,7 @@ def ellipsoide(size, a, b=None):
 #     hs = size / 2
 #     a = float(a)
 #     x, y = np.mgrid[-hs:hs + size % 2, -hs:hs + size % 2]
-#     x = x.astype(np.complex)
+#     x = x.astype(complex)
 #     z = np.sqrt(1 - (x + fct(y)) ** 2 / a ** 2).real
 #     return z / z.max()
 
@@ -205,8 +205,9 @@ def ellipsoide(size, a, b=None):
 
 
 def galaxy():
-    gif = PIL.Image.open(pkg_resources.resource_stream(__name__, GALAXY_GIF_PATH))
-    return np.array(list(gif.getdata())).reshape(256, 256)
+    with resources.files(__package__).joinpath(GALAXY_GIF_PATH).open('rb') as fd:
+        gif = PIL.Image.open(fd)
+        return np.array(list(gif.getdata())).reshape(256, 256)
 
 
 def lena():
@@ -456,8 +457,8 @@ class ScaleTransform(Transform):
 
     def __init__(self, a, b, longitude_correction=1):
         ''' (x, y) * a * [longitude_correction, 1] + b '''
-        self.a = np.array(a, dtype=np.float)
-        self.b = np.array(b, dtype=np.float)
+        self.a = np.array(a, dtype=float)
+        self.b = np.array(b, dtype=float)
         self.lc = np.array([longitude_correction, 1])
         s2p = lambda xy: a * self.lc * xy + b
         p2s = lambda xy: (xy - b) / (a * self.lc)
@@ -1738,7 +1739,7 @@ class ImageRegion(Image):
         return ia + ib
 
     def get_center(self):
-        return np.array([x0 + (x1 - x0) / 2. for x0, x1 in zip_index(self.get_index())], dtype=np.int)
+        return np.array([x0 + (x1 - x0) / 2. for x0, x1 in zip_index(self.get_index())], dtype=int)
 
     def get_center_of_mass(self):
         # TODO: optimize PERF ISSUE
