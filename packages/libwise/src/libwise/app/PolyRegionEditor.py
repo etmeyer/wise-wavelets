@@ -12,19 +12,7 @@ import numpy as np
 
 from libwise import uiutils, imgutils, plotutils
 
-try:
-    __import__('PyQt5')
-    use_pyqt5 = True
-except ImportError:
-    use_pyqt5 = False
-
-if use_pyqt5:
-    from PyQt5 import QtGui, QtWidgets
-    for obj_str in dir(QtWidgets):
-        if not obj_str.startswith('_'):
-            setattr(QtGui, obj_str, getattr(QtWidgets, obj_str))
-else:
-    from PyQt4 import QtGui
+from PyQt5 import QtWidgets
 
 import matplotlib.pyplot as plt
 from matplotlib.patches import Polygon
@@ -51,16 +39,16 @@ class PolyRegionEditor(uiutils.UI):
 
         uiutils.UI.__init__(self, 750, 600, "PolyRegion Editor")
 
-        vbox = QtGui.QVBoxLayout()
+        vbox = QtWidgets.QVBoxLayout()
         self.setLayout(vbox)
 
-        canva_box = QtGui.QHBoxLayout()
+        canva_box = QtWidgets.QHBoxLayout()
         vbox.addLayout(canva_box)
 
         self.canvas = plotutils.BaseCustomCanvas()
         canva_box.addWidget(self.canvas)
 
-        ctl = QtGui.QHBoxLayout()
+        ctl = QtWidgets.QHBoxLayout()
         vbox.addLayout(ctl)
 
         ctl.addWidget(plotutils.NavigationToolbar(self.canvas, self))
@@ -71,15 +59,15 @@ class PolyRegionEditor(uiutils.UI):
         self.color_entry = uiutils.EntryDescription("Color")
         ctl.addWidget(self.color_entry)
 
-        save_bn = QtGui.QPushButton("Save")
+        save_bn = QtWidgets.QPushButton("Save")
         save_bn.clicked.connect(self.on_save_clicked)
         ctl.addWidget(save_bn)
 
-        load_bn = QtGui.QPushButton("Load")
+        load_bn = QtWidgets.QPushButton("Load")
         load_bn.clicked.connect(self.on_load_clicked)
         ctl.addWidget(load_bn)
 
-        save_bn = QtGui.QPushButton("New")
+        save_bn = QtWidgets.QPushButton("New")
         save_bn.clicked.connect(self.on_new_clicked)
         ctl.addWidget(save_bn)
 

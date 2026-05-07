@@ -1,23 +1,8 @@
 from importlib import resources
 
-try:
-    __import__('PyQt5')
-    use_pyqt5 = True
-except ImportError:
-    use_pyqt5 = False
-
-if use_pyqt5:
-    from PyQt5 import QtGui, QtCore, QtWidgets
-    for obj_str in dir(QtWidgets):
-        if not obj_str.startswith('_'):
-            setattr(QtGui, obj_str, getattr(QtWidgets, obj_str))
-    QtGui.QSortFilterProxyModel = QtCore.QSortFilterProxyModel
-    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-    from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-else:
-    from PyQt4 import QtGui, QtCore
-    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-    from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+from PyQt5 import QtCore, QtGui, QtWidgets
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 
 import matplotlib.backends.qt_editor.figureoptions as figureoptions
 from scipy import ndimage as ndi
@@ -425,10 +410,10 @@ class StatsWindow(uiutils.UI):
 
     def __init__(self, parent, canvas):
         uiutils.UI.__init__(self, 500, 300, "Statistics", parent=parent, window_flags=QtCore.Qt.Dialog)
-        self.setLayout(QtGui.QVBoxLayout())
+        self.setLayout(QtWidgets.QVBoxLayout())
         self.canvas = canvas
 
-        self.notebook = QtGui.QTabWidget()
+        self.notebook = QtWidgets.QTabWidget()
         self.layout().addWidget(self.notebook)
 
     # def on_delete(self, widget, event):
@@ -442,36 +427,36 @@ class StatsWindow(uiutils.UI):
         return self.notebook.count() > 0
 
     def add_stat_entry(self, vbox, text, value):
-        hbox = QtGui.QHBoxLayout()
+        hbox = QtWidgets.QHBoxLayout()
         # hbox.set_border_width(2)
         vbox.addLayout(hbox)
 
-        label = QtGui.QLabel("<b>%s:</b>" % (text))
+        label = QtWidgets.QLabel("<b>%s:</b>" % (text))
         # label.set_width_chars(20)
         # label.set_alignment(0, 0)
         hbox.addWidget(label)
-        hbox.addWidget(QtGui.QLabel(value))
+        hbox.addWidget(QtWidgets.QLabel(value))
 
     def add_data(self, axes, data, title, fct_index2coord):
-        tab = QtGui.QWidget()
-        vbox = QtGui.QFormLayout()
+        tab = QtWidgets.QWidget()
+        vbox = QtWidgets.QFormLayout()
         tab.setLayout(vbox)
-        vbox.addRow(QtGui.QLabel("<b>Dimensions:</b>"), QtGui.QLabel("%s n=%s" % (str(data.shape), data.size)))
-        vbox.addRow(QtGui.QLabel("<b>Mean:</b>"), QtGui.QLabel("%g" % data.mean()))
-        vbox.addRow(QtGui.QLabel("<b>Median:</b>"), QtGui.QLabel("%g" % np.median(data)))
-        vbox.addRow(QtGui.QLabel("<b>Sum:</b>"), QtGui.QLabel("%g" % data.sum()))
+        vbox.addRow(QtWidgets.QLabel("<b>Dimensions:</b>"), QtWidgets.QLabel("%s n=%s" % (str(data.shape), data.size)))
+        vbox.addRow(QtWidgets.QLabel("<b>Mean:</b>"), QtWidgets.QLabel("%g" % data.mean()))
+        vbox.addRow(QtWidgets.QLabel("<b>Median:</b>"), QtWidgets.QLabel("%g" % np.median(data)))
+        vbox.addRow(QtWidgets.QLabel("<b>Sum:</b>"), QtWidgets.QLabel("%g" % data.sum()))
 
         coord_max = fct_index2coord(nputils.coord_max(data))
-        vbox.addRow(QtGui.QLabel("<b>Maximum:</b>"), QtGui.QLabel("%g at %s" % (data.max(), coord_max)))
+        vbox.addRow(QtWidgets.QLabel("<b>Maximum:</b>"), QtWidgets.QLabel("%g at %s" % (data.max(), coord_max)))
 
         coord_min = fct_index2coord(nputils.coord_min(data))
-        vbox.addRow(QtGui.QLabel("<b>Minimum:</b>"), QtGui.QLabel("%g at %s" % (data.min(), coord_min)))
+        vbox.addRow(QtWidgets.QLabel("<b>Minimum:</b>"), QtWidgets.QLabel("%g at %s" % (data.min(), coord_min)))
 
-        vbox.addRow(QtGui.QLabel("<b>Standart deviation:</b>"), QtGui.QLabel("%g" % data.std()))
-        vbox.addRow(QtGui.QLabel("<b>P90:</b>"), QtGui.QLabel("%g" % np.percentile(data, 90)))
+        vbox.addRow(QtWidgets.QLabel("<b>Standart deviation:</b>"), QtWidgets.QLabel("%g" % data.std()))
+        vbox.addRow(QtWidgets.QLabel("<b>P90:</b>"), QtWidgets.QLabel("%g" % np.percentile(data, 90)))
 
         coord_com = fct_index2coord(ndi.center_of_mass(data))
-        vbox.addRow(QtGui.QLabel("<b>Center of mass:</b>"), QtGui.QLabel(str(np.round(coord_com, decimals=2))))
+        vbox.addRow(QtWidgets.QLabel("<b>Center of mass:</b>"), QtWidgets.QLabel(str(np.round(coord_com, decimals=2))))
 
         self.notebook.addTab(tab, title)
 
@@ -500,7 +485,7 @@ class BaseFigureWindow(uiutils.UI):
 
     def __init__(self, figure=None, name="", parent=None, extended_toolbar=True):
         uiutils.UI.__init__(self, 800, 500, name, parent=parent, window_flags=QtCore.Qt.Window)
-        self.setLayout(QtGui.QVBoxLayout())
+        self.setLayout(QtWidgets.QVBoxLayout())
 
         self.tooltip_manager = TooltipManager(self)
 
@@ -743,13 +728,13 @@ class NotAutoResizeFigureCanvas(BaseCustomCanvas):
     def resizeEvent(self, event):
         BaseCustomCanvas.resize_event(self)
         self.draw_idle()
-        QtGui.QWidget.resizeEvent(self, event)
+        QtWidgets.QWidget.resizeEvent(self, event)
 
 
-class FixedAspectRatioFigureView(QtGui.QScrollArea):
+class FixedAspectRatioFigureView(QtWidgets.QScrollArea):
 
     def __init__(self, figure, auto_dpi=True, auto_dpi_height=True):
-        QtGui.QScrollArea.__init__(self)
+        QtWidgets.QScrollArea.__init__(self)
         self.figure = figure
         self.auto_dpi = auto_dpi
         self.auto_dpi_height = auto_dpi_height
@@ -777,7 +762,7 @@ class FixedAspectRatioFigureView(QtGui.QScrollArea):
         h = int(hinch * dpi) - 2
 
         self.figure.canvas.setFixedSize(w, h)
-        QtGui.QScrollArea.resizeEvent(self, event)
+        QtWidgets.QScrollArea.resizeEvent(self, event)
 
 
 class PresetSetting(uiutils.CustomNode):
@@ -866,10 +851,10 @@ class PresetTreeModel(uiutils.CustomModel):
         return uiutils.CustomModel.data(self, in_index, role)
 
 
-class TreeQSortFilterProxyModel(QtGui.QSortFilterProxyModel):
+class TreeQSortFilterProxyModel(QtCore.QSortFilterProxyModel):
 
     def __init__(self):
-        QtGui.QSortFilterProxyModel.__init__(self)
+        QtCore.QSortFilterProxyModel.__init__(self)
 
     def filterAcceptsRow(self, row, sourceParent):
         pattern = self.filterRegExp().pattern()
@@ -900,17 +885,17 @@ class PresetEditor(uiutils.UI):
         self.model.setSourceModel(self.source_model)
         self.model.dataChanged.connect(self.on_value_edit)
 
-        vbox = QtGui.QVBoxLayout()
+        vbox = QtWidgets.QVBoxLayout()
         self.setLayout(vbox)
 
-        self.tree = QtGui.QTreeView()
+        self.tree = QtWidgets.QTreeView()
         self.tree.setModel(self.model)
         vbox.addWidget(self.tree)
 
-        ctl = QtGui.QHBoxLayout()
+        ctl = QtWidgets.QHBoxLayout()
         vbox.addLayout(ctl)
 
-        self.set_default_bn = QtGui.QPushButton("Set to default")
+        self.set_default_bn = QtWidgets.QPushButton("Set to default")
         self.set_default_bn.clicked.connect(self.on_set_default_clicked)
         ctl.addWidget(self.set_default_bn)
 
@@ -922,7 +907,7 @@ class PresetEditor(uiutils.UI):
 
         ctl.addWidget(self.filter_entry)
 
-        self.save_bn = QtGui.QPushButton("Save")
+        self.save_bn = QtWidgets.QPushButton("Save")
         self.save_bn.clicked.connect(self.on_save_clicked)
         self.save_bn.setMaximumSize(50, 30)
         self.save_bn.setEnabled(False)
@@ -952,8 +937,8 @@ class PresetEditor(uiutils.UI):
         return False
 
     def on_save_clicked(self, bn):
-        name, ok = QtGui.QInputDialog.getText(self, "Preset name",
-                                              "Enter the preset name:", text=self.preset.get_name())
+        name, ok = QtWidgets.QInputDialog.getText(self, "Preset name",
+                                                  "Enter the preset name:", text=self.preset.get_name())
         if ok and len(name) > 0:
             self.preset.set_name(name)
             self.preset.save()
@@ -987,7 +972,7 @@ class SaveFigure(uiutils.UI):
         uiutils.UI.__init__(self, 800, 500, "Save plot", parent=parent, window_flags=QtCore.Qt.Window)
         self.figure = figure
 
-        vbox = QtGui.QVBoxLayout()
+        vbox = QtWidgets.QVBoxLayout()
         self.setLayout(vbox)
 
         self.current_canvas = self.figure.canvas
@@ -998,24 +983,24 @@ class SaveFigure(uiutils.UI):
         self.figure_view = FixedAspectRatioFigureView(self.figure, auto_dpi=auto_dpi)
         vbox.addWidget(self.figure_view)
 
-        ctl = QtGui.QHBoxLayout()
+        ctl = QtWidgets.QHBoxLayout()
         vbox.addLayout(ctl)
 
         self.presets = presetutils.get_all_presets()
-        self.combo_presets = QtGui.QComboBox()
+        self.combo_presets = QtWidgets.QComboBox()
         self.combo_presets.addItems([str(preset) for preset in self.presets])
         self.combo_presets.activated.connect(self.on_preset_changed)
         ctl.addWidget(self.combo_presets)
 
-        bn_edit = QtGui.QPushButton('Edit preset')
+        bn_edit = QtWidgets.QPushButton('Edit preset')
         bn_edit.clicked.connect(self.on_edit_clicked)
         ctl.addWidget(bn_edit)
 
-        bn_explore = QtGui.QPushButton("Edit figure")
+        bn_explore = QtWidgets.QPushButton("Edit figure")
         bn_explore.clicked.connect(self.on_explore_clicked)
         ctl.addWidget(bn_explore)
 
-        bn_subplot = QtGui.QPushButton("Subplot param")
+        bn_subplot = QtWidgets.QPushButton("Subplot param")
         bn_subplot.clicked.connect(self.on_subplot_clicked)
         ctl.addWidget(bn_subplot)
 
@@ -1023,13 +1008,13 @@ class SaveFigure(uiutils.UI):
         self.entry_x.editingFinished.connect(self.on_xy_changed)
         ctl.addWidget(self.entry_x)
 
-        ctl.addWidget(QtGui.QLabel("x"))
+        ctl.addWidget(QtWidgets.QLabel("x"))
 
         self.entry_y = uiutils.EntryDescription('Height in "', n_chars=12)
         self.entry_y.editingFinished.connect(self.on_xy_changed)
         ctl.addWidget(self.entry_y)
 
-        bn_save = QtGui.QPushButton('Save figure')
+        bn_save = QtWidgets.QPushButton('Save figure')
         bn_save.clicked.connect(self.on_save_clicked)
         ctl.addWidget(bn_save)
 
@@ -1069,7 +1054,7 @@ class SaveFigure(uiutils.UI):
         # Adapted from matplotlib/backends/backend_qt5.py
         allaxes = self.figure.get_axes()
         if not allaxes:
-            QtGui.QMessageBox.warning(
+            QtWidgets.QMessageBox.warning(
                 None, "Error", "There are no axes to edit.")
             return
         if len(allaxes) == 1:
@@ -1083,7 +1068,7 @@ class SaveFigure(uiutils.UI):
                         "<anonymous {} (id: {:#x})>".format(
                             type(axes).__name__, id(axes)))
                 titles.append(name)
-            item, ok = QtGui.QInputDialog.getItem(
+            item, ok = QtWidgets.QInputDialog.getItem(
                 None, 'Customize', 'Select axes:', titles, 0, False)
             if ok:
                 axes = allaxes[titles.index(item)]
@@ -1136,44 +1121,44 @@ class FigureStack(uiutils.UI, BaseFigureStack):
 
         # self.connect('delete-event', self.on_destroy)
 
-        self.box = QtGui.QVBoxLayout()
+        self.box = QtWidgets.QVBoxLayout()
         self.setLayout(self.box)
 
-        self.canva_box = QtGui.QStackedWidget()
+        self.canva_box = QtWidgets.QStackedWidget()
         # self.canva_box.connect('size-allocate', self.on_canva_box_size_allocated)
         self.box.addWidget(self.canva_box, 1)
 
-        self.ctl = QtGui.QHBoxLayout()
+        self.ctl = QtWidgets.QHBoxLayout()
         self.box.addLayout(self.ctl, 0)
 
         self.figures = []
 
-        self.combobox = QtGui.QComboBox()
+        self.combobox = QtWidgets.QComboBox()
         self.combobox.setMinimumSize(150, 30)
         self.combobox.currentIndexChanged.connect(self.on_list_changed)
         self.ctl.addWidget(self.combobox)
 
-        previous = QtGui.QPushButton(' < ')
+        previous = QtWidgets.QPushButton(' < ')
         previous.clicked.connect(self.on_previous_pressed)
         previous.setMaximumSize(30, 30)
         self.ctl.addWidget(previous)
 
-        next = QtGui.QPushButton(' > ')
+        next = QtWidgets.QPushButton(' > ')
         next.clicked.connect(self.on_next_pressed)
         next.setMaximumSize(30, 30)
         self.ctl.addWidget(next)
 
-        save = QtGui.QPushButton('Save')
+        save = QtWidgets.QPushButton('Save')
         save.setMaximumSize(45, 30)
         save.clicked.connect(self.on_save_pressed)
         self.ctl.addWidget(save)
 
-        ext = QtGui.QPushButton('Ext')
+        ext = QtWidgets.QPushButton('Ext')
         ext.setMaximumSize(45, 30)
         ext.clicked.connect(self.on_ext_clicked)
         self.ctl.addWidget(ext)
 
-        self.navi_box = QtGui.QStackedWidget()
+        self.navi_box = QtWidgets.QStackedWidget()
         self.ctl.addWidget(self.navi_box, 2)
 
         self.tooltip_manager = TooltipManager(self)
@@ -1289,7 +1274,7 @@ class FigureStack(uiutils.UI, BaseFigureStack):
         if start_main:
             self.start()
         else:
-            QtGui.QWidget.show(self)
+            QtWidgets.QWidget.show(self)
 
 
 if __name__ == '__main__':

@@ -138,3 +138,85 @@ qualified module name (matching `__name__`), whereas
 `importlib.resources.files` expects a package name. Inside a package
 `__init__.py` they're the same, but inside a submodule (which all three
 of these are) they differ — `__package__` is the right spelling.
+
+## Phase 5 — Qt UI port to PyQt5
+
+Six files exercised Qt: `uiutils.py`, `plotutils_ui.py`,
+`waitingspinnerwidget.py`, `app/PolyRegionEditor.py`,
+`app/waveletsui.py` (the rest of `app/*.py` use only
+`uiutils`/`plotutils` indirection). All three import lines from the plan
+now succeed against the conda env:
+
+```
+python -c "from libwise.app import PolyRegionEditor, WaveletBrowser, WaveletDenoise"
+python -c "from libwise.app import WaveletTransform, WaveletTransform2D"
+python -c "from libwise.app import WaveletFilterResponse, Wavelet2DBrowser, waveletsui"
+```
+
+### Drop the PyQt4 fallback + setattr shim
+
+Upstream's pattern was a two-branch import: try PyQt5, copy every
+`QtWidgets.X` into `QtGui` via `setattr` so existing `QtGui.QWidget`
+call sites keep working; otherwise fall back to PyQt4 (where widgets
+already lived under `QtGui`). The shim worked but polluted the `QtGui`
+namespace and left every call site ambiguous about which module it
+*should* be hitting. Phase 5 swaps the four shim sites for a clean
+`from PyQt5 import QtCore, QtGui, QtWidgets` and qualifies each call
+site explicitly. The mapping is the standard Qt4→Qt5 split: `Q*` widget
+classes (`QApplication`, `QWidget`, `QFileDialog`, `QPushButton`,
+`QLabel`, `QLineEdit`, `QComboBox`, `QSpinBox`, `QSlider`,
+`QMessageBox`, `QInputDialog`, `QBoxLayout`/`QVBoxLayout`/`QHBoxLayout`,
+`QFormLayout`, `QTabWidget`, `QTreeView`, `QStackedWidget`,
+`QScrollArea`) → `QtWidgets`; graphics primitives (`QFont`,
+`QFontMetrics`, `QIcon`, `QImage`, `QPalette`, `QPixmap`) stay in
+`QtGui`; `QtCore` is unchanged.
+
+### Qt5-specific moves not in the standard mapping
+
+| Class | Qt4 location | Qt5 location | Affected file |
+| --- | --- | --- | --- |
+| `QSortFilterProxyModel` | `QtGui` | `QtCore` | `plotutils_ui.py::TreeQSortFilterProxyModel` (was patched at import via `QtGui.QSortFilterProxyModel = QtCore.QSortFilterProxyModel`; subclassing now spells `QtCore.QSortFilterProxyModel` directly) |
+
+`QAbstractItemModel` and `QModelIndex` were already `QtCore` in Qt4 —
+`uiutils.CustomModel` needed no change.
+
+### `QFileDialog.getOpenFileName` / `getSaveFileName` tuple return
+
+PyQt5 returns `(path, selected_filter)`. Upstream wrote a Qt4-shaped
+call and post-processed with `if use_pyqt5: res = res[0]`. Replaced with
+direct unpack:
+
+| File | Old | New |
+| --- | --- | --- |
+| `uiutils.py::select_file`, `open_file` | `res = QFileDialog.getX(...)` then conditional `res = res[0]` | `path, _ = QtWidgets.QFileDialog.getX(...)` |
+
+`getExistingDirectory` still returns just a string in PyQt5 — left
+alone.
+
+### Patterns flagged by the plan that did not appear
+
+- **Old-style `QtCore.SIGNAL` / `QtCore.SLOT`**: zero hits across both
+  packages (verified by `grep -rEn "QtCore\\.SIGNAL|QtCore\\.SLOT"
+  packages/`). Upstream had already converted to new-style
+  `widget.signal.connect(slot)` syntax during the original PyQt5
+  migration attempt. Nothing to do.
+- **`QString` / `UnicodeUTF8`**: zero hits.
+- **`figureoptions.figure_edit` API drift**: the call in
+  `plotutils_ui.py::SaveFigure.on_explore_clicked` still matches
+  matplotlib's current `figure_edit(axes, parent)` signature — no patch
+  needed at this phase.
+- **`waitingspinnerwidget.py`**: the public-domain copy already used
+  `from PyQt5.QtCore/QtWidgets/QtGui import *`; just dropped the PyQt4
+  fallback branch. Imports cleanly under PyQt5 5.15. (Smoke-time
+  hazards remain in the body — `setInterval(float)` and `move(float,
+  float)` from Python 3 division — but those fire only at widget
+  instantiation, not import; deferring to Phase 6.)
+
+### Pre-existing bug noted but not fixed
+
+`uiutils.py:51` defines `erro_msg` (typo), but
+`PolyRegionEditor.py:151,166` calls `uiutils.error_msg`. This raises
+`AttributeError` only when the user clicks Load/Save with a bad path —
+it doesn't fire at import time, so Phase 5's verify is unaffected.
+Leaving for Phase 6 / smoke-test triage so the rename stays in scope
+with whatever else surfaces under interactive use.

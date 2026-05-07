@@ -27,20 +27,9 @@ SOFTWARE.
 
 import math
 
-try:
-    __import__('PyQt5')
-    use_pyqt5 = True
-except ImportError:
-    use_pyqt5 = False
-
-if use_pyqt5:
-    from PyQt5.QtCore import *
-    from PyQt5.QtWidgets import *
-    from PyQt5.QtGui import *
-else:
-    from PyQt4.QtCore import *
-    from PyQt4.QtGui import *
-# from PyQt4.QtWidgets import *
+from PyQt5.QtCore import *
+from PyQt5.QtWidgets import *
+from PyQt5.QtGui import *
 
 
 class QtWaitingSpinner(QWidget):

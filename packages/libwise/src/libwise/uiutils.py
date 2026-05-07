@@ -10,19 +10,7 @@ import collections
 import numpy as np
 
 
-try:
-    __import__('PyQt5')
-    use_pyqt5 = True
-except ImportError:
-    use_pyqt5 = False
-
-if use_pyqt5:
-    from PyQt5 import QtGui, QtCore, QtWidgets
-    for obj_str in dir(QtWidgets):
-        if not obj_str.startswith('_'):
-            setattr(QtGui, obj_str, getattr(QtWidgets, obj_str))
-else:
-    from PyQt4 import QtGui, QtCore
+from PyQt5 import QtCore, QtGui, QtWidgets
 
 from . import waitingspinnerwidget
 
@@ -33,66 +21,58 @@ _QT_APP = None
 
 def select_file(parent=None, current_folder=""):
     global _QT_APP
-    if QtGui.QApplication.startingUp():
-        _QT_APP = QtGui.QApplication(sys.argv)
+    if QtWidgets.QApplication.startingUp():
+        _QT_APP = QtWidgets.QApplication(sys.argv)
 
-    res = QtGui.QFileDialog.getSaveFileName(parent=parent, directory=current_folder)
-
-    if use_pyqt5:
-        res = res[0]
-
-    if res == "":
+    path, _ = QtWidgets.QFileDialog.getSaveFileName(parent=parent, directory=current_folder)
+    if path == "":
         return None
-    return str(res)
+    return str(path)
 
 
 def open_file(parent=None, current_folder=""):
     global _QT_APP
-    if QtGui.QApplication.startingUp():
-        _QT_APP = QtGui.QApplication(sys.argv)
+    if QtWidgets.QApplication.startingUp():
+        _QT_APP = QtWidgets.QApplication(sys.argv)
 
-    res = QtGui.QFileDialog.getOpenFileName(parent=parent, directory=current_folder)
-
-    if use_pyqt5:
-        res = res[0]
-
-    if res == "":
+    path, _ = QtWidgets.QFileDialog.getOpenFileName(parent=parent, directory=current_folder)
+    if path == "":
         return None
-    return str(res)
+    return str(path)
 
 
 def select_folder():
-    res = QtGui.QFileDialog.getExistingDirectory()
+    res = QtWidgets.QFileDialog.getExistingDirectory()
     if res == "":
         return None
     return str(res)
-    
+
 
 def erro_msg(msg, parent=None):
-    dial = QtGui.QMessageBox.warning(parent, "", msg, QtGui.QMessageBox.Close)
+    dial = QtWidgets.QMessageBox.warning(parent, "", msg, QtWidgets.QMessageBox.Close)
 
 
-class Box(QtGui.QBoxLayout):
+class Box(QtWidgets.QBoxLayout):
 
     def add(self, element, expand=False):
-        if isinstance(element, QtGui.QBoxLayout):
+        if isinstance(element, QtWidgets.QBoxLayout):
             self.addLayout(element)
         else:
             self.addWidget(element)
         return element
 
 
-class VBox(QtGui.QVBoxLayout, Box):
+class VBox(QtWidgets.QVBoxLayout, Box):
 
     def __init__(self, homogeneous=False, spacing=10):
-        QtGui.QVBoxLayout.__init__(self)
+        QtWidgets.QVBoxLayout.__init__(self)
         self.setSpacing(spacing)
 
 
-class HBox(QtGui.QHBoxLayout, Box):
+class HBox(QtWidgets.QHBoxLayout, Box):
 
     def __init__(self, homogeneous=False, spacing=10):
-        QtGui.QHBoxLayout.__init__(self)
+        QtWidgets.QHBoxLayout.__init__(self)
         self.setSpacing(spacing)
 
 
@@ -128,7 +108,7 @@ class NamedWidgetParameter(WidgetParameter):
     def __init__(self, box, experience, name, initial_value=None):
         WidgetParameter.__init__(self, box, experience, initial_value)
         if name is not None:
-            label = QtGui.QLabel(name)
+            label = QtWidgets.QLabel(name)
             self.add(label)
 
 
@@ -137,7 +117,7 @@ class TextParameter(NamedWidgetParameter):
     def __init__(self, box, experience, name, value, max_lenght=-1):
         NamedWidgetParameter.__init__(self, box, experience, name, value)
 
-        self.entry = QtGui.QLineEdit(str(value))
+        self.entry = QtWidgets.QLineEdit(str(value))
         if max_lenght > 0:
             metric = QtGui.QFontMetrics(self.entry.font())
             self.entry.setFixedWidth(metric.width("8" * max_lenght))
@@ -173,7 +153,7 @@ class ListParameter(NamedWidgetParameter):
         NamedWidgetParameter.__init__(self, box, experience, name,
                                       initial_value)
 
-        self.combo = QtGui.QComboBox()
+        self.combo = QtWidgets.QComboBox()
         self.add(self.combo)
 
         self.combo.activated.connect(self.on_changed)
@@ -255,7 +235,7 @@ class SpinRangeParameter(RangeParameter):
 
     def __init__(self, box, experience, name, lower, upper, step,
                  initial_value=None):
-        spin = QtGui.QSpinBox()
+        spin = QtWidgets.QSpinBox()
         spin.valueChanged.connect(self.value_changed)
 
         RangeParameter.__init__(self, box, experience, name, lower,
@@ -266,14 +246,14 @@ class ScaleRangeParameter(RangeParameter):
 
     def __init__(self, box, experience, name, lower, upper, step,
                  initial_value=None, digits=0):
-        slider = QtGui.QSlider(QtCore.Qt.Horizontal)
-        slider.setTickPosition(QtGui.QSlider.TicksBelow)
+        slider = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        slider.setTickPosition(QtWidgets.QSlider.TicksBelow)
         slider.setMinimumSize(150, 30)
 
         RangeParameter.__init__(self, box, experience, name, lower,
                                 upper, step, slider, initial_value)
 
-        self.label = QtGui.QLabel(str(self.get()))
+        self.label = QtWidgets.QLabel(str(self.get()))
         self.insertWidget(1, self.label)
         slider.valueChanged.connect(self.value_changed)
 
@@ -286,7 +266,7 @@ class Button(WidgetParameter):
 
     def __init__(self, box, experience, name, on_clicked=None):
         WidgetParameter.__init__(self, box, experience, None)
-        self.bn = QtGui.QPushButton(name)
+        self.bn = QtWidgets.QPushButton(name)
         if on_clicked is None:
             on_clicked = self.on_clicked
         self.bn.clicked.connect(on_clicked)
@@ -335,7 +315,7 @@ class OpenImage(Button):
             self.set(img)
 
 
-class EntryDescription(QtGui.QLineEdit):
+class EntryDescription(QtWidgets.QLineEdit):
 
     def __init__(self, description, text=None, n_chars=None):
         super(EntryDescription, self).__init__()
@@ -354,7 +334,7 @@ class EntryDescription(QtGui.QLineEdit):
             self.setText(text)
 
     def keyPressEvent(self, event):
-        QtGui.QLineEdit.keyPressEvent(self, event)
+        QtWidgets.QLineEdit.keyPressEvent(self, event)
         if self.clear_on_escape:
             if event.key() == QtCore.Qt.Key_Escape:
                 self.clear()
@@ -378,12 +358,12 @@ class EntryDescription(QtGui.QLineEdit):
     def focusInEvent(self, event):
         if self.description_mode:
             self.set_description_mode(False)
-        QtGui.QLineEdit.focusInEvent(self, event)
+        QtWidgets.QLineEdit.focusInEvent(self, event)
 
     def focusOutEvent(self, event):
         if len(self.text()) == 0:
             self.set_description_mode(True)
-        QtGui.QLineEdit.focusOutEvent(self, event)
+        QtWidgets.QLineEdit.focusOutEvent(self, event)
 
     def get_text(self):
         if self.description_mode is True:
@@ -527,15 +507,15 @@ class CustomModel(QtCore.QAbstractItemModel):
         return False
 
 
-class UI(QtGui.QWidget):
+class UI(QtWidgets.QWidget):
 
-    closeRequested = QtCore.pyqtSignal() 
+    closeRequested = QtCore.pyqtSignal()
 
     def __init__(self, xsize, ysize, title, parent=None, window_flags=QtCore.Qt.Window):
-        if QtGui.QApplication.startingUp():
-            self._app = QtGui.QApplication(sys.argv)
+        if QtWidgets.QApplication.startingUp():
+            self._app = QtWidgets.QApplication(sys.argv)
 
-        QtGui.QWidget.__init__(self, parent=parent)
+        QtWidgets.QWidget.__init__(self, parent=parent)
         self.setWindowFlags(window_flags)
 
         # self.connect("destroy", self.__on_destroy)
@@ -567,7 +547,7 @@ class UI(QtGui.QWidget):
 
     def closeEvent(self, event):
         self.closeRequested.emit()
-        QtGui.QWidget.closeEvent(self, event)
+        QtWidgets.QWidget.closeEvent(self, event)
 
     def sizeHint(self):
         return self.size_hint
@@ -577,8 +557,8 @@ class UI(QtGui.QWidget):
         return box
 
     def start(self):
-        QtGui.QWidget.show(self)
-        QtGui.QApplication.instance().exec_()
+        QtWidgets.QWidget.show(self)
+        QtWidgets.QApplication.instance().exec_()
 
 
 class Experience(object):
@@ -589,7 +569,7 @@ class Experience(object):
         self.mutex = QtCore.QMutex()
 
     def add_spinner(self, box):
-        self.label = QtGui.QLabel("    ")
+        self.label = QtWidgets.QLabel("    ")
         self.spinner = waitingspinnerwidget.QtWaitingSpinner(self.label)
         self.spinner.setLineLength(4)
         self.spinner.setInnerRadius(3)
@@ -691,15 +671,15 @@ class TestExperience(Experience):
 
 
 def test_qt():
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     # print erro_msg("This is a test")
 
     gui = UI(400, 300, "This is a test")
 
     vbox = VBox()
-    vbox.add(QtGui.QLabel('This is a test', gui))
+    vbox.add(QtWidgets.QLabel('This is a test', gui))
 
-    vbox.add(QtGui.QPushButton('Press Me', gui))
+    vbox.add(QtWidgets.QPushButton('Press Me', gui))
 
     gui.add_box(vbox)
     gui.start()
@@ -708,7 +688,7 @@ def test_qt():
 
 
 def test_gui():
-    app = QtGui.QApplication(sys.argv)
+    app = QtWidgets.QApplication(sys.argv)
     test = TestExperience()
     test.gui.start()
     print("Lets start")

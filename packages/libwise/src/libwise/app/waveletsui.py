@@ -4,19 +4,7 @@ Created on Feb 21, 2012
 @author: fmertens
 '''
 
-try:
-    __import__('PyQt5')
-    use_pyqt5 = True
-except ImportError:
-    use_pyqt5 = False
-
-if use_pyqt5:
-    from PyQt5 import QtGui, QtWidgets
-    for obj_str in dir(QtWidgets):
-        if not obj_str.startswith('_'):
-            setattr(QtGui, obj_str, getattr(QtWidgets, obj_str))
-else:
-    from PyQt4 import QtGui
+from PyQt5 import QtWidgets
 
 from libwise import uiutils
 
@@ -30,16 +18,16 @@ class WaveletSelector(uiutils.WidgetParameter):
         self.orders = []
         self.order = None
 
-        label_wavelet = QtGui.QLabel("Wavelet:")
+        label_wavelet = QtWidgets.QLabel("Wavelet:")
         self.addWidget(label_wavelet, 0)
 
-        self.combo_wlet_fam = QtGui.QComboBox()
+        self.combo_wlet_fam = QtWidgets.QComboBox()
         self.addWidget(self.combo_wlet_fam, 0)
 
-        # label_wavelet = QtGui.QLabel("")
+        # label_wavelet = QtWidgets.QLabel("")
         # self.addWidget(label_wavelet, 0)
 
-        self.combo_wlet_order = QtGui.QComboBox()
+        self.combo_wlet_order = QtWidgets.QComboBox()
         self.addWidget(self.combo_wlet_order, 0)
 
         self.addStretch()
