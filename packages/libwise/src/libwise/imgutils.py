@@ -33,8 +33,8 @@ import matplotlib.ticker as mticker
 
 RESOURCE_PATH = 'resources'
 
-import nputils
-import signalutils
+from . import nputils
+from . import signalutils
 
 
 GALAXY_GIF_PATH = os.path.join(RESOURCE_PATH, "aa.gif")
@@ -255,13 +255,13 @@ def fast_sorted_fits(files, key="DATE-OBS", start_date=None, end_date=None, filt
     for file in files:
         if is_fits(file):
             date = get_fits_epoch_fast(file)
-            if not filter(date):
+            if not list(filter(date)):
                 continue
             file_date.append((file, date))
         elif is_img(file):
             file_date.append((file, file))
     file_date = sorted(file_date, key=lambda k: k[1])
-    files = zip(*file_date)[0]
+    files = list(zip(*file_date))[0]
     if step > 1:
         files = files[::step]
     return files
@@ -514,12 +514,12 @@ class PixelCoordinateSystem(AbstractCoordinateSystem):
                 if self.shape is not None:
                     center = p2i(np.array(self.shape)) / 2
                 else:
-                    print "Warning: Relative projection without image shape defined"
+                    print("Warning: Relative projection without image shape defined")
             elif settings.center == 'pix_ref':
                 if self.pix_ref is not None:
                     center = self.pix_ref
                 else:
-                    print "Warning: Relative projection without pix ref defined"
+                    print("Warning: Relative projection without pix ref defined")
             else:
                 center = settings.center
             return RelativePixelProjection(self, center)
@@ -610,7 +610,7 @@ class FormatterPrettyPrint(object):
             values = [v / factor for v in values]
         # Avoid duplicate values
         if len(list(set(values))) != len(values):
-            print direction, values
+            print(direction, values)
         # values = list(set(values))
         self._fmt.set_locs(values)
         return [self._fmt(v) for v in values]
@@ -934,7 +934,7 @@ class ImageSet(object):
                 beam_data = [0, 0, 0]
             array.append([img_filename, str(epoch)] + beam_data)
         np.savetxt(filename, np.array(array, dtype=object), fmt=["%s", "%s", "%.5f", "%.5f", "%.5f"])
-        print "Saved image set @ %s" % filename
+        print("Saved image set @ %s" % filename)
 
     @staticmethod
     def from_file(filename, projection):
@@ -949,7 +949,7 @@ class ImageSet(object):
                 beam = IdleBeam()
             new.add(epoch, file, beam)
 
-        print "Loaded image set from %s" % filename
+        print("Loaded image set from %s" % filename)
         return new
 
 
@@ -1187,8 +1187,8 @@ class FitsImage(Image):
     def __init__(self, file, freq_key="CRVAL3", float64=True, extension=0):
         try:
             fits = pyfits.open(file)
-        except Exception, e:
-            print "Issue reading", file
+        except Exception as e:
+            print("Issue reading", file)
             raise e
         self.freq_key = freq_key
         self.beam = None
@@ -1576,7 +1576,7 @@ class PolyRegion(object):
         assert len(region) == 1
         shape = region[0]
         assert shape.name == "polygon"
-        vertices = zip(shape.coord_list[::2], shape.coord_list[1::2])
+        vertices = list(zip(shape.coord_list[::2], shape.coord_list[1::2]))
         if coordinate_system is not None:
             prj_settings = ProjectionSettings()
             prj = coordinate_system.get_projection(prj_settings)
@@ -1655,7 +1655,7 @@ class Region(object):
 
     def get_color(self):
         ''' Assuming a single shape region '''
-        import plotutils
+        from . import plotutils
 
         pyregion = self.get_pyregion()
         color = pyregion[0].attr[1].get("color", "blue")
@@ -1763,8 +1763,8 @@ class ImageRegion(Image):
         try:
             img[self.get_slice()] += self.get_region()
         except Exception:
-            print self.index, self.get_index(), self.get_shift(), self.shape
-            print self.get_region().shape
+            print(self.index, self.get_index(), self.get_shift(), self.shape)
+            print(self.get_region().shape)
             raise
         return img
 
@@ -1790,7 +1790,7 @@ class ImageBuilder(object):
         try:
             self.img[region.get_slice()] += img
         except Exception:
-            print img.shape, region.get_shape(), region.get_slice()
+            print(img.shape, region.get_shape(), region.get_slice())
             raise Exception
         a = self.index
         b = region.get_index()
@@ -1801,7 +1801,7 @@ class ImageBuilder(object):
 
 
 def get_ensemble_index(img_regions):
-    indexs = zip(*[k.get_index() for k in img_regions])
+    indexs = list(zip(*[k.get_index() for k in img_regions]))
     return [min(k) for k in indexs[:len(indexs) / 2]] + [max(k) for k in indexs[len(indexs) / 2:]]
 
 
@@ -1814,7 +1814,7 @@ def join_image_region(img_regions, target_shape, fill_mode='add'):
     ''' Experimental! '''
     out = np.zeros(target_shape)
     new_positions = [[] for k in img_regions]
-    for dim, lout, (d0, d1) in zip(range(out.ndim), target_shape, zip_index(get_ensemble_index(img_regions))):
+    for dim, lout, (d0, d1) in zip(list(range(out.ndim)), target_shape, zip_index(get_ensemble_index(img_regions))):
         a = float(lout) / (d1 - d0)
         for img_region, new_position in zip(img_regions, new_positions):
             p0, p1 = zip_index(img_region.index)[dim]
@@ -1851,13 +1851,13 @@ def test_poly_editor():
 
 
 def test_beam():
-    import plotutils
+    from . import plotutils
     fits = "/homes/fmertens/data/m87/cwalker/full_stack_image.fits"
 
     img = FitsImage(fits)
-    print img.get_beam()
+    print(img.get_beam())
 
-    print img.get_beam()
+    print(img.get_beam())
     stack = plotutils.FigureStack()
 
     fig, ax = stack.add_subplots("test")
@@ -1867,12 +1867,12 @@ def test_beam():
 
 
 def test_save_fits():
-    import plotutils
+    from . import plotutils
 
     file = os.path.expanduser("~/test.fits")
     data = lena()
     beam = GaussianBeam(50, 20, np.radians(20))
-    img = Image(data, pix_ref=[0, 0], epoch=datetime.date(2010, 01, 20), beam=beam)
+    img = Image(data, pix_ref=[0, 0], epoch=datetime.date(2010, 0o1, 20), beam=beam)
     img.save_to_fits(file)
 
     rimg = FitsImage(file)
@@ -1907,8 +1907,8 @@ def test_image_region_correlate():
     r1 = ImageRegion(img, [110, 120, 260, 280])
     r2 = ImageRegion(img, [110, 120, 300, 350])
 
-    print nputils.norm_xcorr_coef(r1.get_region(), r2.get_region())
-    print nputils.norm_xcorr_coef(r1.get_data(), r2.get_data())
+    print(nputils.norm_xcorr_coef(r1.get_region(), r2.get_region()))
+    print(nputils.norm_xcorr_coef(r1.get_data(), r2.get_data()))
 
     stack = plotutils.FigureStack()
 
@@ -1920,14 +1920,14 @@ def test_image_region_correlate():
 
     i1 = r1.get_data()[nputils.index2slice(eindex)]
     i2 = r2.get_data()[nputils.index2slice(eindex)]
-    print i1.shape, i2.shape
+    print(i1.shape, i2.shape)
 
     i1 = nputils.smooth(i1, 3, boundary="symm", mode='same')
     i2 = nputils.smooth(i2, 3, boundary="symm", mode='same')
 
-    print i1.shape, i2.shape
+    print(i1.shape, i2.shape)
 
-    print nputils.norm_xcorr_coef(i1, i2)
+    print(nputils.norm_xcorr_coef(i1, i2))
 
     fix, [ax1, ax2] = stack.add_subplots(ncols=2)
     ax1.imshow(i1)

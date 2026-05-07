@@ -36,8 +36,8 @@ def load(name):
         data_dir = config.data.data_dir
 
     all_results_set = glob.glob(os.path.join(data_dir, '*', '*' + ext))
-    all_results_dirs = map(os.path.dirname, all_results_set)
-    all_results_names = map(os.path.basename, all_results_dirs)
+    all_results_dirs = list(map(os.path.dirname, all_results_set))
+    all_results_names = list(map(os.path.basename, all_results_dirs))
 
     if name not in all_results_names:
         return None

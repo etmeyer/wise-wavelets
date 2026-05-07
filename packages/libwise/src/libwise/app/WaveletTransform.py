@@ -4,7 +4,7 @@ Created on Mar 14, 2012
 @author: fmertens
 '''
 import numpy as np
-import waveletsui
+from . import waveletsui
 
 from libwise import uiutils, plotutils, signalutils, nputils, wavelets, wtutils
 

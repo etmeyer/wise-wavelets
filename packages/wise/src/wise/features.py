@@ -8,6 +8,7 @@ from scipy.spatial import KDTree
 import astropy.units as u
 
 from libwise import nputils, imgutils
+from functools import reduce
 
 p2i = imgutils.p2i
 logger = logging.getLogger(__name__)
@@ -485,8 +486,8 @@ class FeaturesMatch(object):
         self.one_two = dict()
         self.two_one = dict()
         if features1 is not None and features2 is not None:
-            self.one_two = dict(zip(features1, features2))
-            self.two_one = dict(zip(features2, features1))
+            self.one_two = dict(list(zip(features1, features2)))
+            self.two_one = dict(list(zip(features2, features1)))
 
     def add_feature_match(self, feature1, feature2):
         self.one_two[feature1] = feature2
@@ -499,13 +500,13 @@ class FeaturesMatch(object):
         return self.two_one.get(feature2)
 
     def get_ones(self):
-        return self.one_two.keys()
+        return list(self.one_two.keys())
 
     def get_twos(self):
-        return self.one_two.values()
+        return list(self.one_two.values())
 
     def get_pairs(self):
-        return self.one_two.items()
+        return list(self.one_two.items())
 
     def remove(self, feature1):
         feature2 = self.get_peer_of_one(feature1)
@@ -608,12 +609,12 @@ class DeltaInformation(object):
         for feature in self.get_features():
             delta = self.get_delta(feature)
             flag = self.get_flag(feature)
-            print feature, delta, flag
+            print(feature, delta, flag)
 
     def add_match(self, match, delta_fct=None):
         if delta_fct is None:
             delta_fct = lambda x, y: y.get_coord() - x.get_coord()
-        own_f1s = dict(zip(self.flags.keys(), self.flags.keys()))
+        own_f1s = dict(list(zip(list(self.flags.keys()), list(self.flags.keys()))))
         for f1, f2 in match.get_pairs():
             time_delta = f2.get_epoch() - f1.get_epoch()
             # f1 from match might have been moved. We want to get our own f1 to calculate delta correctly
@@ -655,12 +656,12 @@ class DeltaInformation(object):
     def discard_diff_outliers(self, nsigma):
         from scipy.signal import detrend
 
-        deltax, deltay = zip(*[k.get_delta() for k in self.deltas.values()])
+        deltax, deltay = list(zip(*[k.get_delta() for k in list(self.deltas.values())]))
         for delta in deltax, deltay:
             delta = detrend(delta)
             sigma = np.std(delta, ddof=1)
             
-            for feature, delta in self.deltas.copy().items():
+            for feature, delta in list(self.deltas.copy().items()):
                 if diff > alldiff.mean() + (nsigma * alldiff.std()) \
                         or diff < alldiff.mean() - (nsigma * alldiff.std()):
                     logger.info("Remove %s, %s, %s" % (feature, delta, diff))
@@ -669,7 +670,7 @@ class DeltaInformation(object):
 
     def complete_with_average_delta(self, distance_mode=None):
         with_delta_query = FeaturesQuery(self.get_features(~self.NO_DELTA))
-        for feature in self.flags.keys():
+        for feature in list(self.flags.keys()):
             if feature not in self.deltas:
                 delta = self.get_average_delta_information(feature, with_delta_query, distance_mode=distance_mode)
                 logger.debug("Complete with average delta: %s -> %s", feature, delta)
@@ -689,14 +690,14 @@ class DeltaInformation(object):
 
     def get_features(self, flag=None):
         if flag is None:
-            return FeaturesGroup(self.flags.keys())
-        return FeaturesGroup([f for f, fflag in self.flags.items() if fflag & flag == fflag])
+            return FeaturesGroup(list(self.flags.keys()))
+        return FeaturesGroup([f for f, fflag in list(self.flags.items()) if fflag & flag == fflag])
 
     def get_deltas(self, features=None):
         return np.array([self.get_delta(k) for k in features])
 
     def get_items(self):
-        return self.deltas.items()
+        return list(self.deltas.items())
 
     def get_delta(self, feature):
         if feature not in self.deltas:
@@ -708,8 +709,8 @@ class DeltaInformation(object):
 
     def get_full_deltas(self, flag=None):
         if flag is None:
-            return self.deltas.values()
-        return [self.deltas[f] for f, fflag in self.flags.items() if fflag & flag == fflag]
+            return list(self.deltas.values())
+        return [self.deltas[f] for f, fflag in list(self.flags.items()) if fflag & flag == fflag]
 
     def get_flag(self, feature):
         return self.flags.get(feature, self.NO_DELTA)
@@ -719,7 +720,7 @@ class DeltaInformation(object):
 
     def size(self, flag=None):
         if flag is not None:
-            return self.flags.values().count(flag)
+            return list(self.flags.values()).count(flag)
         return len(self.deltas)
 
     def copy(self):

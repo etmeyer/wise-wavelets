@@ -3,9 +3,9 @@ import datetime
 
 import numpy as np
 
-import wds
-import matcher
-import features as wfeatures
+from . import wds
+from . import matcher
+from . import features as wfeatures
 
 from libwise import plotutils, nputils, imgutils
 
@@ -197,9 +197,9 @@ def plot_delta_info(stack, delta_info, input_delta=None, plot_error=True):
         if input_delta is not None:
             residual = nputils.l2norm(np.array([deltax, deltay]).T - np.array([expectedx, expectedy]).T)
 
-            print "Chi2 X:", chi2x / dof, "RMS:", rmsx
-            print "Chi2 Y:", chi2y / dof, "RMS:", rmsy
-            print "Full RMS:", residual.std()
+            print("Chi2 X:", chi2x / dof, "RMS:", rmsx)
+            print("Chi2 Y:", chi2y / dof, "RMS:", rmsy)
+            print("Full RMS:", residual.std())
 
         ax[0].set_ylabel("$\Delta_x (px)$")
 
@@ -340,7 +340,7 @@ def plot_features_dfc(ax, projection, features, mode='com', **kwargs):
     
     .. _tags: plt_detection
     """
-    dfcs, epochs = zip(*[(projection.dfc(p2i(k.get_coord(mode=mode))), k.get_epoch()) for k in features])
+    dfcs, epochs = list(zip(*[(projection.dfc(p2i(k.get_coord(mode=mode))), k.get_epoch()) for k in features]))
     if isinstance(features, wds.AbstractScale):
         scale = features.get_scale()
         ax.plot(epochs, dfcs, ls='', marker='o', markersize=1.5 * scale, zorder=-scale, alpha=0.8, **kwargs)
@@ -364,7 +364,7 @@ def plot_features_pa(ax, projection, features, mode='com', **kwargs):
     
     .. _tags: plt_detection
     """
-    pas, epochs = zip(*[(projection.pa(p2i(k.get_coord(mode=mode))), k.get_epoch()) for k in features])
+    pas, epochs = list(zip(*[(projection.pa(p2i(k.get_coord(mode=mode))), k.get_epoch()) for k in features]))
     if isinstance(features, wds.AbstractScale):
         scale = features.get_scale()
         ax.plot(epochs, pas, ls='', marker='o', markersize=1.5 * scale, zorder=-scale, alpha=0.8, **kwargs)
@@ -762,7 +762,7 @@ class CoreOffsetPositions(object):
         self.cores = dict()
 
     def get_all(self):
-        return self.cores.items()
+        return list(self.cores.items())
 
     def get(self, epoch):
         return self.cores.get(epoch, np.array([0, 0]))
@@ -808,7 +808,7 @@ class SSPData(object):
         import pandas as pd
 
         coords = p2i(features.get_coords(mode=coord_mode))
-        ra, dec = zip(*projection.p2s(coords))
+        ra, dec = list(zip(*projection.p2s(coords)))
         
         epochs = []
         intensities = []
@@ -966,7 +966,7 @@ class VelocityData(SSPData):
         new = VelocityData()
         ms_match_results, ms_link_builders = results.get_match_result()
 
-        for link_builder, match_results in zip(ms_link_builders.get_all(), zip(*ms_match_results)):
+        for link_builder, match_results in zip(ms_link_builders.get_all(), list(zip(*ms_match_results))):
             scale = match_results[0].get_scale()
             if scales is None or scale in scales:
                 for match_result in match_results:
@@ -1014,7 +1014,7 @@ def align_image_on_cores_com(img, bg):
 
     com = measurements.center_of_mass(img_cores)
 
-    print "COM:", com
+    print("COM:", com)
     return com
 
 
@@ -1073,18 +1073,18 @@ def align_image_on_center_two_sided_jet(img, bg, region_jet, region_counter, cor
 
     x, y, z = nputils.get_line_between_points(img.data, first_feature_counter.get_coord(),
                                               first_feature_jet.get_coord())
-    print x, y, z
+    print(x, y, z)
 
     iz, = nputils.coord_min(z, fit_gaussian=True, fit_gaussian_n=3)
     izf = np.floor(iz)
     izc = np.ceil(iz)
-    print nputils.coord_min(z, fit_gaussian=False), iz
+    print(nputils.coord_min(z, fit_gaussian=False), iz)
 
     coord_x = nputils.linear_fct([izf, x[izf]], [izc, x[izc]])(iz)
     coord_y = nputils.linear_fct([izf, y[izf]], [izc, y[izc]])(iz)
 
     coord = [coord_y, coord_x]
-    print coord
+    print(coord)
 
     return coord
 
@@ -1123,7 +1123,7 @@ def align_image_on_cores_cos(img, bg):
 
     cos = measurements.center_of_mass(img_cores)
 
-    print "COS:", cos
+    print("COS:", cos)
     return cos
 
 

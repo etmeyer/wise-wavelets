@@ -370,7 +370,7 @@ def test_affine_transform():
 
 
 def test_datetime_epoch():
-    d = datetime.datetime(1995, 11, 06, 0, 0)
+    d = datetime.datetime(1995, 11, 0o6, 0, 0)
     e = "1995.84600"
     assert d == nputils.epoch_to_datetime(e), nputils.epoch_to_datetime(e)
     assert e == nputils.datetime_to_epoch(d), nputils.datetime_to_epoch(d)
@@ -380,7 +380,7 @@ def test_datetime_epoch():
     assert d == nputils.epoch_to_datetime(e)
     assert e == nputils.datetime_to_epoch(d)
 
-    d = datetime.datetime(1998, 1, 03, 0, 0)
+    d = datetime.datetime(1998, 1, 0o3, 0, 0)
     e = "1998.00548"
     assert d == nputils.epoch_to_datetime(e)
     assert e == nputils.datetime_to_epoch(d)
@@ -427,13 +427,13 @@ def test_ssd_fast():
     b = np.arange(12).reshape((3, 4))
     ssd = nputils.ssd_fast(b, a)
 
-    print ssd
+    print(ssd)
 
     for i in range(a.shape[0]):
         for j in range(b.shape[1]):
             shifted = nputils.shift2d(b, [a.shape[0] / 2 - i - 1, a.shape[1] / 2 - j - 1])
             diff = ((a - shifted) ** 2).sum()
-            print diff
+            print(diff)
             # nputils.assert_close(diff,  ssd[i, j])
 
 
@@ -449,7 +449,7 @@ def test_norm_xcorr():
     b = np.random.random([5, 4])
 
     corr = nputils.norm_xcorr2(a, a, method='fft', mode='full')
-    print nputils.coord_max(corr)
+    print(nputils.coord_max(corr))
 
     assert False
 
@@ -646,7 +646,7 @@ def test_zoom_correlation():
 
         zb = nputils.zoom(b, [cx, cy], a.shape, pad=pad)
         shift = np.array([cx, cy]) - np.array(zb.shape).shape
-        print shift
+        print(shift)
 
         corr = nputils.xcorr_fast(a, zb)
         assert corr[corr.shape[0] / 2, corr.shape[1] / 2] == 1
@@ -704,4 +704,4 @@ def test_align_on_com():
 
 if __name__ == '__main__':
     for attr in __dict__:
-        print attr
+        print(attr)

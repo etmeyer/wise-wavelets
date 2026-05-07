@@ -114,7 +114,7 @@ class StackCrossCorrelation(object):
         max_bounds = max(self.bounds)
 
         if self.verbose:
-            print "Processing:", res1.get_epoch(), res2.get_epoch(), delta_t, velocity_pix, tol_pix
+            print("Processing:", res1.get_epoch(), res2.get_epoch(), delta_t, velocity_pix, tol_pix)
 
         if self.debug >= 2:
             fig, ax_check0 = self.stack.add_subplots("Segments check 1", ncols=1)
@@ -250,7 +250,7 @@ class StackCrossCorrelation(object):
         return nputils.get_items_sorted_by_keys(self.global_ncc_scales)
 
     def get_n(self):
-        return np.sum(self.global_ncc_scales_n.values())
+        return np.sum(list(self.global_ncc_scales_n.values()))
 
     def get_mean_ncc_scales(self, smooth_len=3):
         mean_global_ncc_scales = dict()
@@ -259,7 +259,7 @@ class StackCrossCorrelation(object):
         return mean_global_ncc_scales
 
     def get_global_ncc(self, smooth_len=3):
-        global_ncc = self.agg_fct(self.get_mean_ncc_scales(smooth_len=smooth_len).values(), axis=0)
+        global_ncc = self.agg_fct(list(self.get_mean_ncc_scales(smooth_len=smooth_len).values()), axis=0)
         return global_ncc
 
     def plot_result(self):
@@ -274,7 +274,7 @@ class StackCrossCorrelation(object):
             if len(peaks) < 10:
                 for peak in peaks:
                     p = (np.array(peak) / float(self.factor) - np.array([self.bounds[0], self.bounds[2]]))
-                    print "Peak at %s (norm:%s, intensity:%s, pix:%s)" % (p[::-1], np.linalg.norm(p), global_ncc[tuple(peak)], peak)
+                    print("Peak at %s (norm:%s, intensity:%s, pix:%s)" % (p[::-1], np.linalg.norm(p), global_ncc[tuple(peak)], peak))
             
             ax0.imshow(global_ncc, extent=self.global_ncc_extent)
             plotutils.img_axis(ax0)

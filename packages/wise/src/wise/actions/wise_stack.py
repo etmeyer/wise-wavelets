@@ -3,7 +3,7 @@
 import libwise.scriptshelper as sh
 
 import wise
-import actions
+from . import actions
 
 USAGE = '''Stack images
 
@@ -32,7 +32,7 @@ def main():
     stack_img = ctx.build_stack_image(preprocess=False, nsigma=nsigma, nsigma_connected=nsigma_connected)
     stack_img.save(output_filename)
 
-    print "Stacked images save to %s" % output_filename
+    print("Stacked images save to %s" % output_filename)
 
 
 if __name__ == '__main__':

@@ -16,7 +16,7 @@ import calendar
 import datetime
 import itertools
 import collections
-import ConfigParser
+import configparser
 
 import pymorph
 import numpy as np
@@ -771,7 +771,7 @@ def k_subset(s, k, filter=None):
         partials = k_subset(s[:i] + s[i + 1:], k, filter=filter)
         for partial in partials:
             for p in range(len(partial)):
-                if filter is None or filter(partial[p] + (s[i],)):
+                if filter is None or list(filter(partial[p] + (s[i],))):
                     k_subs.append(partial[:p] + (partial[p] + (s[i],),) + partial[p + 1:])
     return uniq_subsets(k_subs)
 
@@ -792,7 +792,7 @@ def lists_combinations(l1, l2, k=None, filter=None):
     if k is not None:
         k = [k]
     else:
-        k = range(1, min(len(l1), len(l2)) + 1)
+        k = list(range(1, min(len(l1), len(l2)) + 1))
     for k in k:
         for item in itertools.product(all_k_subset(l1, k, filter=filter), all_k_subset(l2, k, filter=filter)):
             for per in itertools.permutations(item[1]):
@@ -806,7 +806,7 @@ def sublist(array, indices):
 def permutation_no_succesive(a):
     assert len(a) >= 3
 
-    d2 = dict(zip(a[1:], a[:-1]))
+    d2 = dict(list(zip(a[1:], a[:-1])))
     d2[a[0]] = -1
     while True:
         t = np.random.permutation(a)
@@ -836,12 +836,12 @@ def pairwise(iterable):
     "s -> (s0,s1), (s1,s2), (s2, s3), ..."
     a, b = itertools.tee(iterable)
     next(b, None)
-    return itertools.izip(a, b)
+    return zip(a, b)
 
 
 def grouped(iterable, n):
     "s -> (s0,s1,s2,...sn-1), (sn,sn+1,sn+2,...s2n-1), (s2n,s2n+1,s2n+2,...s3n-1), ..."
-    return itertools.izip(*[iter(iterable)]*n)
+    return zip(*[iter(iterable)]*n)
 
 
 def nwise(iterable, n):
@@ -850,7 +850,7 @@ def nwise(iterable, n):
     for i, it in enumerate(ilist):
         for i in range(i):
             next(it, None)
-    return itertools.izip(*ilist)
+    return zip(*ilist)
 
 
 def get_values_sorted_by_keys(dict):
@@ -940,7 +940,7 @@ def count(array):
     ((item1, count1), (item2), count2), ...)'''
     count = np.bincount(array)
     items = np.nonzero(count)[0]
-    return zip(items, count[items])
+    return list(zip(items, count[items]))
 
 
 def uniq(array):
@@ -1150,17 +1150,17 @@ def save_object(object, filename, dir=DATA_DIR):
     file = open(path, 'w')
     pickle.dump(object, file)
     file.close()
-    print "Object saved to '%s'" % (path)
+    print("Object saved to '%s'" % (path))
     return path
 
 
 def load_object(filename, dir=DATA_DIR):
     ''' DEPRECATED '''
     path = os.path.abspath(os.path.join(dir, filename + '.data'))
-    print "Loading object from '%s' ..." % path
+    print("Loading object from '%s' ..." % path)
     file = open(path, 'r')
     object = pickle.load(file)
-    print "Object loaded."
+    print("Object loaded.")
     return object
 
 
@@ -1198,7 +1198,7 @@ def roundrobin(*iterables):
     '''
     # Recipe credited to George Sakkis
     pending = len(iterables)
-    nexts = itertools.cycle(iter(it).next for it in iterables)
+    nexts = itertools.cycle(iter(it).__next__ for it in iterables)
     while pending:
         try:
             for next in nexts:
@@ -1414,7 +1414,7 @@ def convolve(a, v, boundary='symm', axis=None, mode='full', using_fft=True, usin
     a = np.asarray(a)
     v = np.asarray(v)
 
-    if boundary not in CONV_BOUNDARY_MAP.keys():
+    if boundary not in list(CONV_BOUNDARY_MAP.keys()):
         raise ValueError("Wrong boundary")
 
     if v.ndim == 2 and axis is not None:
@@ -1896,7 +1896,7 @@ def is_str_number(str):
 
 
 def is_number(x):
-    return isinstance(x, (int, long, float, complex))
+    return isinstance(x, (int, float, complex))
 
 
 def str2bool(v):
@@ -2028,7 +2028,7 @@ def fitgaussian(data, params, base_null=True):
             return params
         if base_null:
             params[0] = 0
-        print params
+        print(params)
         return [params[0], params[1], params[2:2 + data.ndim], params[2 + data.ndim: 2 + 2 * data.ndim]]
 
     def fct(p):
@@ -2078,8 +2078,8 @@ def pdist(X, metric_fct):
 
     dm = np.zeros((n * (n - 1) / 2,), dtype=np.double)
     k = 0
-    for i in xrange(0, n - 1):
-        for j in xrange(i + 1, n):
+    for i in range(0, n - 1):
+        for j in range(i + 1, n):
             dm[k] = metric_fct(X[i], X[j])
             k = k + 1
     return dm
@@ -2205,13 +2205,13 @@ class ConfigurationsContainer(object):
         self._configs = configs
 
     def __str__(self):
-        return self.values()
+        return list(self.values())
 
     def add_config(self, config):
         self._configs.append(config)
 
     def to_file(self, filename):
-        parser = ConfigParser.RawConfigParser()
+        parser = configparser.RawConfigParser()
         for config in self._configs:
             section =  config.get_title()
             parser.add_section(section)
@@ -2222,7 +2222,7 @@ class ConfigurationsContainer(object):
             parser.write(fh)
 
     def from_file(self, filename):
-        parser = ConfigParser.RawConfigParser()
+        parser = configparser.RawConfigParser()
         parser.read(filename)
         configs = dict([(config.get_title(), config) for config in self._configs])
         for section in parser.sections():
@@ -2246,14 +2246,14 @@ class BaseConfiguration(ConfigurationsContainer):
         # option using simple attribute assignment (ex: config.option = value)
         # levels: 0: show in doc(), 1: save/load to/from file, 2: not saved
         self._title = title
-        self._keys, defaults, docs, validators, decoders, encoders, level = zip(*settings)
-        self._defaults = collections.OrderedDict(zip(self._keys, defaults))
-        self._values = collections.OrderedDict(zip(self._keys, defaults))
-        self._docs = collections.OrderedDict(zip(self._keys, docs))
-        self._validators = collections.OrderedDict(zip(self._keys, validators))
-        self._decoders = collections.OrderedDict(zip(self._keys, decoders))
-        self._encoders = collections.OrderedDict(zip(self._keys, encoders))
-        self._level = collections.OrderedDict(zip(self._keys, level))
+        self._keys, defaults, docs, validators, decoders, encoders, level = list(zip(*settings))
+        self._defaults = collections.OrderedDict(list(zip(self._keys, defaults)))
+        self._values = collections.OrderedDict(list(zip(self._keys, defaults)))
+        self._docs = collections.OrderedDict(list(zip(self._keys, docs)))
+        self._validators = collections.OrderedDict(list(zip(self._keys, validators)))
+        self._decoders = collections.OrderedDict(list(zip(self._keys, decoders)))
+        self._encoders = collections.OrderedDict(list(zip(self._keys, encoders)))
+        self._level = collections.OrderedDict(list(zip(self._keys, level)))
         ConfigurationsContainer.__init__(self, [self])
 
     def __getattr__(self, name):
@@ -2267,12 +2267,12 @@ class BaseConfiguration(ConfigurationsContainer):
             if name in self._keys:
                 self.set(name, value)
             else:
-                print "Warning: No option with name %s" % name
+                print("Warning: No option with name %s" % name)
         else:
             object.__setattr__(self, name, value)
 
     def __str__(self):
-        return self.values()
+        return list(self.values())
 
     def get(self, option, encode=False):
         assert option in self._keys
@@ -2300,7 +2300,7 @@ class BaseConfiguration(ConfigurationsContainer):
                 value = decoders(value)
         if value is not None and validate and validator is not None:
             if not validator(value):
-                print "Warning: validation failed while setting %s to %s" % (option, value)
+                print("Warning: validation failed while setting %s to %s" % (option, value))
         self._values[option] = value
 
     def items(self, max_level=2, encode=False):
@@ -2348,7 +2348,7 @@ class BaseConfiguration(ConfigurationsContainer):
         return self._title
 
 
-def validator_in_range(vmin, vmax, instance=(float, int, long)):
+def validator_in_range(vmin, vmax, instance=(float, int, int)):
 
     def validator(value):
         if isinstance(value, instance) and value >= vmin and value <= vmax:
@@ -2611,8 +2611,8 @@ class SinusFct(AbstractFct):
         try:
             p1, success = leastsq(errfunc, self.p0, args=(np.array(x), np.array(y)))
             return SinusFct(*p1)
-        except Exception, e:
-            print e
+        except Exception as e:
+            print(e)
             return SinusFct(*self.p0)
 
 
@@ -2801,7 +2801,7 @@ class DummyFilter(AbstractFilter):
 
 def test_upsample():
     import time
-    import plotutils, imgutils
+    from . import plotutils, imgutils
     from scipy.misc import lena
     from matplotlib.mlab import csd, detrend_mean
     from scipy.ndimage.interpolation import rotate
@@ -2812,7 +2812,7 @@ def test_upsample():
 
     def upsamplefft(X, n):
         shape = np.array(X.shape)
-        print n, shape, np.fft.ifftshift(resize(np.fft.fftshift(X), n * shape, padding_mode='center')).shape
+        print(n, shape, np.fft.ifftshift(resize(np.fft.fftshift(X), n * shape, padding_mode='center')).shape)
         return np.fft.ifftshift(resize(np.fft.fftshift(X), n * shape, padding_mode='center'))
 
     def fourier_interp1d(data, out_x, data_x=None, nthreads=1, use_numpy_fft=False,
@@ -3036,7 +3036,7 @@ def test_find_peak():
 def test_permutations():
     a = [1, 2, 3, 4, 5]
     a = ['a', 'b', 'c', 'd', 'e']
-    print permutation_no_succesive(a)
+    print(permutation_no_succesive(a))
 
 
 def test_local_max():
@@ -3051,8 +3051,8 @@ def test_local_max():
 
     for center, height in zip(center, heights):
         search_center = np.ceil(np.random.normal(np.round(center), [2, 2]))
-        print center, height, search_center
-        print local_max(img, search_center, 5, fit_gaussian=True)
+        print(center, height, search_center)
+        print(local_max(img, search_center, 5, fit_gaussian=True))
 
     stack = plotutils.FigureStack()
     fig, ax = stack.add_subplots("test")

@@ -4,7 +4,7 @@ from libwise import imgutils
 import libwise.scriptshelper as sh
 
 import wise
-import actions
+from . import actions
 
 USAGE = '''Simple image viewer
 
@@ -30,7 +30,7 @@ def main():
     try:
         regions = [imgutils.Region(file) for file in region_files]
     except Exception:
-        print "Error: failed to read a region file"
+        print("Error: failed to read a region file")
         sh.usage(True)
 
     args = sh.get_args(min_nargs=1)

@@ -15,8 +15,8 @@ def do_gaussien_cylinder(exp, size, nsigma=None, width=None,
     res = imgutils.gaussian_cylinder(size, nsigma=nsigma,
                                      width=width, center_offset=center_offset,
                                      angle=angle)
-    print (res * 1000).astype(np.int)
-    print exp
+    print((res * 1000).astype(np.int))
+    print(exp)
     return np.equal(exp, (res * 1000).astype(np.int)).all()
 
 
@@ -256,16 +256,16 @@ def test_image_region_zoom():
         cx, cy = c
         a = np.zeros(sa)
         a[cx, cy] = 1
-        print a
+        print(a)
 
         a = imgutils.ImageRegion(a, ri)
-        print a.get_region()
+        print(a.get_region())
 
         za = a.zoom(c, sz)
         shift = c - za.get_center()
         zcx, zcy = np.array(za.get_region().shape) / 2 + shift
-        print za.get_region()
-        print shift, zcx, zcy
+        print(za.get_region())
+        print(shift, zcx, zcy)
         assert za.get_region()[zcx, zcy] == 1
 
     do_test([2, 3], [8, 9], [1, 0, 7, 8], [2, 2])
@@ -305,13 +305,13 @@ def test_join_image_region():
     builder.add(img2)
     builder.add(img3)
 
-    print builder.get().get_region()
+    print(builder.get().get_region())
 
     assert np.allclose(builder.get().get_region(), imgutils.join_image_region([img1, img2, img3], [6, 6]))
     # assert imgutils.get_ensemble_index([img1, img2, img3]) == [0, 0, 7, 7]
 
-    print imgutils.join_image_region([img1, img2, img3], [12, 12])
-    print imgutils.join_image_region([img1, img2, img3], [7, 7])
+    print(imgutils.join_image_region([img1, img2, img3], [12, 12]))
+    print(imgutils.join_image_region([img1, img2, img3], [7, 7]))
 
     assert False
 
@@ -322,11 +322,11 @@ def test_stack_image():
 
     stacked = imgutils.StackedImage(a.data)
     stacked.add(b)
-    print stacked.data
+    print(stacked.data)
 
     stack_mgr = imgutils.StackedImageBuilder()
     stack_mgr.add(a)
     stack_mgr.add(b)
-    print stack_mgr.get().data
+    print(stack_mgr.get().data)
 
     assert False

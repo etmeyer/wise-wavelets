@@ -1,4 +1,4 @@
-from plotutils_base import *
+from .plotutils_base import *
 
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 

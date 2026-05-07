@@ -24,9 +24,9 @@ if use_pyqt5:
 else:
     from PyQt4 import QtGui, QtCore
 
-import waitingspinnerwidget
+from . import waitingspinnerwidget
 
-import imgutils
+from . import imgutils
 
 _QT_APP = None
 
@@ -181,18 +181,18 @@ class ListParameter(NamedWidgetParameter):
         self._initialized()
 
     def on_changed(self, index):
-        self.set(self.dict.values()[index])
+        self.set(list(self.dict.values())[index])
 
     def set_values(self, values, initial_value=None):
         self.combo.clear()
         if isinstance(values, dict):
             self.dict = values
-            self.values = self.dict.values()
+            self.values = list(self.dict.values())
         else:
-            self.dict = collections.OrderedDict(zip([str(k) for k in values], values))
+            self.dict = collections.OrderedDict(list(zip([str(k) for k in values], values)))
             self.values = values
 
-        self.combo.addItems(self.dict.keys())
+        self.combo.addItems(list(self.dict.keys()))
 
         if not initial_value and len(self.values) > 0:
             initial_value = self.values[0]
@@ -200,7 +200,7 @@ class ListParameter(NamedWidgetParameter):
         if initial_value and initial_value in self.values:
             index = self.values.index(initial_value)
             self.combo.setCurrentIndex(index)
-            self.set(self.dict.values()[index])
+            self.set(list(self.dict.values())[index])
 
 
 class RangeParameter(NamedWidgetParameter):
@@ -522,7 +522,7 @@ class CustomModel(QtCore.QAbstractItemModel):
                 ret = node.setData(in_index.column(), value)
                 if ret:
                     self.dataChanged.emit(in_index, in_index)
-                    print "Change done"
+                    print("Change done")
                     return True
         return False
 
@@ -602,7 +602,7 @@ class Experience(object):
             # call to do_update() caused by parameter set in before_update() -> ignore it
             return
 
-        print "Start do update"
+        print("Start do update")
         self.stopping()
         res = self.before_update(parameter_changed)
 
@@ -613,7 +613,7 @@ class Experience(object):
             self.thread = LongRunning(self.update, (parameter_changed), dict(),
                                  self.__after_update)
             self.thread.start()
-        print "Done do update"
+        print("Done do update")
         self.mutex.unlock()
 
     def before_update(self, changed):
@@ -682,12 +682,12 @@ class TestExperience(Experience):
         self.gui.start()
 
     def update(self, changed):
-        print 'Update:', changed, changed.get()
+        print('Update:', changed, changed.get())
         self.pv.figure.clear()
         ax = self.pv.figure.add_subplot(111)
         ax.plot(np.linspace(0, 10) ** 2)
 
-        print "Done"
+        print("Done")
 
 
 def test_qt():
@@ -703,7 +703,7 @@ def test_qt():
 
     gui.add_box(vbox)
     gui.start()
-    print "Lets start"
+    print("Lets start")
     app.exec_()
 
 
@@ -711,7 +711,7 @@ def test_gui():
     app = QtGui.QApplication(sys.argv)
     test = TestExperience()
     test.gui.start()
-    print "Lets start"
+    print("Lets start")
     app.exec_()
 
 

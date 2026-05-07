@@ -22,8 +22,8 @@ def start():
 
 
 def report_line_profile():
-    print "\nFunction Line Time"
-    print "-------------------------"
+    print("\nFunction Line Time")
+    print("-------------------------")
     lstats = line_profil.get_stats()
     stats = lstats.timings
     unit = lstats.unit
@@ -35,7 +35,7 @@ def done(stdout=True, file=None):
     global profiler, line_profiler
 
     if not profiler:
-        print "Profiler not started"
+        print("Profiler not started")
         return
     profiler.disable()
     if file is not None:

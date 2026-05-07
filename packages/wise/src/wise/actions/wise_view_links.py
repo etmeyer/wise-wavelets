@@ -4,7 +4,7 @@ from libwise import nputils
 import libwise.scriptshelper as sh
 
 import wise
-import actions
+from . import actions
 
 USAGE = '''Plot all components trajectories on the reference map
 
@@ -30,7 +30,7 @@ def main():
     ctx = actions.load(name)
 
     if ctx is None:
-        print "No results saved with name %s" % name
+        print("No results saved with name %s" % name)
         sh.usage(True)
 
     scales = args[1]
@@ -38,7 +38,7 @@ def main():
     try:
         scales = nputils.str2floatlist(scales)
     except Exception:
-        print "Error: invalid scales. Available scales: %s" % ctx.result.get_scales()
+        print("Error: invalid scales. Available scales: %s" % ctx.result.get_scales())
         sh.usage(True)
 
     wise.tasks.view_links(ctx, scales=scales, min_link_size=min_link_size)

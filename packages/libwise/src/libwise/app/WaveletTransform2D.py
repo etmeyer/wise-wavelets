@@ -7,7 +7,7 @@ Created on Mar 12, 2012
 import astropy.io.fits as pyfits
 from libwise import uiutils, imgutils, plotutils, wtutils, wavelets
 
-import waveletsui
+from . import waveletsui
 
 
 class WaveletTransform2D(uiutils.Experience):
@@ -47,7 +47,7 @@ class WaveletTransform2D(uiutils.Experience):
         file = uiutils.select_file()
         if file is not None:
             new_hdul = pyfits.HDUList()
-            for scale, img in zip(range(self.scale.get_min(), self.scale.get_max() + 1), self.current_wavedec):
+            for scale, img in zip(list(range(self.scale.get_min(), self.scale.get_max() + 1)), self.current_wavedec):
                 hdu = img.build_hdu()
                 hdu.header.set('EXTNAME', "Scale %s" % scale)
                 new_hdul.append(hdu)

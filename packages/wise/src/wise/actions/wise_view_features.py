@@ -4,7 +4,7 @@ from libwise import nputils
 import libwise.scriptshelper as sh
 
 import wise
-import actions
+from . import actions
 
 USAGE = '''Plot all features location on the reference image.
 
@@ -23,7 +23,7 @@ def main():
     ctx = actions.load(name)
 
     if ctx is None:
-        print "No results saved with name %s" % name
+        print("No results saved with name %s" % name)
         sh.usage(True)
 
     scales = args[1]
@@ -31,10 +31,10 @@ def main():
     try:
         scales = nputils.str2floatlist(scales)
     except Exception:
-        print "Error: invalid scales. Availables scales: %s" % ctx.result.get_scales()
+        print("Error: invalid scales. Availables scales: %s" % ctx.result.get_scales())
         sh.usage(True)
 
-    print "Plotting features from scales %s" % scales
+    print("Plotting features from scales %s" % scales)
     wise.tasks.view_all_features(ctx, scales)
 
 

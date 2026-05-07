@@ -30,13 +30,13 @@ if sys.platform == "win32":
 
 
 def usage(exit=False) :
-    print _SH_USAGE
+    print(_SH_USAGE)
     if exit :
         sys.exit(0)
 
         
 def version(exit=False) :
-    print 'Version %s' % _SH_VERSION
+    print('Version %s' % _SH_VERSION)
     if exit :
         sys.exit(0)
 
@@ -92,7 +92,7 @@ def get_opt_value(opt_name, opt_short_name, multiple = False, default=None) :
             del _SH_ARGS[i]
         elif opt_short_name and _SH_ARGS[i] == '-' + opt_short_name :
             if _SH_ARGS[i + 1][0] == ('-') :
-                raise Exception, "Wrong value after option '-%s'" % opt_short_name
+                raise Exception("Wrong value after option '-%s'" % opt_short_name)
             values.append(_SH_ARGS[i + 1])
             del _SH_ARGS[i + 1]
             del _SH_ARGS[i]
@@ -104,7 +104,7 @@ def get_opt_value(opt_name, opt_short_name, multiple = False, default=None) :
         return default
     elif len(values) == 1 :
         return values[0]
-    raise Exception, "Too much values for option '%s'" % opt_name
+    raise Exception("Too much values for option '%s'" % opt_name)
 
 
 def get_opt_bool(opt_name, opt_short_name) :
@@ -140,11 +140,11 @@ def get_args(min_nargs=0) :
     global _SH_ARGS
     opts = [ k for k in _SH_ARGS if k[0] == '-' ]
     if opts :
-        raise Exception, "Unknow options (%s)" % ', '.join(opts)
+        raise Exception("Unknow options (%s)" % ', '.join(opts))
     args = _SH_ARGS
     _SH_ARGS = []
     if len(args) < min_nargs:
-        print "Error: At least %s arguments are required.\n" % min_nargs
+        print("Error: At least %s arguments are required.\n" % min_nargs)
         usage(True)
 
     return args
@@ -156,7 +156,7 @@ def check(arg_or_args, test, error_msg):
     else:
         t = test(arg_or_args)
     if t is False:
-        print "Error: %s\n" % error_msg
+        print("Error: %s\n" % error_msg)
         sh.usage(True)
 
 
@@ -170,7 +170,7 @@ def cwrite(msg, color=c_normal) :
 
 def cinput(prompt) :
     cwrite(prompt, c_yellow)
-    return raw_input()
+    return input()
 
 
 def asklist(prompt, list) :

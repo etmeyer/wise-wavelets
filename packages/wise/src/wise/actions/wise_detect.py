@@ -7,7 +7,7 @@ import libwise
 import libwise.scriptshelper as sh
 
 import wise
-import actions
+from . import actions
 
 USAGE = '''Run the Segmented wavelet decomposition
 

@@ -6,7 +6,7 @@
 # All rights reserved.
 #
 
-from __future__ import absolute_import
+
 
 import numpy as np
 
@@ -14,9 +14,9 @@ import ast
 import jsonpickle
 # import unicode from jsonpickle, depending on its version apparently function name is different.
 try:
-    from jsonpickle.compat import unicode
+    from jsonpickle.compat import str
 except ImportError:
-    from jsonpickle.compat import ustr as unicode
+    from jsonpickle.compat import ustr as str
 
 __all__ = ['register_handlers', 'unregister_handlers']
 
@@ -34,7 +34,7 @@ class NumpyBaseHandler(jsonpickle.handlers.BaseHandler):
         if hasattr(dtype, 'tostring'):
             data['dtype'] = dtype.tostring()
         else:
-            dtype = unicode(dtype)
+            dtype = str(dtype)
             prefix = '(numpy.record, '
             if dtype.startswith(prefix):
                 dtype = dtype[len(prefix):-1]

@@ -3,7 +3,7 @@
 import libwise.scriptshelper as sh
 
 import wise
-import actions
+from . import actions
 
 USAGE = '''Give information on beam, pixel scales or velocity resolution
 

@@ -5,7 +5,7 @@ Created on Feb 22, 2012
 '''
 
 import numpy as np
-import nputils
+from . import nputils
 
 
 def linear_chirp(x, i, a, b, c):
@@ -88,12 +88,12 @@ if __name__ == '__main__':
 
     f = wds.FeaturesFinder(Array(i), 0.5)
     for segments in f.execute():
-        print segments
+        print(segments)
 
-    print "DD:", f.direct_detection()
+    print("DD:", f.direct_detection())
 
     for v in i:
-        print v
+        print(v)
 
     plot.plot(i)
     plot.grid()

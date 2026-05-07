@@ -5,11 +5,11 @@ Created on Feb 28, 2012
 '''
 
 try:
-    from plotutils_ui import *
+    from .plotutils_ui import *
 except ImportError:
-    from plotutils_noui import *
+    from .plotutils_noui import *
 
-from plotutils_noui import FigureStack as FigureStackNoUI
+from .plotutils_noui import FigureStack as FigureStackNoUI
 
 
 def test_figure_stack():
@@ -138,13 +138,13 @@ def test_markers():
     markers = all_markers
     fig, ax = stack.add_subplots("Test")
     all_y = np.linspace(1, 40, len(markers))
-    for marker, a in zip(markers.keys(), all_y):
+    for marker, a in zip(list(markers.keys()), all_y):
         x = np.linspace(0, 10, 10)
         y = a * np.ones_like(x)
         ax.plot(x, y, c=color.get(), lw=2, marker=marker)
 
     ax.set_yticks(all_y)
-    ax.set_yticklabels(['%s (%s)' % (v, k) for k, v in markers.items()])
+    ax.set_yticklabels(['%s (%s)' % (v, k) for k, v in list(markers.items())])
     stack.show()
 
 

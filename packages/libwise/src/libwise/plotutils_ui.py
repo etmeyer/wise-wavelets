@@ -21,9 +21,9 @@ else:
 
 import matplotlib.backends.qt_editor.figureoptions as figureoptions
 
-import uiutils
+from . import uiutils
 
-from plotutils_base import *
+from .plotutils_base import *
 
 
 def subplots(**kargs):
@@ -194,7 +194,7 @@ class AbstractTwoPointsRequest(object):
                 self.canvas.restore_region(self.background)
                 self.canvas.update()
             except Exception:
-                print "Issue clearing"
+                print("Issue clearing")
                 pass
 
     def __draw_line(self):
@@ -314,7 +314,7 @@ class ProfileLine(AbstractTwoPointsRequest):
             self.line.remove()
 
     def set_line_data(self, p1, p2):
-        self.line.set_data(zip(self.p1, self.p2))
+        self.line.set_data(list(zip(self.p1, self.p2)))
 
     def draw_line(self):
         self.canvas.figure.draw_artist(self.line)
@@ -796,15 +796,15 @@ class PresetSetting(uiutils.CustomNode):
 
     def setData(self, column, value):
         if isinstance(value, QtCore.QVariant):
-            value = unicode(value.toPyObject())
+            value = str(value.toPyObject())
         try:
             self.preset.set(self.group, self.setting, value)
             value = self.preset.get(self.group, self.setting, display=True)
             uiutils.CustomNode.setData(self, column, value)
             return True
-        except Exception, e:
-            print "Exception while setting %s.%s to %s" % (self.group, self.setting, value)
-            print e
+        except Exception as e:
+            print("Exception while setting %s.%s to %s" % (self.group, self.setting, value))
+            print(e)
         return False
 
 
@@ -1077,8 +1077,8 @@ class SaveFigure(uiutils.UI):
             titles = []
             for axes in allaxes:
                 name = (axes.get_title() or
-                        " - ".join(filter(None, [axes.get_xlabel(),
-                                                 axes.get_ylabel()])) or
+                        " - ".join([_f for _f in [axes.get_xlabel(),
+                                                 axes.get_ylabel()] if _f]) or
                         "<anonymous {} (id: {:#x})>".format(
                             type(axes).__name__, id(axes)))
                 titles.append(name)
@@ -1119,8 +1119,8 @@ class SaveFigure(uiutils.UI):
                 self.figure.replay()
             try:
                 self.figure.tight_layout(pad=0.3)
-            except Exception, e:
-                print "Failed to run tight_layout: %s" % e
+            except Exception as e:
+                print("Failed to run tight_layout: %s" % e)
             self.figure.canvas.draw_idle()
             self.figure_view.resizeEvent(None)
 

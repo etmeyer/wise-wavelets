@@ -90,7 +90,7 @@ class PolyRegionEditor(uiutils.UI):
         self.ax.set_title("Click and drag a point to move it; "
                           "'i' to insert; 'd' to delete.")
 
-        x, y = zip(*self.poly.xy)
+        x, y = list(zip(*self.poly.xy))
         self.line = plt.Line2D(x, y, color='none', marker='o', mfc='r',
                                alpha=0.8, animated=True, lw=2, markersize=self.max_ds)
         self._update_line()
@@ -134,9 +134,9 @@ class PolyRegionEditor(uiutils.UI):
             try:
                 poly_region = imgutils.PolyRegion.from_file(filename, self.img.get_coordinate_system())
                 self.load_poly_region(poly_region)
-            except Exception, e:
+            except Exception as e:
                 msg = "Failed to load region %s\n%s" % (filename, e)
-                print msg
+                print(msg)
                 uiutils.error_msg(msg, self)
 
     def on_save_clicked(self, bn):
@@ -151,7 +151,7 @@ class PolyRegionEditor(uiutils.UI):
                 poly_region.to_file(filename, self.img.get_coordinate_system())
             except Exception:
                 msg = "Failed to save region %s" % filename
-                print msg
+                print(msg)
                 uiutils.error_msg(msg, self)
 
     def on_new_clicked(self, bn):
@@ -201,7 +201,7 @@ class PolyRegionEditor(uiutils.UI):
             if ind is None:
                 return
             if ind == 0 or ind == self.last_vert_ind:
-                print "Cannot delete root node"
+                print("Cannot delete root node")
                 return
             self.poly.xy = [tup for i, tup in enumerate(self.poly.xy)
                             if i != ind]
@@ -248,7 +248,7 @@ class PolyRegionEditor(uiutils.UI):
         # save verts because polygon gets deleted when figure is closed
         self.verts = self.poly.xy
         self.last_vert_ind = len(self.poly.xy) - 1
-        self.line.set_data(zip(*self.poly.xy))
+        self.line.set_data(list(zip(*self.poly.xy)))
 
     def get_ind_under_cursor(self, event):
         'get the index of the vertex under cursor if within max_ds tolerance'

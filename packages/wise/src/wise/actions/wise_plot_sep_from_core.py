@@ -4,7 +4,7 @@ from libwise import nputils
 import libwise.scriptshelper as sh
 
 import wise
-import actions
+from . import actions
 
 USAGE = '''Plot separation from core with time
 
@@ -36,7 +36,7 @@ def main():
     ctx = actions.load(name)
 
     if ctx is None:
-        print "No results saved with name %s" % name
+        print("No results saved with name %s" % name)
         sh.usage(True)
 
     scales = args[1]
@@ -44,7 +44,7 @@ def main():
     try:
         scales = nputils.str2floatlist(scales)
     except Exception:
-        print "Error: invalid scales. Available scales: %s" % ctx.result.get_scales()
+        print("Error: invalid scales. Available scales: %s" % ctx.result.get_scales())
         sh.usage(True)
 
     fit_fct = None
@@ -54,8 +54,8 @@ def main():
                                                       min_link_size=min_link_size, fit_fct=fit_fct, pa=pa)
 
     if fit:
-        for link, fit_fct in fit_result.items():
-            print "Fit result for link %s: %.2f +- %.2f mas / year" % (link.get_id(), fit_fct.a, fit_fct.ea)
+        for link, fit_fct in list(fit_result.items()):
+            print("Fit result for link %s: %.2f +- %.2f mas / year" % (link.get_id(), fit_fct.a, fit_fct.ea))
 
 
 if __name__ == '__main__':

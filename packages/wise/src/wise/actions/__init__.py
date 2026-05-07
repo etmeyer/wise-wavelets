@@ -1,12 +1,12 @@
-import wise_settings
-import wise_view
-import wise_info
-import wise_detect
-import wise_match
-import wise_view_features
-import wise_plot_features
-import wise_plot_sep_from_core
-import wise_view_links
-import wise_select_files
-import wise_region
-import wise_stack
+from . import wise_settings
+from . import wise_view
+from . import wise_info
+from . import wise_detect
+from . import wise_match
+from . import wise_view_features
+from . import wise_plot_features
+from . import wise_plot_sep_from_core
+from . import wise_view_links
+from . import wise_select_files
+from . import wise_region
+from . import wise_stack

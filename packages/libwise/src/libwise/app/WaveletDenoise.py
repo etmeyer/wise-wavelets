@@ -4,7 +4,7 @@ Created on May 23, 2012
 @author: fmertens
 '''
 import itertools
-import waveletsui
+from . import waveletsui
 import matplotlib.pyplot as plt
 
 from libwise import imgutils, plotutils, nputils, wtutils, wavelets, uiutils
@@ -55,7 +55,7 @@ class Denoise(object):
         return self._noise_res[frame]
 
     def do(self, img, noise_sigma=None, noise=None, threashold_factor=4):
-        print "Denoising..."
+        print("Denoising...")
         if noise is None and noise_sigma is None:
             noise_sigma = nputils.k_sigma_noise_estimation(img)
 
@@ -75,7 +75,7 @@ class Denoise(object):
                 frame[~mask] = frame[~mask] - threashold
 
         denoised = self.recompose(res, img)
-        print "Done"
+        print("Done")
         return denoised
 
 
@@ -132,7 +132,7 @@ class WaveletDenoise(uiutils.Experience):
             self.noisy = img.data + nputils.gaussian_noise(img.data.shape, 0, self.noise_level.get())
 
         estimated_noise_sigma = nputils.k_sigma_noise_estimation(self.noisy)
-        print "Estimated noise:", estimated_noise_sigma
+        print("Estimated noise:", estimated_noise_sigma)
 
         denoised = denoise.do(self.noisy, estimated_noise_sigma, threashold_factor=self.threashold_factor.get())
         # denoised = nputils.smooth(self.noisy, 9, mode="same", boundary="symm")
@@ -143,7 +143,7 @@ class WaveletDenoise(uiutils.Experience):
         return (img, imgutils.Image.from_image(img, self.noisy), imgutils.Image.from_image(img, denoised))
 
     def after_update(self, result):
-        print "Start update"
+        print("Start update")
         img, noisy, denoised = result
 
         for ax in [self.ax1, self.ax2, self.ax3]:
@@ -158,7 +158,7 @@ class WaveletDenoise(uiutils.Experience):
 
         self.view.figure.tight_layout()
         self.view.draw()
-        print "Done update"
+        print("Done update")
 
 
 def main():

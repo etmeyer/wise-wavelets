@@ -1,9 +1,9 @@
 import os
 import glob
-import appdirs
+from . import appdirs
 import matplotlib
 
-import nputils
+from . import nputils
 
 import pkg_resources
 
@@ -18,7 +18,7 @@ mpl_1_5 = float(matplotlib.__version__[:3]) >= 1.5
 
 def set_rc_preset(preset_name, kargs={}):
     preset = RcPreset.load(preset_name)
-    for key, value in kargs.items():
+    for key, value in list(kargs.items()):
         preset.set_key(key, value)
     preset.apply()
 
@@ -44,22 +44,22 @@ def get_all_presets():
         try:
             preset = RcPreset._load_default(file_name)
             presets_list[preset.get_name()] = preset
-        except Exception, e:
-            print "Error reading %s: %s" % (file_name, e)
+        except Exception as e:
+            print("Error reading %s: %s" % (file_name, e))
 
     for file_name in get_all_user_presets_names():
         try:
             preset = RcPreset._load_user(file_name)
             presets_list[preset.get_name()] = preset
-        except Exception, e:
-            print "Error reading %s: %s" % (file_name, e)
+        except Exception as e:
+            print("Error reading %s: %s" % (file_name, e))
 
     return nputils.get_values_sorted_by_keys(presets_list)
 
 
 def print_all_rc_keys():
     conf = {}
-    for key, value in matplotlib.rcParams.items():
+    for key, value in list(matplotlib.rcParams.items()):
         if "." in key:
             a, b = key.split(".", 1)
             if a not in conf:
@@ -67,10 +67,10 @@ def print_all_rc_keys():
             conf[a].append([b, value])
 
     for key in sorted(conf.keys()):
-        print "=======", key, "======="
+        print("=======", key, "=======")
         for el_key, el_value in conf[key]:
-            print "%s: %s" % (el_key, el_value)
-        print ""
+            print("%s: %s" % (el_key, el_value))
+        print("")
 
 
 class RcPreset(object):
@@ -123,7 +123,7 @@ class RcPreset(object):
         return sorted(list(families))
 
     def get_all(self, display=False):
-        for key, value in self.rc_params.items():
+        for key, value in list(self.rc_params.items()):
             if key in RcPreset.key_blacklist:
                 continue
             value = self.get_key(key, display=display)
@@ -210,7 +210,7 @@ class RcPreset(object):
         elif filename in get_all_default_presets_names():
             return RcPreset._load_default(filename)
         else:
-            print "Preset name '%s' not found" % preset_name
+            print("Preset name '%s' not found" % preset_name)
             return None
 
     def save(self):
@@ -220,17 +220,17 @@ class RcPreset(object):
         path = os.path.join(USER_PRESETS_PATH, filename)
 
         l = ["name:%s\n" % self.name]
-        for key, value in self.rc_params.items():
+        for key, value in list(self.rc_params.items()):
             if key in self.preset_params:
                 l.append("%s:%s\n" % (key, value))
 
         with open(path, 'w') as fd:
             fd.writelines(sorted(l))
 
-        print "Saved preset:", self.get_name()
+        print("Saved preset:", self.get_name())
 
     def apply(self, figure=None, figsize=None):
-        print "Applying preset:", self.name
+        print("Applying preset:", self.name)
         matplotlib.rcParams.update(self.rc_params)
         if figure is not None:
             if figsize is None:
@@ -239,4 +239,4 @@ class RcPreset(object):
 
 
 if __name__ == '__main__':
-    print RcPreset.load('display').get('font', 'fantasy')
+    print(RcPreset.load('display').get('font', 'fantasy'))

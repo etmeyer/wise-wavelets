@@ -32,9 +32,9 @@ from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
 
-import imgutils
-import nputils
-import presetutils
+from . import imgutils
+from . import nputils
+from . import presetutils
 
 
 presetutils.set_rc_preset("display")
@@ -391,7 +391,7 @@ class ColorSelector(object):
         return color
 
     def get_ids(self):
-        return self.ids.keys()
+        return list(self.ids.keys())
 
     def get_legend_handler(self, id):
         color = self.get(id)
@@ -413,7 +413,7 @@ class MarkerSelector(object):
         if len(self.markers) > 0:
             marker = self.markers.pop(0)
         else:
-            marker = random.choice(all_markers.keys())
+            marker = random.choice(list(all_markers.keys()))
 
         if id is not None:
             self.ids[id] = marker
@@ -421,7 +421,7 @@ class MarkerSelector(object):
         return marker
 
     def get_ids(self):
-        return self.ids.keys()
+        return list(self.ids.keys())
 
     def get_legend_handler(self, id):
         marker = self.get(id)
@@ -681,7 +681,7 @@ class BaseFigureStack(object):
                 self.canvas_klass(figure)
                 remove_canvas = True
             filepath = os.path.join(dirpath, '%s_%s%s' % (basename, i, ext))
-            print "Saving: %s" % filepath
+            print("Saving: %s" % filepath)
             figure.savefig(filepath)
             if preset is not None:
                 display_preset.apply(figure)
@@ -700,7 +700,7 @@ class BaseFigureStack(object):
 
     def save_pdf(self, filepath, preset=None):
         pdf = PdfPages(filepath)
-        print "Saving: %s" % filepath
+        print("Saving: %s" % filepath)
         if preset is not None:
             printer_preset = presetutils.RcPreset.load(preset)
             display_preset = presetutils.RcPreset.load("display")

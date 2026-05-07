@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 from libwise import uiutils, wavelets, plotutils
-import waveletsui
+from . import waveletsui
 import numpy as np
 
 

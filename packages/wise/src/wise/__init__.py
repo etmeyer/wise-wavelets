@@ -1,13 +1,13 @@
-from features import *
-from matcher import *
-from scc import *
-from wds import *
-from project import *
-from wiseutils import *
-import tasks
+from .features import *
+from .matcher import *
+from .scc import *
+from .wds import *
+from .project import *
+from .wiseutils import *
+from . import tasks
 
 # We need some extra bits to handle numpy array pickling correctly
-import jsonpickle_numpy
+from . import jsonpickle_numpy
 
 import libwise
 

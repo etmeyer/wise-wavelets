@@ -8,7 +8,7 @@ from libwise.nputils import validator_list, validator_is_class, str2bool, str2js
 
 import jsonpickle as jp
 
-from features import *
+from .features import *
 
 p2i = imgutils.p2i
 logger = logging.getLogger(__name__)
@@ -147,11 +147,11 @@ class Segment(ImageFeature):
             index = [max(0, i[0] - 1), max(0, i[1] - 1), i[2] + 1, i[3] + 1]
             labels = segments.get_labels()[nputils.index2slice(index)]
             interface = nputils.get_interface(labels, self.segmentid)
-            self.interface = dict([(segments.get_segment_from_id(k), v) for k, v in interface.items()])
+            self.interface = dict([(segments.get_segment_from_id(k), v) for k, v in list(interface.items())])
         return self.interface
 
     def get_connected_segments(self):
-        return FeaturesGroup(self.get_interface().keys())
+        return FeaturesGroup(list(self.get_interface().keys()))
 
     def is_connected(self, segment):
         return segment in self.get_connected_segments()
@@ -201,7 +201,7 @@ class SegmentedImages(DatedFeaturesGroup):
         self.img_meta = img.get_meta()
         self.rms_noise = rms_noise
         self.labels = labels
-        self.ids = dict(zip([f.get_segmentid() for f in features], features))
+        self.ids = dict(list(zip([f.get_segmentid() for f in features], features)))
         DatedFeaturesGroup.__init__(self, features, self.get_img().get_epoch())
 
         self.center_of_shape = None
@@ -409,7 +409,7 @@ class SegmentedImages(DatedFeaturesGroup):
         return self.img.data[xs, ys]
 
     def get_segmentids(self):
-        return self.ids.keys()
+        return list(self.ids.keys())
 
     def get_center_of_mass(self, segment):
         if self.center_of_mass is None:
@@ -418,7 +418,7 @@ class SegmentedImages(DatedFeaturesGroup):
             # ids = self.get_segmentids()
             ids = np.unique(labels)
             coms = measurements.center_of_mass(img.data, labels, ids)
-            self.center_of_mass = dict(zip(ids, np.array(coms)))
+            self.center_of_mass = dict(list(zip(ids, np.array(coms))))
         return self.center_of_mass.get(segment.get_segmentid(), segment.get_coord(mode="lm"))
 
     def get_center_of_shape(self, segment):
@@ -427,7 +427,7 @@ class SegmentedImages(DatedFeaturesGroup):
             # ids = self.get_segmentids()
             ids = np.unique(labels)
             coss = measurements.center_of_mass(labels, labels, ids)
-            self.center_of_shape = dict(zip(ids, np.array(coss)))
+            self.center_of_shape = dict(list(zip(ids, np.array(coss))))
         return self.center_of_shape.get(segment.get_segmentid(), segment.get_coord(mode="lm"))
 
     def discard_cache(self, segment=None):
@@ -538,7 +538,7 @@ class Node(object):
         return "Node(%s)" % self.get_id()
 
     def show(self, level):
-        print " " * level + "\-- %s" % self.get_id()
+        print(" " * level + "\-- %s" % self.get_id())
         for child in self.childs:
             child.show(level + 1)
 
@@ -591,9 +591,9 @@ class MultiScaleTree(object):
 
     def show(self):
         for node in self.root.get_childs():
-            print "\n"
+            print("\n")
             node.show(0)
-            print "\n"
+            print("\n")
 
     def add(self, obj, parent=None):
         if parent is None:
@@ -635,7 +635,7 @@ class MultiScaleRelation(object):
 
     def get_relations(self, segment):
         segmented_image = segment.get_segmented_image()
-        if len(self.relations[segmented_image].keys()) == 0:
+        if len(list(self.relations[segmented_image].keys())) == 0:
             return []
         return self.relations[segmented_image][segment]
 
@@ -646,7 +646,7 @@ class AbstractKeyList(list):
         return NotImplemented()
 
     def get_keys(self):
-        return map(self.get_item_key, self)
+        return list(map(self.get_item_key, self))
 
     def get_key(self, key):
         for item in self:
@@ -832,7 +832,7 @@ class MultiScaleImageSet(AbstractKeyList):
 
     def is_full_wds(self):
         try:
-            first_segment = self.features_iter().next()
+            first_segment = next(self.features_iter())
         except StopIteration:
             return False
         return isinstance(first_segment, Segment)
@@ -859,7 +859,7 @@ class MultiScaleImageSet(AbstractKeyList):
 
         np.savetxt(filename, l, ["%f", "%.5f", "%.5f", "%.6f", "%.6f", "%f"],
                    delimiter=' ', header=header)
-        print "Saved MultiScaleImageSet @ %s" % filename
+        print("Saved MultiScaleImageSet @ %s" % filename)
 
     @staticmethod
     def from_file_full(self, projection, image_set):
@@ -875,7 +875,7 @@ class MultiScaleImageSet(AbstractKeyList):
         cs = projection.get_coordinate_system()
         for line in array:
             date = nputils.epoch_to_datetime(line[0])
-            x, y = projection.s2p(map(float, line[1:3]))
+            x, y = projection.s2p(list(map(float, line[1:3])))
             intensity = float(line[3])
             snr = float(line[4])
             if date not in img_metas:
@@ -891,12 +891,12 @@ class MultiScaleImageSet(AbstractKeyList):
                 ms_features[scale] = DatedFeaturesGroupScale(scale, epoch=date)
             ms_features[scale].add_feature(feature)
 
-        for epoch, scales in epochs.items():
+        for epoch, scales in list(epochs.items()):
             ms_features = BaseMultiScaleImage(epoch)
-            ms_features.extend(scales.values())
+            ms_features.extend(list(scales.values()))
             new.append(ms_features)
 
-        print "Loaded MultiScaleImageSet from %s" % file
+        print("Loaded MultiScaleImageSet from %s" % file)
         return new
 
 
@@ -946,7 +946,7 @@ class WaveletMultiscaleDecomposition(AbstractMultiScaleDecomposition):
         else:
             scales_width = [max(1, 2 * min(1, j) * pow(2, max(0, j - 1))) for j in range(min_scale, max_scale)]
 
-        return zip(scales, scales_noise, scales_width)
+        return list(zip(scales, scales_noise, scales_width))
 
 
 class InterscalesWaveletMultiscaleDecomposition(WaveletMultiscaleDecomposition):
@@ -1001,7 +1001,7 @@ class DoGMultiscaleDecomposition(WaveletMultiscaleDecomposition):
         scales_noises = wtutils.dog_noise_factor(self.bg, widths=widths, angle=angle,
                                                  ellipticity=ellipticity, beam=self.img.get_beam())
 
-        return zip(scales, scales_noises, widths)
+        return list(zip(scales, scales_noises, widths))
 
 
 class MinScaleMultiscaleDecomposition(WaveletMultiscaleDecomposition):
@@ -1030,7 +1030,7 @@ class MinScaleMultiscaleDecomposition(WaveletMultiscaleDecomposition):
         scales_noises = wtutils.dec_noise_factor(wtutils.pyramiddec, self.bg, widths=widths, angle=angle,
                                                  ellipticity=ellipticity, beam=self.img.get_beam())
 
-        return zip(scales, scales_noises, widths)
+        return list(zip(scales, scales_noises, widths))
 
 
 class FeaturesFinder(object):

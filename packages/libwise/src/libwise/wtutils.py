@@ -6,9 +6,9 @@ Created on Feb 13, 2012
 
 import numpy as np
 
-import nputils
-import imgutils
-import wavelets
+from . import nputils
+from . import imgutils
+from . import wavelets
 
 
 def get_wavelet_obj(w):
@@ -215,7 +215,7 @@ def dyadic_image(coeffs, shape=None, normalize=True):
                                         for k in shape])]
         for l in range(1, len(coeffs)):
             s = [k / pow(2., len(coeffs) - l) for k in shape]
-            d.append(map(nputils.resize, coeffs[l], [s] * 3))
+            d.append(list(map(nputils.resize, coeffs[l], [s] * 3)))
     else:
         shape = coeffs[-1].shape
         d = coeffs
@@ -227,7 +227,7 @@ def dyadic_image(coeffs, shape=None, normalize=True):
         d[-1] = normalize(d[-1])
         # normalize details
         for l in range(0, len(coeffs) - 1):
-            d[l] = map(normalize, d[l])
+            d[l] = list(map(normalize, d[l]))
 
     res = np.ones(shape)
 

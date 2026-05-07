@@ -51,13 +51,13 @@ def view_links_all_scales(ctx, scales=None, feature_filter=None, min_link_size=2
     .. _tags: task_matching
     '''
     if not ctx.result.has_match_result():
-        print "No result found. Run match_all() first."
+        print("No result found. Run match_all() first.")
         return
 
     scales = wise.tasks._get_scales(scales, ctx.result.get_scales())
 
     if len(scales) == 0:
-        print "No result found for this scales. Available scales:", ctx.result.get_scales()
+        print("No result found for this scales. Available scales:", ctx.result.get_scales())
         return
 
     ref_img = ctx.get_ref_image()
@@ -104,7 +104,7 @@ def main():
     ctx = actions.load(name)
 
     if ctx is None:
-        print "No results saved with name %s" % name
+        print("No results saved with name %s" % name)
         sh.usage(True)
 
     scales = args[1]
@@ -112,7 +112,7 @@ def main():
     try:
         scales = nputils.str2floatlist(scales)
     except Exception:
-        print "Error: invalid scales. Available scales: %s" % ctx.result.get_scales()
+        print("Error: invalid scales. Available scales: %s" % ctx.result.get_scales())
         sh.usage(True)
 
     view_links_all_scales(ctx, scales=scales, min_link_size=min_link_size)

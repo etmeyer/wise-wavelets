@@ -7,7 +7,7 @@ Created on Feb 6, 2012
 import re
 
 import numpy as np
-import wavelets_coefficients as wc
+from . import wavelets_coefficients as wc
 
 from libwise import nputils
 
@@ -25,7 +25,7 @@ class WaveletFamilyBase(object):
         return self.name
 
     def get_orders(self):
-        keys = self.orders.keys()
+        keys = list(self.orders.keys())
         nputils.sort_nicely(keys)
         return keys
 

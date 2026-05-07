@@ -24,7 +24,7 @@ def get_date(date, option):
         return None
     date = nputils.guess_date(date, ["%Y-%m-%d", "%Y_%m_%d"])
     if date is None:
-        print "Error: invalid date format for the option %s" % option
+        print("Error: invalid date format for the option %s" % option)
         sh.usage(True)
     return date
 
@@ -42,7 +42,7 @@ def main():
     files = imgutils.fast_sorted_fits(args, start_date=start_date,
                                       end_date=end_date, filter_dates=filter_dates)
 
-    print "Outputing %s files in '%s'" % (len(files), output_filename)
+    print("Outputing %s files in '%s'" % (len(files), output_filename))
 
     with open(output_filename, 'w') as f:
         f.write("\n".join(files) + "\n")

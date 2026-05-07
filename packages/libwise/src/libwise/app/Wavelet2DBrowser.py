@@ -5,7 +5,7 @@ Created on Feb 21, 2012
 '''
 
 from libwise import uiutils, wavelets, plotutils
-import waveletsui
+from . import waveletsui
 
 
 class Wavelet2DBrowser(uiutils.Experience):
