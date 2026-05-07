@@ -1,9 +1,10 @@
 #! /usr/bin/env python
 
-from libwise import nputils
 import libwise.scriptshelper as sh
+from libwise import nputils
 
 import wise
+
 from . import actions
 
 USAGE = '''Plot separation from core with time

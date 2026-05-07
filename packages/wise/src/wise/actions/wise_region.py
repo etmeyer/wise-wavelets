@@ -1,10 +1,12 @@
 #! /usr/bin/env python
 
 import os
-import wise
+
+import libwise.scriptshelper as sh
 from libwise import imgutils
 from libwise.app import PolyRegionEditor
-import libwise.scriptshelper as sh
+
+import wise
 
 USAGE = '''View and create DS9 type region files
 

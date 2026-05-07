@@ -4,13 +4,14 @@ Created on Feb 10, 2012
 @author: fmertens
 '''
 import datetime
+
 import numpy as np
 import pytest
-from scipy.signal import convolve2d
-
 from libwise import nputils
+
 # from libwise import nputils_c
 from libwise.nputils import assert_equal, assert_raise
+from scipy.signal import convolve2d
 
 
 def _a(x):

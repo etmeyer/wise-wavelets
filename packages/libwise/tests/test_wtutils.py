@@ -4,10 +4,9 @@ Created on Feb 15, 2012
 @author: fmertens
 '''
 
-import pywt
 import numpy as np
-
-from libwise import nputils, wtutils, wavelets
+import pywt
+from libwise import nputils, wavelets, wtutils
 from libwise.nputils import assert_equal
 
 

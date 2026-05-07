@@ -1,39 +1,31 @@
-libwise:
-========
+# libwise
 
-Collection of utilities to handle plotting, wavelet transform, graphical user interface (using Qt5), and much more. Spin-off of the Wavelet Image Segmentation and Evaluation (WISE) software (https://flomertens.github.io/wise/).
+Utilities for plotting, wavelet transforms, image processing, and a PyQt5 UI
+toolkit. Originally a spin-off of the Wavelet Image Segmentation and Evaluation
+(WISE) software; this is a Python 3.11+ modernization fork.
 
-Installation
-------------
+Part of [wise-wavelets](https://github.com/eileen-meyer/wise-wavelets).
 
-You should be able to install libwise using pip or conda (note that wise/libwise is python 2 only):
+## Install
 
-    pip install libwise
+This package is developed inside the wise-wavelets monorepo. From the repo
+root:
 
-or
+```bash
+conda env create -f environment.yml
+conda activate wise-wavelets
+```
 
-    conda install -c flomertens -c conda-forge libwise cython dask
+That installs `libwise` editable alongside its sibling `wisetool` package.
+`pyproject.toml` is the source of truth for runtime dependencies; the `[ui]`
+extra adds PyQt5 for the Qt-based widgets in `libwise.app`.
 
-Alternatively, to install libwise globally:
+## Credit
 
-    python setup.py install
+Forked from [flomertens/libwise](https://github.com/flomertens/libwise). The
+original Python 2 codebase and design are due to Florent Mertens; this fork
+modernizes it for the current scientific-Python stack.
 
-or to install it locally:
+## License
 
-    python setup.py install --user
-
-Requirements
-------------
-
-You need to install (if not done by pip/conda) the following packages:
-
-- numpy (>= 1.5)
-- scipy (>= 0.10)
-- skimage (>= 0.5)
-- astropy (>= 0.4)
-- matplotlib (>= 1.0)
-- pyqt (>= 4.8)
-- pandas
-- pyregion (https://pypi.python.org/pypi/pyregion)
-- uncertainties (https://pypi.python.org/pypi/uncertainties)
-
+GPL-2.0, inherited from upstream.

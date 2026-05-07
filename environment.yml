@@ -1,4 +1,4 @@
-name: wise
+name: wise-wavelets
 channels:
   - conda-forge
   - nodefaults

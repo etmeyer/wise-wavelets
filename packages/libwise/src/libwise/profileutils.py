@@ -5,6 +5,7 @@ Created on Jul 31, 2012
 '''
 
 import cProfile
+
 try:
     import line_profiler
     line_profil = line_profiler.LineProfiler()

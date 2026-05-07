@@ -1,9 +1,10 @@
 #! /usr/bin/env python
 
-from libwise import imgutils
 import libwise.scriptshelper as sh
+from libwise import imgutils
 
 import wise
+
 from . import actions
 
 USAGE = '''Simple image viewer

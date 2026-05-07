@@ -1,11 +1,10 @@
-import os
 import glob
-from . import appdirs
+import os
+from importlib import resources
+
 import matplotlib
 
-from . import nputils
-
-from importlib import resources
+from . import appdirs, nputils
 
 RC_DEFAULTS = matplotlib.RcParams(matplotlib.rcParams.copy())
 
@@ -73,7 +72,7 @@ def print_all_rc_keys():
         print("")
 
 
-class RcPreset(object):
+class RcPreset:
 
     key_blacklist = ['backend', 'toolbar', 'backend_fallback',
                      'interactive', 'timezone', 'datapath']

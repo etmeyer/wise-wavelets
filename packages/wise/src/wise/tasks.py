@@ -1,32 +1,26 @@
+import datetime
+import glob
+import inspect
 import os
 import re
 import sys
 import time
-import glob
-import inspect
-import datetime
 
-import numpy as np
-
-from . import scc
-from . import wds
-from . import matcher
-from . import project
-from . import wiseutils
-from . import features as wfeatures
-
-from libwise import plotutils, nputils, imgutils
-
-import astropy.units as u
 import astropy.constants as const
+import astropy.units as u
+import numpy as np
+from libwise import imgutils, nputils, plotutils
+
+from . import features as wfeatures
+from . import matcher, project, scc, wds, wiseutils
 
 unit_c = u.core.Unit("c", const.c, doc="light speed")
 
 
 def build_final_dfc(ctx, merge_file, final_sep):
     '''Build a final separation file from a merge file.
-    
-    Merge file shall be located in ctx.get_data_dir(). 
+
+    Merge file shall be located in ctx.get_data_dir().
     One final component per line, described by a list of link id separated by a ','.
 
     Parameters
@@ -55,7 +49,7 @@ def build_final_dfc(ctx, merge_file, final_sep):
 
 def info_files(ctx):
     '''Print List of selected files with information on beam and pixel scales
-    
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -75,12 +69,12 @@ def info_files(ctx):
         if isinstance(beam, imgutils.GaussianBeam):
             b = [k * beam.bmin, k * beam.bmaj, beam.bpa]
             # beam_str = "%.3f, %.3f, %.3f" % (b[0] * u, b[1] * u, b[2])
-            beam_str = "{0:.3f}, {1:.3f}, {2:.2f}".format(b[0] * u, b[1] * u, b[2])
+            beam_str = f"{b[0] * u:.3f}, {b[1] * u:.3f}, {b[2]:.2f}"
             data_beam.append([b[0], b[1], b[2]])
         else:
             beam_str = str(beam)
         shape_str = "%sx%s" % img.data.shape
-        data_table.append([os.path.basename(file), date, shape_str, "{0:.3f}".format(k * u), beam_str])
+        data_table.append([os.path.basename(file), date, shape_str, f"{k * u:.3f}", beam_str])
 
     print(nputils.format_table(data_table, header))
     print("Number of files: %s" % (len(ctx.files)))
@@ -90,7 +84,7 @@ def info_files(ctx):
 
 def set_stack_image_as_ref(ctx, nsigma=3, nsigma_connected=True):
     '''Set the reference image from a stacked images
-        
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -102,7 +96,7 @@ def set_stack_image_as_ref(ctx, nsigma=3, nsigma_connected=True):
 
     .. _tags: task_conf_helper
     '''
-    stack_img = ctx.build_stack_image(preprocess=False, nsigma=nsigma, 
+    stack_img = ctx.build_stack_image(preprocess=False, nsigma=nsigma,
                                       nsigma_connected=nsigma_connected)
 
     ctx.set_ref_image(stack_img)
@@ -110,7 +104,7 @@ def set_stack_image_as_ref(ctx, nsigma=3, nsigma_connected=True):
 
 def set_mask_from_stack_img(ctx, nsigma=3, nsigma_connected=True):
     """Set the mask image from a stacked images
-    
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -123,7 +117,7 @@ def set_mask_from_stack_img(ctx, nsigma=3, nsigma_connected=True):
     .. _tags: task_conf_helper
     """
     def mask_fct(ctx):
-        stack_img = ctx.build_stack_image(preprocess=False, nsigma=nsigma, 
+        stack_img = ctx.build_stack_image(preprocess=False, nsigma=nsigma,
                                           nsigma_connected=nsigma_connected)
 
         return stack_img
@@ -133,8 +127,8 @@ def set_mask_from_stack_img(ctx, nsigma=3, nsigma_connected=True):
 
 def info_files_delta(ctx, delta_time_unit=u.day, angular_velocity_unit=u.mas / u.year,
                      proper_velocity_unit=unit_c):
-    '''Print List of selected pair of files with information on velocity resolution 
-    
+    '''Print List of selected pair of files with information on velocity resolution
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -149,8 +143,8 @@ def info_files_delta(ctx, delta_time_unit=u.day, angular_velocity_unit=u.mas / u
     all_velocity_c_px = []
     all_velocity_px = []
     data = []
-    header = ["Date 1", "Date 2", "Delta (%s)" % delta_time_unit, 
-            "Angular vel. res. (%s)" % angular_velocity_unit, 
+    header = ["Date 1", "Date 2", "Delta (%s)" % delta_time_unit,
+            "Angular vel. res. (%s)" % angular_velocity_unit,
             "Proper vel. res. (%s)" % proper_velocity_unit]
     has_distance = ctx.config.data.object_distance or ctx.config.data.object_z
     for file1, file2 in nputils.pairwise(ctx.files):
@@ -193,7 +187,7 @@ def info_files_delta(ctx, delta_time_unit=u.day, angular_velocity_unit=u.mas / u
 
 def detection_all(ctx, filter=None):
     '''Run the Segmented wavelet decomposition on all selected files
-    
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -211,7 +205,7 @@ def detection_all(ctx, filter=None):
 
 def match_all(ctx, filter=None):
     '''Run matching on all selected files
-    
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -269,7 +263,7 @@ def bootstrap_matching(ctx, n=100, filter=None, cb_post_match=None):
             remaining = (np.round((time.time() - t) / float(i) * (n - i)))
             eta = " (ETA: %s)" % time.strftime("%H:%M:%S", time.localtime(time.time() + remaining))
         print("Run %s / %s%s" % (i + 1, n, eta))
-        
+
         shuffled = nputils.permutation_no_succesive(all_epochs)
         match_ratio_list = []
         match_results = project.AnalysisResult(ctx.config)
@@ -310,7 +304,7 @@ def bootstrap_matching(ctx, n=100, filter=None, cb_post_match=None):
 
 def save(ctx, name, coord_mode='com', measured_delta=True):
     '''Save current result to disk
-    
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -333,7 +327,7 @@ def save(ctx, name, coord_mode='com', measured_delta=True):
     if not os.path.exists(path):
         os.mkdir(path)
     ctx.result.detection.to_file(os.path.join(path, "%s.ms.dat" % name), projection, coord_mode=coord_mode)
-    ctx.result.link_builder.to_file(os.path.join(path, name), projection, 
+    ctx.result.link_builder.to_file(os.path.join(path, name), projection,
                                coord_mode=coord_mode, measured_delta=measured_delta)
     ctx.result.image_set.to_file(os.path.join(path, "%s.set.dat" % name), projection)
     ctx.result.config.to_file(os.path.join(path, "%s.conf" % name))
@@ -341,7 +335,7 @@ def save(ctx, name, coord_mode='com', measured_delta=True):
 
 def load(ctx, name, projection=None, merge_with_previous=False, min_link_size=2):
     '''Load result from files
-    
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -353,7 +347,7 @@ def load(ctx, name, projection=None, merge_with_previous=False, min_link_size=2)
         If True, this result will be added to current result
     min_link_size : int, optional
         Filter out links with size < min_link_size
-    
+
 
     .. _tags: task_general
     '''
@@ -361,7 +355,7 @@ def load(ctx, name, projection=None, merge_with_previous=False, min_link_size=2)
     if projection is None:
         ref_img = ctx.get_ref_image()
         projection = ctx.get_projection(ref_img)
-        
+
     path = os.path.join(ctx.get_data_dir(), name)
     if not os.path.isdir(path):
         print("No results saved with name %s" % name)
@@ -370,13 +364,13 @@ def load(ctx, name, projection=None, merge_with_previous=False, min_link_size=2)
     img_set_file = os.path.join(path, "%s.set.dat" % name)
     ms_detec_file = os.path.join(path, "%s.ms.dat" % name)
     link_builder_name = os.path.join(path, name)
-    
+
     image_set = imgutils.ImageSet.from_file(img_set_file, projection)
 
     detection = matcher.MultiScaleImageSet.from_file(ms_detec_file, projection,
                                     image_set)
 
-    link_builder = matcher.MultiScaleFeaturesLinkBuilder.from_file(link_builder_name, 
+    link_builder = matcher.MultiScaleFeaturesLinkBuilder.from_file(link_builder_name,
                                     projection, image_set, min_link_size=min_link_size)
     ms_match_results = link_builder.get_ms_match_results()
 
@@ -393,10 +387,10 @@ def load(ctx, name, projection=None, merge_with_previous=False, min_link_size=2)
         ctx.result.ms_match_results = ms_match_results
 
 
-def view_all(ctx, preprocess=True, show_mask=True, show_regions=[], save_filename=None, 
+def view_all(ctx, preprocess=True, show_mask=True, show_regions=[], save_filename=None,
             align=True, **kwargs):
     '''Preview all images
-    
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -463,10 +457,10 @@ def view_all(ctx, preprocess=True, show_mask=True, show_regions=[], save_filenam
         stack.show()
 
 
-def view_stack(ctx, preprocess=True, nsigma=0, nsigma_connected=False, show_mask=True, show_regions=[], 
+def view_stack(ctx, preprocess=True, nsigma=0, nsigma_connected=False, show_mask=True, show_regions=[],
                   intensity_colorbar=False, save_filename=None, **kwargs):
     '''Preview the stack image
-    
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -494,13 +488,13 @@ def view_stack(ctx, preprocess=True, nsigma=0, nsigma_connected=False, show_mask
 
     stack = plotutils.FigureStack()
 
-    stack_img = ctx.build_stack_image(preprocess=preprocess, nsigma=nsigma, 
+    stack_img = ctx.build_stack_image(preprocess=preprocess, nsigma=nsigma,
                                       nsigma_connected=nsigma_connected)
 
     def do_plot(fig):
         ax = fig.subplots()
 
-        plotutils.imshow_image(ax, stack_img, projection=ctx.get_projection(stack_img), 
+        plotutils.imshow_image(ax, stack_img, projection=ctx.get_projection(stack_img),
                                intensity_colorbar=intensity_colorbar, **kwargs)
         if ctx.get_mask() is not None and show_mask is True:
             ax.contour(ctx.get_mask().data, [0.5])
@@ -518,7 +512,7 @@ def view_stack(ctx, preprocess=True, nsigma=0, nsigma_connected=False, show_mask
 
 def view_wds(ctx, title=True, num=True, scales=None, save_filename=None, **kwargs):
     '''Plot WDS decomposition
-    
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -561,7 +555,7 @@ def view_wds(ctx, title=True, num=True, scales=None, save_filename=None, **kwarg
         ax = fig.subplots(n=len(scales), reshape=False)
         for ax, scale in zip(ax, scales):
             segments = ms_result.get_scale(scale)
-            wiseutils.imshow_segmented_image(ax, segments, title=title, 
+            wiseutils.imshow_segmented_image(ax, segments, title=title,
                 projection=projection, num=num, **kwargs)
 
     for epoch in detection_result.get_epochs():
@@ -574,10 +568,10 @@ def view_wds(ctx, title=True, num=True, scales=None, save_filename=None, **kwarg
         stack.show()
 
 
-def view_all_features(ctx, scales, region_list=None, legend=False, feature_filter=None, 
+def view_all_features(ctx, scales, region_list=None, legend=False, feature_filter=None,
                       save_filename=None, **img_kargs):
     ''' Plot all features location
-    
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -586,7 +580,7 @@ def view_all_features(ctx, scales, region_list=None, legend=False, feature_filte
     region_list : list of :class:`libwise.imgutils.Region`, optional
         Plot the regions, and set the features color according to the region
     legend : bool, optional
-        Add a legend 
+        Add a legend
     feature_filter : :class:`wise.features.FeatureFilter`, optional
         Filter the results
     save_filename : TYPE, optional
@@ -628,7 +622,7 @@ def view_all_features(ctx, scales, region_list=None, legend=False, feature_filte
                 features = wds.DatedFeaturesGroupScale(0, features=gdata.features.values)
 
                 wiseutils.plot_features(ax_all, features, mode='com', c=region.get_color(), label=region.get_name())
-                plotutils.plot_region(ax_all, region, projection=projection, text=False, 
+                plotutils.plot_region(ax_all, region, projection=projection, text=False,
                                       color=region.get_color(), fill=True)
         else:
             features = wds.DatedFeaturesGroupScale(0, features=data.df.features.values)
@@ -646,10 +640,10 @@ def view_all_features(ctx, scales, region_list=None, legend=False, feature_filte
         stack.show()
 
 
-def plot_separation_from_core(ctx, scales=None, feature_filter=None, min_link_size=2, title=True, 
+def plot_separation_from_core(ctx, scales=None, feature_filter=None, min_link_size=2, title=True,
                             pa=False, snr=False, num=False, fit_fct=None, save_filename=None, **kwargs):
     """Plot separation from core with time
-    
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -698,7 +692,7 @@ def plot_separation_from_core(ctx, scales=None, feature_filter=None, min_link_si
     def do_plot(fig, scale):
         link_builder = link_builders.get_scale(scale)
 
-        links = list(link_builder.get_links(feature_filter=feature_filter, 
+        links = list(link_builder.get_links(feature_filter=feature_filter,
                         min_link_size=min_link_size))
         ax = fig.subplots(nrows=1 + int(pa or snr), reshape=False, sharex=True)
 
@@ -737,7 +731,7 @@ def plot_separation_from_core(ctx, scales=None, feature_filter=None, min_link_si
 
 def plot_all_features(ctx, scales=None, pa=False, feature_filter=None, save_filename=None):
     """Plot all features distance from core with time
-    
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -787,7 +781,7 @@ def plot_all_features(ctx, scales=None, pa=False, feature_filter=None, save_file
 
         ax[-1].set_xlabel("Epoch (years)")
         ax[0].set_ylabel("Distance from core (mas)")
-        
+
         if pa:
             ax[1].set_ylabel("PA (rad)")
 
@@ -802,7 +796,7 @@ def plot_all_features(ctx, scales=None, pa=False, feature_filter=None, save_file
 
 def view_displacements(ctx, scale, feature_filter=None, title=True, save_filename=None):
     '''Plot individual match results at specified scale
-    
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -840,7 +834,7 @@ def view_displacements(ctx, scale, feature_filter=None, title=True, save_filenam
         match_result = ms_match_result.get_scale(scale)
 
         segments1, segments2, match, delta_info = match_result.get_all(feature_filter=feature_filter)
-        
+
         ax = figure.subplots()
 
         axtitle = 'Displacements vector at scale %s' % projection.get_sky(segments1.get_scale())
@@ -854,7 +848,7 @@ def view_displacements(ctx, scale, feature_filter=None, title=True, save_filenam
             axtitle += '\n%s vs %s' % (segments1.get_epoch(), segments2.get_epoch())
             bg = ref_img
 
-        wiseutils.plot_displacements(ax, segments1, segments2, delta_info, 
+        wiseutils.plot_displacements(ax, segments1, segments2, delta_info,
                              projection=projection, bg=bg)
 
         if title:
@@ -873,7 +867,7 @@ def view_displacements(ctx, scale, feature_filter=None, title=True, save_filenam
 def view_links(ctx, scales=None, feature_filter=None, min_link_size=2, map_cmap='YlGnBu_r',
                vector_width=6, title=True, color_style='link', save_filename=None, **kwargs):
     '''Plot all components trajectories on a map
-    
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -923,8 +917,8 @@ def view_links(ctx, scales=None, feature_filter=None, min_link_size=2, map_cmap=
         link_builder = link_builders.get_scale(scale)
         links = link_builder.get_links(feature_filter=feature_filter, min_link_size=min_link_size)
 
-        wiseutils.plot_links_map(ax, ref_img, projection, links, color_style=color_style, 
-                                   map_cmap=map_cmap, vector_width=vector_width, 
+        wiseutils.plot_links_map(ax, ref_img, projection, links, color_style=color_style,
+                                   map_cmap=map_cmap, vector_width=vector_width,
                                    link_id_label=False, **kwargs)
 
         if isinstance(title, bool) and title is True:
@@ -942,7 +936,7 @@ def view_links(ctx, scales=None, feature_filter=None, min_link_size=2, map_cmap=
         stack.show()
 
 
-def get_velocities_data(ctx, scales=None, region_list=None, min_link_size=2, 
+def get_velocities_data(ctx, scales=None, region_list=None, min_link_size=2,
                         feature_filter=None, add_match_features=False,
                         **kargs):
     if not ctx.result.has_match_result():
@@ -959,17 +953,17 @@ def get_velocities_data(ctx, scales=None, region_list=None, min_link_size=2,
     prj = ctx.get_projection(ref_img)
 
     data = wiseutils.VelocityData.from_results(ctx.get_result(), prj, scales=scales, **kargs)
-    
+
     if feature_filter is not None:
         data.filter(feature_filter)
 
     data.df = data.df.groupby('link_id').filter(lambda x: len(x) > min_link_size)
-    
+
     if add_match_features:
         features = wfeatures.FeaturesGroup()
-        added_idx = [] 
+        added_idx = []
         for idx, match in zip(data.df.index, data.df.match):
-            if not match in data.df.features.values:
+            if match not in data.df.features.values:
                 features.add_feature(match)
                 added_idx.append(idx)
         data.add_features_group(features, prj)
@@ -983,7 +977,7 @@ def get_velocities_data(ctx, scales=None, region_list=None, min_link_size=2,
 
 def create_poly_region(ctx, img=None, features=None):
     '''Create a region file
-    
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -1011,7 +1005,7 @@ def create_poly_region(ctx, img=None, features=None):
 
 def list_saved_results(ctx):
     '''List all saved results
-    
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -1114,7 +1108,7 @@ def load_detection_stack_image(ctx, name, preprocess=True):
     return stack_img, img_snr, img_count
 
 
-def preview_detection_stack(ctx, stack_detection_name, count_threshold=0, ms_set=None, 
+def preview_detection_stack(ctx, stack_detection_name, count_threshold=0, ms_set=None,
                             date_filter=None, show_regions=[]):
     ''' Plot detection in stack'''
     stack = plotutils.FigureStack()
@@ -1165,7 +1159,7 @@ def preview_detection_stack(ctx, stack_detection_name, count_threshold=0, ms_set
 
 def stack_cross_correlation(ctx, config, debug=0, nwise=2, stack=None):
     """Perform a Stack Cross Correlation analysis
-    
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -1173,7 +1167,7 @@ def stack_cross_correlation(ctx, config, debug=0, nwise=2, stack=None):
     debug : int, optional
     nwise : int, optional
     stack : :class:`libwise.plotutils.FigureStack`, optional
-    
+
     Returns
     -------
     :class:`wise.scc.StackCrossCorrelation` : a StackCrossCorrelation containing the results of the analysis
@@ -1205,10 +1199,10 @@ def stack_cross_correlation(ctx, config, debug=0, nwise=2, stack=None):
     return scc_result
 
 
-def bootstrap_scc(ctx, config, output_dir, n, nwise = 2, append=False, 
+def bootstrap_scc(ctx, config, output_dir, n, nwise = 2, append=False,
                   verbose=False, seperate_scales=False):
     """Perform Stack Cross Correlation analysis n time and store results in output_dir
-    
+
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
@@ -1295,7 +1289,7 @@ def bootstrap_scc(ctx, config, output_dir, n, nwise = 2, append=False,
             res2 = all_res2[shuffled_pair[-1]]
 
             # for segments2, segments2_img in zip(res2, all_segments2_img[shuffled_pair[-1]]):
-            #     segments2.get_img().data = nputils.shift2d(segments2_img, 
+            #     segments2.get_img().data = nputils.shift2d(segments2_img,
             #                                     np.random.uniform(-random_shift, random_shift, 2))
 
             res1.epoch = epoch_pair[0]
@@ -1312,7 +1306,7 @@ def bootstrap_scc(ctx, config, output_dir, n, nwise = 2, append=False,
         if seperate_scales:
             for scale, gncc_map in list(scc_result.get_mean_ncc_scales(smooth_len=1).items()):
                 save_dir = os.path.join(output_dir, "scale_%s" % scale)
-                
+
                 if not os.path.exists(save_dir):
                     os.mkdir(save_dir)
 
@@ -1328,7 +1322,7 @@ def _get_scales(scales, all_scales):
     if isinstance(scales, (list, set, np.ndarray)):
         return sorted(set(scales) & set(all_scales))
     if isinstance(scales, (int, float)):
-        if not scales in all_scales:
+        if scales not in all_scales:
             return []
         return [scales]
     return sorted(all_scales)
@@ -1371,7 +1365,7 @@ def _test_load_3c120_config():
         core = ctx.get_projection(img).p2s(plotutils.p2i(core))
 
         return core
-        
+
     ctx.config.data.bg_fct = get_bg
     ctx.config.data.mask_fct = build_mask
     ctx.config.data.pre_process_fct = pre_process
@@ -1406,7 +1400,7 @@ def _test_3c120_plot_distance_from_core():
     dfc_filter = wfeatures.DfcFilter(0, 10, u.mas)
     dfc_filter2 = wfeatures.DfcFilter(5, 25, u.mas)
 
-    feature_filter = (date_filter & dfc_filter) | (date_filter2 & dfc_filter2) 
+    feature_filter = (date_filter & dfc_filter) | (date_filter2 & dfc_filter2)
 
     plot_separation_from_core(ctx, scales=None, feature_filter=None, pa=False, fit_fct=nputils.LinearFct)
 
@@ -1423,7 +1417,7 @@ def _test_3c120_view_links():
     dfc_filter = wfeatures.DfcFilter(0, 10, u.mas)
     dfc_filter2 = wfeatures.DfcFilter(5, 25, u.mas)
 
-    feature_filter = (date_filter & dfc_filter) | (date_filter2 & dfc_filter2) 
+    feature_filter = (date_filter & dfc_filter) | (date_filter2 & dfc_filter2)
 
     view_links(ctx, scales=8, feature_filter=feature_filter)
 
@@ -1438,7 +1432,7 @@ def _test_3c120_plot_all_features():
     dfc_filter = wfeatures.DfcFilter(0, 10, u.mas)
     dfc_filter2 = wfeatures.DfcFilter(5, 25, u.mas)
 
-    feature_filter = (date_filter & dfc_filter) | (date_filter2 & dfc_filter2) 
+    feature_filter = (date_filter & dfc_filter) | (date_filter2 & dfc_filter2)
 
     # load(ctx, "ms_sep5", min_link_size=5)
     # detection_all(ctx)

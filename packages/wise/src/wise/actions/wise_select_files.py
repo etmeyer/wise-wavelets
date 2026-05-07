@@ -1,7 +1,7 @@
 #! /usr/bin/env python
 
-from libwise import imgutils, nputils
 import libwise.scriptshelper as sh
+from libwise import imgutils, nputils
 
 import wise
 

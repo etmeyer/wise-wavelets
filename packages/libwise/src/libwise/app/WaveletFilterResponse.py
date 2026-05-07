@@ -1,7 +1,8 @@
-from . import waveletsui
 import numpy as np
 
-from libwise import signalutils, uiutils, plotutils, nputils, wtutils, wavelets
+from libwise import nputils, plotutils, signalutils, uiutils, wavelets, wtutils
+
+from . import waveletsui
 
 
 class WaveletFilterResponse(uiutils.Experience):

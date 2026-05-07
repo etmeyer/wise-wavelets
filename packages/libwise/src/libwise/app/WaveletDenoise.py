@@ -4,13 +4,15 @@ Created on May 23, 2012
 @author: fmertens
 '''
 import itertools
-from . import waveletsui
+
 import matplotlib.pyplot as plt
 
-from libwise import imgutils, plotutils, nputils, wtutils, wavelets, uiutils
+from libwise import imgutils, nputils, plotutils, uiutils, wavelets, wtutils
+
+from . import waveletsui
 
 
-class Denoise(object):
+class Denoise:
 
     def __init__(self, wavelet='db1', level=3, boundary="symm",
                  dec=wtutils.uwt, rec=wtutils.uwt_inv, mode="hard", thread=None):

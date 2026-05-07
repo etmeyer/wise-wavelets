@@ -1,12 +1,10 @@
 import datetime
 
-import numpy as np
-from scipy.ndimage import rotate, zoom
-
-from libwise import nputils, imgutils, plotutils
-
 import astropy.units as u
+import numpy as np
 from astropy.time import TimeDelta
+from libwise import imgutils, nputils, plotutils
+from scipy.ndimage import rotate, zoom
 
 p2i = plotutils.p2i
 
@@ -34,7 +32,7 @@ class SCCConfiguration(nputils.BaseConfiguration):
         nputils.BaseConfiguration.__init__(self, data, title="Stack cross correlation configuration")
 
 
-class StackCrossCorrelation(object):
+class StackCrossCorrelation:
 
     def __init__(self, config, debug=0, stack=None, verbose=True):
         self.unit = config.get("unit")
@@ -56,7 +54,7 @@ class StackCrossCorrelation(object):
 
         self.global_ncc_scales = dict()
         self.global_ncc_scales_n = dict()
-        self.global_ncc_extent = np.array([-self.bounds[2], self.bounds[3], 
+        self.global_ncc_extent = np.array([-self.bounds[2], self.bounds[3],
                                            -self.bounds[0], self.bounds[1]])
 
     def ncc_segment(self, segment1, segments2, tol):
@@ -140,7 +138,7 @@ class StackCrossCorrelation(object):
 
                 if self.mode == 'ncc_peaks_direct':
                     region1 = segment1.get_image_region()
-                    
+
                     if min(region1.get_region().shape) <= 3:
                         continue
 
@@ -212,13 +210,13 @@ class StackCrossCorrelation(object):
                         r1 = segment1.get_image_region()
                         ax0.imshow(r1.get_region())
                         i2 = nputils.zoom(segments2.get_img().get_data(), r1.get_center(), [2 * tol_pix, 2 * tol_pix])
-                        ax1.imshow(i2, norm=plotutils.LogNorm(), 
+                        ax1.imshow(i2, norm=plotutils.LogNorm(),
                                    extent=(-tol_pix, tol_pix, -tol_pix, tol_pix))
                         plotutils.img_axis(ax1)
 
                         ax2.imshow(ncc, extent=self.global_ncc_extent)
                         plotutils.img_axis(ax2)
-                    
+
                     all_ncc.append(ncc)
 
                     if all_ncc_shape is None:
@@ -267,19 +265,19 @@ class StackCrossCorrelation(object):
             mean_global_ncc_scales = self.get_mean_ncc_scales(smooth_len=5)
 
             fig, ax0 = self.stack.add_subplots("Global NCC", ncols=1)
-            
+
             peaks = nputils.find_peaks(global_ncc, 3, global_ncc.mean() + 2 * global_ncc.std(), fit_gaussian=True)
             peaks = sorted(peaks, key=lambda p: global_ncc[tuple(p)], reverse=True)
             if len(peaks) < 10:
                 for peak in peaks:
                     p = (np.array(peak) / float(self.factor) - np.array([self.bounds[0], self.bounds[2]]))
                     print("Peak at %s (norm:%s, intensity:%s, pix:%s)" % (p[::-1], np.linalg.norm(p), global_ncc[tuple(peak)], peak))
-            
+
             ax0.imshow(global_ncc, extent=self.global_ncc_extent)
             plotutils.img_axis(ax0)
 
             for scale, ncc in nputils.get_items_sorted_by_keys(mean_global_ncc_scales):
-                if ncc.ndim != 2: 
+                if ncc.ndim != 2:
                     continue
                 fig, ax = self.stack.add_subplots("Global NCC scale %s" % scale, ncols=1)
                 ax.imshow(ncc, extent=self.global_ncc_extent)

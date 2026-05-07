@@ -1,29 +1,34 @@
-import os
-import re
 import glob
 import itertools
+import os
+import re
 from collections import defaultdict
-
-import numpy as np
-from scipy.cluster.hierarchy import linkage
-
-from .wds import *
-from .features import *
-
-from libwise import nputils, imgutils, plotutils
-from libwise.nputils import validator_is, is_callable, validator_in_range, validator_in
-from libwise.nputils import validator_list, validator_is_class, str2bool, str2jsonclass
+from functools import reduce
 
 import jsonpickle as jp
-
+import numpy as np
 from astropy import units as u
-from functools import reduce
+from libwise import imgutils, nputils, plotutils
+from libwise.nputils import (
+    is_callable,
+    str2bool,
+    str2jsonclass,
+    validator_in,
+    validator_in_range,
+    validator_is,
+    validator_is_class,
+    validator_list,
+)
+from scipy.cluster.hierarchy import linkage
+
+from .features import *
+from .wds import *
 
 p2i = imgutils.p2i
 logger = logging.getLogger(__name__)
 
 
-class FeaturesLink(object):
+class FeaturesLink:
 
     def __init__(self, first, color, id, delta=None):
         # MEM ISSUE: using dict here does not scale well with increasing
@@ -167,7 +172,7 @@ def reset_links_colors(links):
         link.set_color(self.color_selector.get())
 
 
-class FeaturesLinkBuilder(object):
+class FeaturesLinkBuilder:
 
     TYPE = '.dfc.dat'
     FORMATS = {6: 0, 8: 1, 9: 2}
@@ -232,8 +237,7 @@ class FeaturesLinkBuilder(object):
 
     def get_all_features(self):
         for link in list(self.links.values()):
-            for feature in link.get_features():
-                yield feature
+            yield from link.get_features()
 
     def get_features_id_mapping(self):
         result = dict()
@@ -367,7 +371,7 @@ class FeaturesLinkBuilder(object):
         link_ids = list(map(str, link_ids))
         new = self.copy()
         for id, link in list(self.links.items()):
-            if not id in link_ids:
+            if id not in link_ids:
                 del new.links[id]
         return new
 
@@ -430,7 +434,7 @@ class FeaturesLinkBuilder(object):
             # TODO: check why we need -x
             x, y = projection.s2p([-x, y])
             component_id = str(line[5])
-            if filter is not None and not component_id in filter:
+            if filter is not None and component_id not in filter:
                 continue
             if date not in img_metas:
                 img_metas[date] = imgutils.ImageMeta(date, coord_sys, image_set.get_beam(date))
@@ -485,7 +489,7 @@ class FeaturesLinkBuilder(object):
                 inext = 5
             component_id = str(line[inext])
             related_id = str(line[inext + 1])
-            if filter is not None and not component_id in filter:
+            if filter is not None and component_id not in filter:
                 continue
             if date not in img_metas:
                 img_metas[date] = imgutils.ImageMeta(date, coord_sys, image_set.get_beam(date))
@@ -517,7 +521,7 @@ class FeaturesLinkBuilder(object):
         return new
 
 
-class MultiScaleFeaturesLinkBuilder(object):
+class MultiScaleFeaturesLinkBuilder:
 
     TYPE = '.ms' + FeaturesLinkBuilder.TYPE
 
@@ -621,7 +625,7 @@ class MergedFeatureLink(FeaturesLink):
                 self.add(feature, link.get_delta(feature))
 
 
-class MergeLinkId(object):
+class MergeLinkId:
 
     def __init__(self, link, start=None, end=None):
         self.link = link
@@ -675,7 +679,7 @@ class MergedFeatureLinkBuilder(FeaturesLinkBuilder):
             self.add(link)
 
 
-class BaseScaleMatcher(object):
+class BaseScaleMatcher:
 
     def __init__(self, segments1, segments2, upper_delta_info=None, match_config=None):
         self.segments1 = segments1
@@ -751,7 +755,7 @@ class BaseScaleMatcher(object):
     def check_delta(self, feature, delta):
         if self.get_delta_filter() is not None:
             key = (feature, tuple(delta))
-            if not key in self.delta_check_cache:
+            if key not in self.delta_check_cache:
                 delta_obj = Delta(feature, delta, self.get_delta_time())
                 self.delta_check_cache[key] = self.get_delta_filter().filter(delta_obj)
             return self.delta_check_cache[key]
@@ -1182,7 +1186,7 @@ class ScaleMatcherMSCSC2(BaseScaleMatcher):
 
     def get_matchin_item(self, features1, features2):
         key = (features1, features2)
-        if not key in self._matching_items_cache:
+        if key not in self._matching_items_cache:
             matching_item = MatchingItem(*key)
             self._matching_items_cache[key] = matching_item
 
@@ -1372,7 +1376,7 @@ class ScaleMatcherMSCSC2(BaseScaleMatcher):
         return None
 
 
-class DeltaInfoComparator(object):
+class DeltaInfoComparator:
 
     def __init__(self, segments1, segments2):
         self.delta_infos = []
@@ -2018,10 +2022,10 @@ class ScaleMatcherMSCC(BaseScaleMatcher):
 class NullFeature(Feature):
 
     def __init__(self):
-        super(NullFeature, self).__init__([0, 0], 0)
+        super().__init__([0, 0], 0)
 
 
-class MatchingItem(object):
+class MatchingItem:
 
     def __init__(self, set1, set2, delta=[0, 0], scale_delta=[0, 0], correlation=0):
         self._set1 = frozenset(set1)
@@ -2080,14 +2084,11 @@ class MatchingItem(object):
     def set_correlation(self, value):
         self._correlation = value
 
-    def get_correlation(self):
-        return self._correlation
-
     def size(self):
         return len(self._set1) + len(self._set2)
 
 
-class MatchingGroup(object):
+class MatchingGroup:
 
     def __init__(self):
         self.list = []
@@ -2123,7 +2124,7 @@ class MatchingGroup(object):
 class ScaleMatchingGroup(MatchingGroup):
 
     def __init__(self):
-        super(ScaleMatchingGroup, self).__init__()
+        super().__init__()
 
     def group_independant(self):
         newgroup = MatchingGroup()
@@ -2207,7 +2208,7 @@ class MatcherConfiguration(nputils.BaseConfiguration):
                 validator_is(bool), str2bool, str, 1],
         ]
 
-        super(MatcherConfiguration, self).__init__(data, title="Matcher configuration")
+        super().__init__(data, title="Matcher configuration")
 
 
 class ScaleMatchResult:
@@ -2296,7 +2297,7 @@ class MultiScaleMatchResultSet(AbstractKeyList):
         return self.get_key(epoch)
 
 
-class ImageMatcher(object):
+class ImageMatcher:
 
     def __init__(self, finder_config, match_config, filter=None):
         self.finder_config = finder_config

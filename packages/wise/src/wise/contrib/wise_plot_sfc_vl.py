@@ -2,12 +2,11 @@
 
 import os
 
-import libwise
-from libwise import nputils
-import libwise.scriptshelper as sh
-
-import wise
 import actions
+import libwise
+import libwise.scriptshelper as sh
+import wise
+from libwise import nputils
 
 USAGE = '''Plot separation from core with time
 
@@ -19,7 +18,7 @@ SCALES: coma separated list of scales to plot.
 Additional options:
 --pa, -p: Additionally plot the features positional angle vs epoch
 --fit, -f: fit each links with a linear fct
---num, -n: Annotate each links 
+--num, -n: Annotate each links
 --min-link-size=INT, -m INT: Filter out links with size < min_link_size (default=2)
 '''
 

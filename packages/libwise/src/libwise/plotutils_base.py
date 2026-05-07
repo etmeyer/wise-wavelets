@@ -1,35 +1,32 @@
-import os
 import ast
-import shutil
-import random
-import tempfile
 import datetime
-import numpy as np
+import os
+import random
+import shutil
+import tempfile
 
 import matplotlib
 import matplotlib.animation as animation
 import matplotlib.cm as cm
-import matplotlib.ticker as mticker
-import matplotlib.dates as mdates
 import matplotlib.colors as mcolors
-
-from matplotlib.text import Text
-from matplotlib.lines import Line2D
-from matplotlib.image import AxesImage
+import matplotlib.dates as mdates
+import matplotlib.ticker as mticker
+import numpy as np
 from matplotlib.artist import ArtistInspector
+from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.colors import LogNorm, Normalize
 from matplotlib.figure import Figure, SubplotParams
-from matplotlib.patches import Ellipse, PathPatch, Rectangle, Shadow
-from matplotlib.ticker import ScalarFormatter
+from matplotlib.image import AxesImage
+from matplotlib.lines import Line2D
 from matplotlib.offsetbox import AnchoredOffsetbox, AuxTransformBox
-
-from matplotlib.backends.backend_pdf import PdfPages
-
-from mpl_toolkits.axisartist import Subplot
-from mpl_toolkits.axisartist.grid_helper_curvelinear import GridHelperCurveLinear
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from matplotlib.patches import Ellipse, PathPatch, Rectangle, Shadow
+from matplotlib.text import Text
+from matplotlib.ticker import ScalarFormatter
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpl_toolkits.axes_grid1.anchored_artists import AnchoredSizeBar
+from mpl_toolkits.axes_grid1.inset_locator import inset_axes
+from mpl_toolkits.axisartist import Subplot
+from mpl_toolkits.axisartist.grid_helper_curvelinear import GridHelperCurveLinear
 
 
 class AnchoredEllipse(AnchoredOffsetbox):
@@ -42,10 +39,7 @@ class AnchoredEllipse(AnchoredOffsetbox):
         super().__init__(loc, pad=pad, borderpad=borderpad,
                          child=self._box, prop=prop, frameon=frameon)
 
-from . import imgutils
-from . import nputils
-from . import presetutils
-
+from . import imgutils, nputils, presetutils
 
 presetutils.set_rc_preset("display")
 
@@ -162,7 +156,7 @@ def get_cmap(map, bad_color=white, bad_alpha=1):
 
 
 def set_grid_helper(axes, grid_helper):
-    if not hasattr(axes, "_grid_helper") or type(axes._grid_helper) != type(grid_helper):
+    if not hasattr(axes, "_grid_helper") or type(axes._grid_helper) is not type(grid_helper):
         axes._grid_helper = grid_helper
         if grid_helper is not None:
             axes.cla()
@@ -315,7 +309,7 @@ def plot_error_span(ax, x, y1, y2, c='y', **kwargs):
     ax.fill_between(x, y1, y2, color=c, alpha=0.25)
 
 
-class AbsFormatter(object):
+class AbsFormatter:
     def __init__(self, useMathText=True):
         self._fmt = ScalarFormatter(useMathText=useMathText, useOffset=False)
         self._fmt.create_dummy_axis()
@@ -373,7 +367,7 @@ def build_epochs_mappable(epochs, cmap='jet'):
     return epochs_map
 
 
-class ColorSelector(object):
+class ColorSelector:
     ''' Cycle over all colors '''
 
     def __init__(self):
@@ -408,7 +402,7 @@ class ColorSelector(object):
         return Line2D([0], [0], color=color, ls='', marker='o')
 
 
-class MarkerSelector(object):
+class MarkerSelector:
     ''' Cycle over all colors '''
 
     def __init__(self):
@@ -454,7 +448,7 @@ class EpochNormalize(Normalize):
         return epoch
 
 
-class ColorbarInnerPosition(object):
+class ColorbarInnerPosition:
 
     def __init__(self, orientation="horizontal", width="5%", height="50%", location=1, pad=0.5,
                  tick_position=None):
@@ -506,7 +500,7 @@ class ColorbarInnerPosition(object):
         return self.orientation
 
 
-class ColorbarOutterPosition(object):
+class ColorbarOutterPosition:
 
     def __init__(self, width="5%", pad="3%", location="right"):
         ''''
@@ -534,7 +528,7 @@ class ColorbarOutterPosition(object):
         pass
 
 
-class ColorbarSetting(object):
+class ColorbarSetting:
 
     def __init__(self, cb_position=None, ticks_locator=None, ticks_formatter=None, cmap='jet'):
         if cb_position is None:
@@ -644,7 +638,7 @@ class ReplayableFigure(BaseCustomFigure):
 class Movie(Figure):
 
     def __init__(self, interval, repeat_delay):
-        super(Movie, self).__init__()
+        super().__init__()
         self.ims = []
         self.interval = interval
         self.repeat_delay = repeat_delay
@@ -660,7 +654,7 @@ class Movie(Figure):
         return childs
 
     def draw(self, canva):
-        super(Movie, self).draw(canva)
+        super().draw(canva)
         if self.anim is None:
             self.anim = animation.ArtistAnimation(self, self.ims,
                                                   interval=self.interval,
@@ -669,7 +663,7 @@ class Movie(Figure):
             self.anim._start()
 
 
-class BaseFigureStack(object):
+class BaseFigureStack:
 
     def __init__(self, title="Figure Stack", fixed_aspect_ratio=False, **kwargs):
         self.window_title = title

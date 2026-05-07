@@ -1,20 +1,18 @@
-import os
-import logging
 import datetime
-
-import numpy as np
-from scipy.spatial import KDTree
+import logging
+import os
+from functools import reduce
 
 import astropy.units as u
-
-from libwise import nputils, imgutils
-from functools import reduce
+import numpy as np
+from libwise import imgutils, nputils
+from scipy.spatial import KDTree
 
 p2i = imgutils.p2i
 logger = logging.getLogger(__name__)
 
 
-class Feature(object):
+class Feature:
     '''Base class defining a feature. Features coordinate are stored as array index.
 
     Parameters
@@ -107,13 +105,13 @@ class ImageFeature(Feature):
         Signal over noise ratio.
     id : str, optional
         A feature identifier. Must be unique.
-    
+
     Attributes
     ----------
     id : str
         The feature identifier
     meta : :class:`libwise.imgutils.ImageMeta`
-        Image meta information. 
+        Image meta information.
     snr : float
         Signal over noise ratio of the feature.
     """
@@ -176,9 +174,9 @@ class ImageFeature(Feature):
         return new
 
 
-class FeaturesGroup(object):
+class FeaturesGroup:
     '''A group of features.
-    
+
     Attributes
     ----------
     features : list
@@ -207,10 +205,10 @@ class FeaturesGroup(object):
         self.features.extend(other.features)
 
     @classmethod
-    def from_img_peaks(Klass, img, width, threashold, feature_filter=None, 
+    def from_img_peaks(Klass, img, width, threashold, feature_filter=None,
                        fit_gaussian=False, exclude_border_dist=1):
         '''Detect local maxima in an image and return a corresponding :class:`FeaturesGroup`.
-        
+
         Parameters
         ----------
         img : :class:`libwise.imgutils.Image`
@@ -222,10 +220,10 @@ class FeaturesGroup(object):
         feature_filter : :class:`FeatureFilter`, optional
             Filter the features.
         fit_gaussian : bool, optional
-            If true, a sub pixel coordinate position is estimated by fitting a 2D 
+            If true, a sub pixel coordinate position is estimated by fitting a 2D
             gaussian profile on the feature.
         exclude_border_dist : int, optional
-            Exclude features which are at distance < `exclude_border_dist` from 
+            Exclude features which are at distance < `exclude_border_dist` from
             teh image border.
         '''
         width = max(width, 2)
@@ -353,7 +351,7 @@ class FeaturesGroup(object):
         return [k[0] for k in founds]
 
     def sorted_list(self, cmp=None, key=None):
-        ''' Sort this list of features using `cmp` or `key`. 
+        ''' Sort this list of features using `cmp` or `key`.
         See Python list documentation for more information.'''
         if cmp is None and key is None:
             key = lambda f: f.get_intensity()
@@ -429,11 +427,11 @@ class FeaturesGroup(object):
         return len(self.features)
 
 
-class FeaturesQuery(object):
+class FeaturesQuery:
 
     def __init__(self, fgroup, coord_modes=['lm']):
         self.features1 = fgroup.features
-        self.nf1 = len(self.features1) 
+        self.nf1 = len(self.features1)
         coords1 = np.array([f.get_coord(mode=mode) for mode in coord_modes for f in self.features1])
         if len(self.features1) > 0:
             self.kdtree = KDTree(coords1)
@@ -480,7 +478,7 @@ class DatedFeaturesGroup(FeaturesGroup):
         return DatedFeaturesGroup([k.copy() for k in self.features], epoch=self.epoch)
 
 
-class FeaturesMatch(object):
+class FeaturesMatch:
 
     def __init__(self, features1=None, features2=None):
         self.one_two = dict()
@@ -545,7 +543,7 @@ class FeaturesMatch(object):
         return new
 
 
-class Delta(object):
+class Delta:
 
     __slots__ = ['feature', 'delta', 'time']
 
@@ -588,15 +586,15 @@ class Delta(object):
         return projection.proper_velocity(coord, coord + self.delta, self.time)
 
 
-class DeltaInformation(object):
+class DeltaInformation:
 
     NO_DELTA = 1 << 0
     DELTA_MATCH = 1 << 1
     DELTA_COMPUTED = 1 << 2
 
     def __init__(self, features=[], average_tol=10):
-        # MEM ISSUE: using dict here does not scale well with increasing 
-        # number of features. 
+        # MEM ISSUE: using dict here does not scale well with increasing
+        # number of features.
         self.deltas = dict()
         self.flags = dict.fromkeys(features, self.NO_DELTA)
         self.average_tol = average_tol
@@ -660,7 +658,7 @@ class DeltaInformation(object):
         for delta in deltax, deltay:
             delta = detrend(delta)
             sigma = np.std(delta, ddof=1)
-            
+
             for feature, delta in list(self.deltas.copy().items()):
                 if diff > alldiff.mean() + (nsigma * alldiff.std()) \
                         or diff < alldiff.mean() - (nsigma * alldiff.std()):
@@ -751,7 +749,7 @@ class MaskFilter(FeatureFilter):
     def filter(self, feature):
         if self.img is None:
             return True
-        
+
         feature_prj = feature.get_coordinate_system().get_projection(self.prj_settings)
         mask_prj = self.img.get_projection(self.prj_settings)
         coord = feature.get_coord(mode=self.coord_mode)
@@ -767,7 +765,7 @@ class MaskFilter(FeatureFilter):
 class DateFilter(FeatureFilter):
 
     def __init__(self, start_date=None, end_date=None, filter_dates=None):
-        self.filter_fct = nputils.date_filter(start_date=start_date, end_date=end_date, 
+        self.filter_fct = nputils.date_filter(start_date=start_date, end_date=end_date,
             filter_dates=filter_dates)
 
     @staticmethod

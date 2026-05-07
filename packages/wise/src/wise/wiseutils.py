@@ -1,24 +1,19 @@
-import logging
 import datetime
+import logging
 
-import numpy as np
-
-from . import wds
-from . import matcher
-from . import features as wfeatures
-
-from libwise import plotutils, nputils, imgutils
-
-import matplotlib.cm as cm
-import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from mpl_toolkits.axisartist.grid_finder import MaxNLocator
-
-from scipy.optimize import curve_fit
-from scipy import ndimage as ndi
-
-import astropy.units as u
 import astropy.constants as const
+import astropy.units as u
+import matplotlib.cm as cm
+import matplotlib.dates as mdates
+import matplotlib.pyplot as plt
+import numpy as np
+from libwise import imgutils, nputils, plotutils
+from mpl_toolkits.axisartist.grid_finder import MaxNLocator
+from scipy import ndimage as ndi
+from scipy.optimize import curve_fit
+
+from . import features as wfeatures
+from . import matcher, wds
 
 unit_c = u.core.Unit("c", const.c, doc="light speed")
 p2i = imgutils.p2i
@@ -33,7 +28,7 @@ logger = logging.getLogger(__name__)
 def imshow_segmented_image(ax, segmented_image, projection=None, title=True, beam=True, num=False,
                            bg=None, mode='com', **kwargs):
     """Display the segmented image on the axes.
-    
+
     Parameters
     ----------
     ax : :class:`matplotlib.axes.Axes`
@@ -52,7 +47,7 @@ def imshow_segmented_image(ax, segmented_image, projection=None, title=True, bea
     **kwargs :
         Additional arguments to be passed to :func:`libwise.plotutils.imshow_image`.
 
-    
+
     .. _tags: plt_detection
     """
     if bg is None:
@@ -75,7 +70,7 @@ def imshow_segmented_image(ax, segmented_image, projection=None, title=True, bea
 
 def plot_segments_contour(ax, segmented_image, **kwargs):
     """Display the segments contour of a segmented_image on a map.
-    
+
     Parameters
     ----------
     ax : :class:`matplotlib.axes.Axes`.
@@ -83,7 +78,7 @@ def plot_segments_contour(ax, segmented_image, **kwargs):
     **kwargs :
         Additional arguments to be passed to :func:`libwise.plotutils.plot_mask`.
 
-    
+
     .. _tags: plt_detection
     """
     for segment in segmented_image:
@@ -96,7 +91,7 @@ def plot_segments_contour(ax, segmented_image, **kwargs):
 
 def plot_features(ax, features, mode='com', color_fct=None, num=False, num_offset=[3, -3], **kwargs):
     """Plots the segments location and optionally the segments ids on a map.
-    
+
     Parameters
     ----------
     ax : :class:`matplotlib.axes.Axes`
@@ -110,10 +105,10 @@ def plot_features(ax, features, mode='com', color_fct=None, num=False, num_offse
         Whatever to optionally annotate the segments with there ids.
     num_offset : list, optional
         Offset in pixel for the id.
-    **kwargs : 
+    **kwargs :
         Additional arguments to be passed to :func:`libwise.plotutils.plot_coords`
 
-    
+
     .. _tags: plt_detection
     """
     assert isinstance(features, wfeatures.FeaturesGroup)
@@ -201,20 +196,20 @@ def plot_delta_info(stack, delta_info, input_delta=None, plot_error=True):
             print("Chi2 Y:", chi2y / dof, "RMS:", rmsy)
             print("Full RMS:", residual.std())
 
-        ax[0].set_ylabel("$\Delta_x (px)$")
+        ax[0].set_ylabel(r"$\Delta_x (px)$")
 
         ax[1].set_xlabel("$X (px)$")
-        ax[1].set_ylabel("$\Delta_y (px)$")
+        ax[1].set_ylabel(r"$\Delta_y (px)$")
 
         ax[1].set_xlim(min(x) - 5, max(x) + 5)
 
     stack.add_replayable_figure("Delta Mesure", do_plot)
 
 
-def plot_displacement_vector(ax, delta_info, mode='com', color_fct=None, 
+def plot_displacement_vector(ax, delta_info, mode='com', color_fct=None,
                              flag=wfeatures.DeltaInformation.DELTA_MATCH, **kwargs):
     """Display displacements vectors represented as arrows.
-    
+
     Parameters
     ----------
     ax : :class:`matplotlib.axes.Axes`
@@ -226,10 +221,10 @@ def plot_displacement_vector(ax, delta_info, mode='com', color_fct=None,
         If set, it should be a function that take a feature as argument and return a color.
     flag : Attribute, optional
         Default is DeltaInformation.DELTA_MATCH.
-    **kwargs: 
+    **kwargs:
         Additional arguments to be passed to :func:`matplotlib.pyltot.Arrow`.
 
-    
+
     .. _tags: plt_matching
     """
     features = delta_info.get_features(flag=flag)
@@ -244,8 +239,8 @@ def plot_displacement_vector(ax, delta_info, mode='com', color_fct=None,
         ax.add_patch(patch)
 
 
-def plot_velocity_vector(ax, delta_info, projection, ang_vel_unit, pix_per_unit, 
-                         mode='com', color_fct=None, 
+def plot_velocity_vector(ax, delta_info, projection, ang_vel_unit, pix_per_unit,
+                         mode='com', color_fct=None,
                          flag=wfeatures.DeltaInformation.DELTA_MATCH, **kwargs):
     features = delta_info.get_features(flag=flag)
     for i, feature in enumerate(features):
@@ -265,10 +260,10 @@ def plot_velocity_vector(ax, delta_info, projection, ang_vel_unit, pix_per_unit,
 def plot_displacements(ax, features1, features2, delta_info, num=False, projection=None, mode='com',
                 bg=None, beam=True, cmap=None, **kwargs):
     """Display displacements of features on a map.
-    
+
     If bg is not set and features1 and features2 are both SegmentedImage, a two color map,
     one color for the segments of each SegmentedImage, will be used as bg.
-    
+
     Parameters
     ----------
     ax : :class:`matplotlib.axes.Axes`
@@ -289,10 +284,10 @@ def plot_displacements(ax, features1, features2, delta_info, num=False, projecti
         Whatever to optionally display the beam of the image. Default is True.
     cmap : :class:`matplotlib.cm.ColorMap` or str, optional
         A color map for the background map.
-    **kwargs: 
+    **kwargs:
         Additional arguments to be passed to :func:`plot_displacement_vector`
 
-    
+
     .. _tags: plt_matching
     """
     alpha = 0.8
@@ -326,7 +321,7 @@ def plot_displacements(ax, features1, features2, delta_info, num=False, projecti
 
 def plot_features_dfc(ax, projection, features, mode='com', **kwargs):
     """Plot features distance from core vs epoch.
-    
+
     Parameters
     ----------
     ax : :class:`matplotlib.axes.Axes`
@@ -334,10 +329,10 @@ def plot_features_dfc(ax, projection, features, mode='com', **kwargs):
     features : :class:`wise.features.FeaturesGroup`
     mode : str, optional
         Coord mode for the location of the features: 'lm', 'com' or 'cos'.
-    **kwargs : 
+    **kwargs :
         Additional arguments to be passed to :func:`matplotlib.pyplot.plot`.
 
-    
+
     .. _tags: plt_detection
     """
     dfcs, epochs = list(zip(*[(projection.dfc(p2i(k.get_coord(mode=mode))), k.get_epoch()) for k in features]))
@@ -350,7 +345,7 @@ def plot_features_dfc(ax, projection, features, mode='com', **kwargs):
 
 def plot_features_pa(ax, projection, features, mode='com', **kwargs):
     """Plot features PA vs epoch.
-    
+
     Parameters
     ----------
     ax : :class:`matplotlib.axes.Axes`
@@ -358,10 +353,10 @@ def plot_features_pa(ax, projection, features, mode='com', **kwargs):
     features : :class:`wise.features.FeaturesGroup`
     mode : str, optional
         Coord mode for the location of the features: 'lm', 'com' or 'cos'.
-    **kwargs : 
+    **kwargs :
         Additional arguments to be passed to :func:`matplotlib.pyplot.plot`.
 
-    
+
     .. _tags: plt_detection
     """
     pas, epochs = list(zip(*[(projection.pa(p2i(k.get_coord(mode=mode))), k.get_epoch()) for k in features]))
@@ -372,10 +367,10 @@ def plot_features_pa(ax, projection, features, mode='com', **kwargs):
         ax.plot(epochs, pas, ls='', marker='o', alpha=0.8, **kwargs)
 
 
-def plot_ms_set_map(ax, img, ms_set, projection, mode='com', color_style='date', colorbar_setting=None, 
+def plot_ms_set_map(ax, img, ms_set, projection, mode='com', color_style='date', colorbar_setting=None,
                     map_cmap='jet', **kwargs):
     """Display all features of ms_set on a map.
-    
+
     Parameters
     ----------
     ax : :class:`matplotlib.axes.Axes`
@@ -391,16 +386,16 @@ def plot_ms_set_map(ax, img, ms_set, projection, mode='com', color_style='date',
     colorbar_setting : :class:`libwise.ColorbarSetting, optional
         Settings for the color bar if color_style is 'date'.
     map_cmap : :class:`matplotlib.cm.ColorMap` or str, optional
-    **kwargs : 
+    **kwargs :
         Additional arguments to be passed to :func:`libwise.plotutils.imshow_image`.
 
-    
+
     .. _tags: plt_detection
     """
     if colorbar_setting is None and color_style == 'date':
         colorbar_setting = plotutils.ColorbarSetting(ticks_locator=mdates.AutoDateLocator(),
                                                      ticks_formatter=mdates.DateFormatter('%m/%y'))
-    
+
     epochs = ms_set.get_epochs()
     intensities = [k.get_intensity() for k in ms_set.features_iter()]
     int_norm = plotutils.Normalize(min(intensities), max(intensities))
@@ -415,7 +410,7 @@ def plot_ms_set_map(ax, img, ms_set, projection, mode='com', color_style='date',
     if color_style == 'date':
         color_fct = lambda f: epochs_map.to_rgba(f.get_epoch())
         colorbar_setting.add_colorbar(epochs_map, ax)
-    elif color_style is 'scale':
+    elif color_style == 'scale':
         pass
 
     for ms_segments in ms_set:
@@ -430,7 +425,7 @@ def plot_ms_set_map(ax, img, ms_set, projection, mode='com', color_style='date',
 
 
 def plot_link_builder_dfc(ax, projection, link_builder, min_link_size=2, mode='com', num=False,
-                          feature_filter=None, date_filter=None, fit_fct=None, 
+                          feature_filter=None, date_filter=None, fit_fct=None,
                           fit_min_size=3, **kwargs):
     # Deprecated
     filter1 = wfeatures.DateFilter.from_filter_fct(date_filter)
@@ -445,7 +440,7 @@ def plot_link_builder_dfc(ax, projection, link_builder, min_link_size=2, mode='c
 
 def plot_links_dfc(ax, projection, links, mode='com', num=False, num_bbox=None, **kwargs):
     """Plot features link on a distance from core vs epoch plot.
-    
+
     Parameters
     ----------
     ax : :class:`matplotlib.axes.Axes`
@@ -456,10 +451,10 @@ def plot_links_dfc(ax, projection, links, mode='com', num=False, num_bbox=None, 
     num : bool, optional
         Whatever to optionally annotate the links with there ids.
     num_bbox : dict, optional
-    **kwargs : 
+    **kwargs :
         Additional arguments to be passed to :func:`matplotlib.pyplot.plot`.
 
-    
+
     .. _tags: plt_matching
     """
     dfc_fct_coord = lambda coord: nputils.l2norm(projection.p2s(p2i(coord)))
@@ -471,7 +466,7 @@ def plot_links_dfc(ax, projection, links, mode='com', num=False, num_bbox=None, 
         if num is True:
             if num_bbox is None:
                 num_bbox = dict(boxstyle='round', facecolor='wheat', alpha=0.7, edgecolor=link.get_color(), lw=1.5)
-            # ax.text(link.get_first_epoch(), dfc_fct(link.first()), "%s, %s" % (link.get_id(), link.size()))            
+            # ax.text(link.get_first_epoch(), dfc_fct(link.first()), "%s, %s" % (link.get_id(), link.size()))
             ax.text(link.get_first_epoch(), dfc_fct(link.first()), link.get_id(), bbox=num_bbox, zorder=200, size='small')
 
         if 'c' not in kwargs:
@@ -498,7 +493,7 @@ def plot_links_dfc(ax, projection, links, mode='com', num=False, num_bbox=None, 
 
 def plot_links_dfc_fit(ax, projection, links, fit_fct, fit_min_size=3, mode='com', **kwargs):
     """Plot features link fit on a distance from core vs epoch plot.
-    
+
     Parameters
     ----------
     ax : :class:`matplotlib.axes.Axes`
@@ -510,10 +505,10 @@ def plot_links_dfc_fit(ax, projection, links, fit_fct, fit_min_size=3, mode='com
         Fit only links with size >= fit_min_size.
     mode : str, optional
         Coord mode for the location of the features: 'lm', 'com' or 'cos'.
-    **kwargs : 
+    **kwargs :
         Additional arguments to be passed to :func:`matplotlib.pyplot.plot`.
 
-    
+
     .. _tags: plt_matching
     """
     results = dict()
@@ -532,7 +527,7 @@ def plot_links_dfc_fit(ax, projection, links, fit_fct, fit_min_size=3, mode='com
 
 def plot_links_pa(ax, projection, links, mode='com', **kwargs):
     """Plot features link on a PA vs epoch plot.
-    
+
     Parameters
     ----------
     ax : :class:`matplotlib.axes.Axes`
@@ -540,10 +535,10 @@ def plot_links_pa(ax, projection, links, mode='com', **kwargs):
     links : a list of :class:`wise.matcher.FeaturesLink`
     mode : str, optional
         Coord mode for the location of the features: 'lm', 'com' or 'cos'.
-    **kwargs : 
+    **kwargs :
         Additional arguments to be passed to :func:`matplotlib.pyplot.plot`
 
-    
+
     .. _tags: plt_matching
     """
     for link in links:
@@ -555,7 +550,7 @@ def plot_links_pa(ax, projection, links, mode='com', **kwargs):
 
 def plot_links_snr(ax, projection, links, mode='com', **kwargs):
     """Plot features link on a SNR vs epoch plot.
-    
+
     Parameters
     ----------
     ax : :class:`matplotlib.axes.Axes`
@@ -563,10 +558,10 @@ def plot_links_snr(ax, projection, links, mode='com', **kwargs):
     links : a list of :class:`wise.matcher.FeaturesLink`
     mode : str, optional
         Coord mode for the location of the features: 'lm', 'com' or 'cos'.
-    **kwargs : 
+    **kwargs :
         Additional arguments to be passed to :func:`matplotlib.pyplot.plot`.
 
-    
+
     .. _tags: plt_matching
     """
     for link in links:
@@ -580,16 +575,16 @@ def plot_links_snr(ax, projection, links, mode='com', **kwargs):
 
 def plot_velocity_map(ax, stack_img, projection, link_builder, min_link_size=2, title=False,
                       feature_filter=None, color_style='link', mode='com', colorbar_setting=None,
-                      dfc_axis=False, dfc_axis_teta=None, map_cmap='jet', vector_width=4, 
+                      dfc_axis=False, dfc_axis_teta=None, map_cmap='jet', vector_width=4,
                       dfc_axis_pos=(1, 3), link_id_label=False, **kwargs):
     #DEPRECATED
     #   dfc_axis_teta in radian
     #   dfc_axis_pos is (nth_coord, value)
     links = link_builder.get_links(feature_filter=feature_filter, min_link_size=min_link_size)
 
-    plot_links_map(ax, stack_img, projection, links, color_style=color_style, 
+    plot_links_map(ax, stack_img, projection, links, color_style=color_style,
                                mode=mode, colorbar_setting=colorbar_setting, map_cmap=map_cmap,
-                               vector_width=vector_width, link_id_label=link_id_label, 
+                               vector_width=vector_width, link_id_label=link_id_label,
                                num_bbox=None, **kwargs)
 
     if dfc_axis:
@@ -604,10 +599,10 @@ def plot_velocity_map(ax, stack_img, projection, link_builder, min_link_size=2, 
 
 
 def plot_links_map(ax, img, projection, links, color_style='link', mode='com', colorbar_setting=None,
-                     map_cmap='jet', vector_width=4, link_id_label=False, num_bbox=None, 
+                     map_cmap='jet', vector_width=4, link_id_label=False, num_bbox=None,
                      ang_vel_arrows=False, ang_vel_unit=u.mas / u.year, pix_per_ang_vel_unit=1, **kwargs):
     """Display features links on a map.
-    
+
     Parameters
     ----------
     ax : :class:`matplotlib.axes.Axes`
@@ -616,7 +611,7 @@ def plot_links_map(ax, img, projection, links, color_style='link', mode='com', c
     projection : :class:`libwise.imgutils.Projection`
     links : a list of :class:`wise.matcher.FeaturesLink`
     color_style : str, optional
-        'link': one color per link. 
+        'link': one color per link.
         'date': map the features epochs to a color.
         any color string: use one color for each displacements vectors.
         function: a function that take a feature as argument and return a color.
@@ -630,10 +625,10 @@ def plot_links_map(ax, img, projection, links, color_style='link', mode='com', c
     link_id_label : bool, optional
         Annotate the links with there ids.
     num_bbox : dict, optional
-    **kwargs: 
+    **kwargs:
         Additional arguments to be passed to :func:`libwise.plotutils.imshow_image`.
 
-    
+
     .. _tags: plt_matching
     """
     color_fct = None
@@ -645,7 +640,7 @@ def plot_links_map(ax, img, projection, links, color_style='link', mode='com', c
                                                          ticks_formatter=mdates.DateFormatter('%m/%y'))
         colorbar_setting.add_colorbar(epochs_map, ax)
         color_fct = lambda f: epochs_map.to_rgba(f.get_epoch())
-    elif color_style is not 'link' and isinstance(color_style, str):
+    elif color_style != 'link' and isinstance(color_style, str):
         color_fct = lambda f: color_style
     elif nputils.is_callable(color_style):
         color_fct = color_style
@@ -656,7 +651,7 @@ def plot_links_map(ax, img, projection, links, color_style='link', mode='com', c
         delta_info = link.get_delta_info(measured_delta=False)
 
         if ang_vel_arrows:
-            plot_velocity_vector(ax, delta_info, projection, ang_vel_unit, pix_per_ang_vel_unit, 
+            plot_velocity_vector(ax, delta_info, projection, ang_vel_unit, pix_per_ang_vel_unit,
                                  color_fct=color_fct, mode=mode, lw=0.5,
                                  fc=link.get_color(), ec='k', alpha=0.9, zorder=link.size(), width=vector_width)
         else:
@@ -670,7 +665,7 @@ def plot_links_map(ax, img, projection, links, color_style='link', mode='com', c
             ax.text(x, y, link.get_id(), bbox=num_bbox, zorder=200, size='small')
 
 
-class DifmapComponent(object):
+class DifmapComponent:
     ''' Format is: Flux (Jy) Radius (mas) Theta (deg) Major (mas) Axial ratio Phi (deg) T Freq (Hz):
 
     Flux     -  The integrated flux in the component (Jy).
@@ -755,7 +750,7 @@ class DifmapModel(list):
         np.savetxt(filename, l, ['%s', '%s', '%s', '%s'])
 
 
-class CoreOffsetPositions(object):
+class CoreOffsetPositions:
     ''' Format is: epoch (iso:%Y-%m-%d), id (always 0), dist, pa (in degrees). All space separated'''
 
     def __init__(self):
@@ -796,20 +791,20 @@ class CoreOffsetPositions(object):
         return core_desc
 
 
-class SSPData(object):
+class SSPData:
 
     def __init__(self):
         import pandas as pd
 
         self.df = pd.DataFrame()
 
-    def add_features_group(self, features, projection, coord_mode='com', 
+    def add_features_group(self, features, projection, coord_mode='com',
                            scale=None, min_snr=2, max_snr=10):
         import pandas as pd
 
         coords = p2i(features.get_coords(mode=coord_mode))
         ra, dec = list(zip(*projection.p2s(coords)))
-        
+
         epochs = []
         intensities = []
         snrs = []
@@ -828,10 +823,10 @@ class SSPData(object):
 
         if isinstance(projection, imgutils.AbstractRelativeProjection):
             dfc = projection.dfc(coords)
-            dfc_error = nputils.uarray_s((nputils.uarray(ra, ra_error) ** 2 + 
+            dfc_error = nputils.uarray_s((nputils.uarray(ra, ra_error) ** 2 +
                                     nputils.uarray(dec, dec_error) ** 2) ** 0.5)
             pa = projection.pa(coords)
-            pa_error = nputils.uarray_s(nputils.unumpy.arctan2(nputils.uarray(ra, ra_error), 
+            pa_error = nputils.uarray_s(nputils.unumpy.arctan2(nputils.uarray(ra, ra_error),
                                     nputils.uarray(dec, dec_error)))
         else:
             dfc = dfc_error = pa = pa_error = None
@@ -876,12 +871,12 @@ class VelocityData(SSPData):
     def __init__(self):
         SSPData.__init__(self)
 
-    def add_delta_info(self, delta_info, match, projection, link_builder=None, 
+    def add_delta_info(self, delta_info, match, projection, link_builder=None,
                        coord_mode='com', scale=None, min_snr=2, max_snr=10):
         import pandas as pd
-        
+
         features = delta_info.get_features(flag=wfeatures.DeltaInformation.DELTA_MATCH)
-        cdf = self.add_features_group(features, projection, coord_mode=coord_mode, 
+        cdf = self.add_features_group(features, projection, coord_mode=coord_mode,
                                       scale=scale, min_snr=min_snr, max_snr=max_snr)
         features = features.features
         idx = cdf.index
@@ -903,7 +898,7 @@ class VelocityData(SSPData):
         if angular_sep.unit.is_equivalent(u.deg):
             ra_error1, dec_error1 = cdf[['ra_error', 'dec_error']].as_matrix().T
             ra_error2, dec_error2 = ra_error1, dec_error1
-            
+
             angular_sep_error_ra = np.sqrt(ra_error1 ** 2 + ra_error2 ** 2) * projection.get_unit()
             angular_sep_error_dec = np.sqrt(dec_error1 ** 2 + dec_error2 ** 2) * projection.get_unit()
 
@@ -911,7 +906,7 @@ class VelocityData(SSPData):
 
             angular_velocity_error_ra = (angular_sep_error_ra / time).to(u.mas / u.year)
             angular_velocity_error_dec = (angular_sep_error_dec / time).to(u.mas / u.year)
-            angular_velocity_error = nputils.l2norm(np.array([angular_velocity_error_ra, 
+            angular_velocity_error = nputils.l2norm(np.array([angular_velocity_error_ra,
                                                               angular_velocity_error_dec]).T)
 
         proper_sep = projection.proper_distance(coord1, coord2)
@@ -923,7 +918,7 @@ class VelocityData(SSPData):
 
             proper_velocity_error_ra = angular_velocity_error_ra * angular_proper_ratio
             proper_velocity_error_dec = angular_velocity_error_dec * angular_proper_ratio
-            proper_velocity_error = nputils.l2norm(np.array([proper_velocity_error_ra, 
+            proper_velocity_error = nputils.l2norm(np.array([proper_velocity_error_ra,
                                                              proper_velocity_error_dec]).T)
 
         if link_builder is not None:
@@ -946,7 +941,7 @@ class VelocityData(SSPData):
             self.df.loc[idx, 'angular_velocity_error'] = pd.Series(angular_velocity_error, index=idx)
             self.df.loc[idx, 'angular_velocity_error_ra'] = pd.Series(angular_velocity_error_ra, index=idx)
             self.df.loc[idx, 'angular_velocity_error_dec'] = pd.Series(angular_velocity_error_dec, index=idx)
-        
+
         if proper_sep.unit.is_equivalent(u.m):
             self.df.loc[idx, 'proper_velocity'] = pd.Series(proper_velocity, index=idx)
             self.df.loc[idx, 'proper_velocity_error'] = pd.Series(proper_velocity_error, index=idx)
@@ -972,7 +967,7 @@ class VelocityData(SSPData):
                 for match_result in match_results:
                     segments1, segments2, match, delta_info = match_result.get_all()
                     if delta_info.size(flag=wfeatures.DeltaInformation.DELTA_MATCH) > 0:
-                        new.add_delta_info(delta_info, match, projection, 
+                        new.add_delta_info(delta_info, match, projection,
                                             link_builder=link_builder, scale=scale, **kargs)
 
         return new

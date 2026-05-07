@@ -4,7 +4,8 @@ Created on Feb 21, 2012
 @author: fmertens
 '''
 
-from libwise import uiutils, wavelets, plotutils
+from libwise import plotutils, uiutils, wavelets
+
 from . import waveletsui
 
 

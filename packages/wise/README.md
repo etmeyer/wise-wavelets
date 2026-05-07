@@ -1,43 +1,34 @@
-WISE
-====
+# wise
 
-WISE is the Wavelet Image Segmentation and Evaluation tool, developed to address the issue of detecting significant features in radio interferometric images and obtaining reliable velocity field from cross-correlation of these regions in multi-epoch observations.
+WISE (Wavelet Image Segmentation and Evaluation) detects significant features
+in radio interferometric images and recovers velocity fields from
+cross-correlation of those regions across multi-epoch observations. This is a
+Python 3.11+ modernization fork; the `wise` command-line tool is installed by
+the `wisetool` distribution and depends on `libwise`.
 
-Please check https://flomertens.github.io/wise/ for more information, documentation and tutorials.
+Part of [wise-wavelets](https://github.com/eileen-meyer/wise-wavelets).
 
-Installation
-------------
+## Install
 
-You should be able to install WISE using pip or conda (note that wise/libwise is python 2 only):
+This package is developed inside the wise-wavelets monorepo. From the repo
+root:
 
-    pip install wisetool
+```bash
+conda env create -f environment.yml
+conda activate wise-wavelets
+wise --help
+```
 
-or
+That installs `wisetool` editable alongside its dependency `libwise`.
+`pyproject.toml` is the source of truth for runtime dependencies.
 
-    conda install -c flomertens -c conda-forge wise cython dask
+## Credit
 
-Alternatively, to install WISE globally:
+Forked from [flomertens/wise](https://github.com/flomertens/wise); see also
+the original [project page](https://flomertens.github.io/wise/) for background
+and tutorials. The original Python 2 codebase and design are due to Florent
+Mertens; this fork modernizes it for the current scientific-Python stack.
 
-    python setup.py install
+## License
 
-or to install it locally:
-
-    python setup.py install --user
-
-Requirements
-------------
-
-You need to install (if not done by pip/conda) the following packages for WISE to work:
-
-- libwise (https://github.com/flomertens/libwise)
-- numpy (>= 1.5)
-- scipy (>= 0.10)
-- skimage (>= 0.5)
-- astropy (>= 0.4)
-- matplotlib (>= 1.0)
-- pyqt (>= 4.8)
-- pandas
-- pyregion (https://pypi.python.org/pypi/pyregion)
-- uncertainties (https://pypi.python.org/pypi/uncertainties)
-- jsonpickle (https://pypi.org/project/jsonpickle/)
-
+GPL-2.0, inherited from upstream.

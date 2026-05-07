@@ -1,6 +1,5 @@
 import numpy as np
 import pytest
-
 from libwise import imgutils, nputils
 
 

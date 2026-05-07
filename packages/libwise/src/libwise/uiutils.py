@@ -3,18 +3,14 @@ Created on Mar 9, 2012
 
 @author: fmertens
 '''
+import collections
 import os
 import sys
-import collections
 
 import numpy as np
-
-
 from PyQt5 import QtCore, QtGui, QtWidgets
 
-from . import waitingspinnerwidget
-
-from . import imgutils
+from . import imgutils, waitingspinnerwidget
 
 _QT_APP = None
 
@@ -218,7 +214,7 @@ class RangeParameter(NamedWidgetParameter):
 
     def get_min(self):
         return self.range_widget.minimum()
-        
+
     def set_min(self, mini):
         self.range_widget.setMinimum(mini)
         if self.range_widget.value() < mini:
@@ -227,7 +223,7 @@ class RangeParameter(NamedWidgetParameter):
 
     def set(self, value, update=True):
         if value >= self.range_widget.minimum() and value <= self.range_widget.maximum():
-            super(RangeParameter, self).set(value, update)
+            super().set(value, update)
             self.range_widget.setValue(value)
 
 
@@ -286,7 +282,7 @@ class UpdateButton(Button):
 
 
 class OpenImage(Button):
-    
+
     def __init__(self, box, experience, img=None):
         Button.__init__(self, box, experience, "Open image...", on_clicked=self.on_clicked)
         if img is not None:
@@ -318,7 +314,7 @@ class OpenImage(Button):
 class EntryDescription(QtWidgets.QLineEdit):
 
     def __init__(self, description, text=None, n_chars=None):
-        super(EntryDescription, self).__init__()
+        super().__init__()
         if n_chars is not None:
             metric = QtGui.QFontMetrics(self.font())
             self.setFixedWidth(metric.width("8" * n_chars))
@@ -349,11 +345,11 @@ class EntryDescription(QtWidgets.QLineEdit):
         if self.description_mode is True:
             self.setStyleSheet("color: #808080")
             # self.modify_text(gtk.STATE_NORMAL, gtk.gdk.color_parse('gray'))
-            super(EntryDescription, self).setText(self.description)
+            super().setText(self.description)
         else:
             self.setStyleSheet("color: #000000")
             # self.modify_text(gtk.STATE_NORMAL, gtk.gdk.color_parse('black'))
-            super(EntryDescription, self).setText("")
+            super().setText("")
 
     def focusInEvent(self, event):
         if self.description_mode:
@@ -368,14 +364,14 @@ class EntryDescription(QtWidgets.QLineEdit):
     def get_text(self):
         if self.description_mode is True:
             return ""
-        return super(EntryDescription, self).text()
+        return super().text()
 
     def set_text(self, text):
         if text == "" or text is None:
             self.set_description_mode(True)
         else:
             self.set_description_mode(False)
-            super(EntryDescription, self).setText(text)
+            super().setText(text)
 
     def clear(self):
         self.set_text("")
@@ -383,51 +379,51 @@ class EntryDescription(QtWidgets.QLineEdit):
         self.editingFinished.emit()
 
 
-class CustomNode(object):
+class CustomNode:
 
     def __init__(self, in_data):
-        self._data = in_data  
-  
+        self._data = in_data
+
         self._columncount = len(self._data)
-        self._children = []  
-        self._parent = None  
-        self._row = 0  
-  
-    def data(self, in_column):  
-        if in_column >= 0 and in_column < len(self._data):  
+        self._children = []
+        self._parent = None
+        self._row = 0
+
+    def data(self, in_column):
+        if in_column >= 0 and in_column < len(self._data):
             return self._data[in_column]
 
     def setData(self, in_column, data):
         self._data[in_column] = data
-  
-    def columnCount(self):  
-        return self._columncount  
-  
-    def childCount(self):  
-        return len(self._children)  
-  
-    def child(self, in_row):  
-        if in_row >= 0 and in_row < self.childCount():  
-            return self._children[in_row]  
 
-    def parent(self):  
-        return self._parent  
-  
-    def row(self):  
-        return self._row  
-  
-    def addChild(self, in_child):  
-        in_child._parent = self  
-        in_child._row = len(self._children)  
-        self._children.append(in_child)  
-        self._columncount = max(in_child.columnCount(), self._columncount)  
-  
-  
-class CustomModel(QtCore.QAbstractItemModel):  
+    def columnCount(self):
+        return self._columncount
+
+    def childCount(self):
+        return len(self._children)
+
+    def child(self, in_row):
+        if in_row >= 0 and in_row < self.childCount():
+            return self._children[in_row]
+
+    def parent(self):
+        return self._parent
+
+    def row(self):
+        return self._row
+
+    def addChild(self, in_child):
+        in_child._parent = self
+        in_child._row = len(self._children)
+        self._children.append(in_child)
+        self._columncount = max(in_child.columnCount(), self._columncount)
+
+
+class CustomModel(QtCore.QAbstractItemModel):
     def __init__(self, in_nodes, header):
-        QtCore.QAbstractItemModel.__init__(self)  
-        self._root = CustomNode(header)  
-        for node in in_nodes:  
+        QtCore.QAbstractItemModel.__init__(self)
+        self._root = CustomNode(header)
+        for node in in_nodes:
             self._root.addChild(node)
         self.header = header
 
@@ -444,47 +440,47 @@ class CustomModel(QtCore.QAbstractItemModel):
             return self._root.data(section)
 
         return None
-  
-    def rowCount(self, in_index):  
-        if in_index.isValid():  
-            return in_index.internalPointer().childCount()  
-        return self._root.childCount()  
-  
-    def addChild(self, in_node, in_parent):  
-        if not in_parent or not in_parent.isValid():  
-            parent = self._root  
-        else:  
-            parent = in_parent.internalPointer()  
-        parent.addChild(in_node)  
-  
-    def index(self, in_row, in_column, in_parent=None):  
-        if not in_parent or not in_parent.isValid():  
-            parent = self._root  
-        else:  
-            parent = in_parent.internalPointer()  
-      
-        if not QtCore.QAbstractItemModel.hasIndex(self, in_row, in_column, in_parent):  
-            return QtCore.QModelIndex()  
-      
-        child = parent.child(in_row)  
-        if child:  
-            return QtCore.QAbstractItemModel.createIndex(self, in_row, in_column, child)  
-        else:  
-            return QtCore.QModelIndex()  
-  
-    def parent(self, in_index):  
-        if in_index.isValid():  
-            p = in_index.internalPointer().parent()  
-            if p:  
-                return QtCore.QAbstractItemModel.createIndex(self, p.row(),0,p)  
+
+    def rowCount(self, in_index):
+        if in_index.isValid():
+            return in_index.internalPointer().childCount()
+        return self._root.childCount()
+
+    def addChild(self, in_node, in_parent):
+        if not in_parent or not in_parent.isValid():
+            parent = self._root
+        else:
+            parent = in_parent.internalPointer()
+        parent.addChild(in_node)
+
+    def index(self, in_row, in_column, in_parent=None):
+        if not in_parent or not in_parent.isValid():
+            parent = self._root
+        else:
+            parent = in_parent.internalPointer()
+
+        if not QtCore.QAbstractItemModel.hasIndex(self, in_row, in_column, in_parent):
+            return QtCore.QModelIndex()
+
+        child = parent.child(in_row)
+        if child:
+            return QtCore.QAbstractItemModel.createIndex(self, in_row, in_column, child)
+        else:
+            return QtCore.QModelIndex()
+
+    def parent(self, in_index):
+        if in_index.isValid():
+            p = in_index.internalPointer().parent()
+            if p:
+                return QtCore.QAbstractItemModel.createIndex(self, p.row(),0,p)
         return QtCore.QModelIndex()
-  
-    def columnCount(self, in_index):  
+
+    def columnCount(self, in_index):
         return self._root.columnCount()
-  
-    def data(self, in_index, role):  
+
+    def data(self, in_index, role):
         if not in_index.isValid():
-            return None  
+            return None
         node = in_index.internalPointer()
         if role == QtCore.Qt.DisplayRole or role == QtCore.Qt.EditRole:
             # print in_index.column(), in_index.row(), role
@@ -561,7 +557,7 @@ class UI(QtWidgets.QWidget):
         QtWidgets.QApplication.instance().exec_()
 
 
-class Experience(object):
+class Experience:
 
     def __init__(self):
         self.thread = None
@@ -632,7 +628,7 @@ class LongRunning(QtCore.QThread):
         return self._is_alive
 
     def cancel(self):
-        self._is_alive = False        
+        self._is_alive = False
 
     def run(self):
         result = self.fct(self.args, self)

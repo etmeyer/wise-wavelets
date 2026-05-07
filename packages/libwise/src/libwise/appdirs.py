@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # Copyright (c) 2005-2010 ActiveState Software Inc.
 # Copyright (c) 2013 Eddy Petrișor
 
@@ -17,8 +16,8 @@ __version_info__ = (1, 4, 0)
 __version__ = '.'.join(map(str, __version_info__))
 
 
-import sys
 import os
+import sys
 
 PY3 = sys.version_info[0] == 3
 
@@ -98,7 +97,7 @@ def user_data_dir(appname=None, appauthor=None, version=None, roaming=False):
 
 
 def site_data_dir(appname=None, appauthor=None, version=None, multipath=False):
-    """Return full path to the user-shared data dir for this application.
+    r"""Return full path to the user-shared data dir for this application.
 
         "appname" is the name of application.
             If None, just the system directory is returned.
@@ -204,7 +203,7 @@ def user_config_dir(appname=None, appauthor=None, version=None, roaming=False):
 
 
 def site_config_dir(appname=None, appauthor=None, version=None, multipath=False):
-    """Return full path to the user-shared data dir for this application.
+    r"""Return full path to the user-shared data dir for this application.
 
         "appname" is the name of application.
             If None, just the system directory is returned.
@@ -362,7 +361,7 @@ def user_log_dir(appname=None, appauthor=None, version=None, opinion=True):
     return path
 
 
-class AppDirs(object):
+class AppDirs:
     """Convenience wrapper for getting application dirs."""
     def __init__(self, appname, appauthor=None, version=None, roaming=False,
                  multipath=False):
@@ -427,7 +426,7 @@ def _get_win_folder_from_registry(csidl_name):
 
 
 def _get_win_folder_with_pywin32(csidl_name):
-    from win32com.shell import shellcon, shell
+    from win32com.shell import shell, shellcon
     dir = shell.SHGetFolderPath(0, getattr(shellcon, csidl_name), 0, 0)
     # Try to make this a unicode path because SHGetFolderPath does
     # not return unicode strings when there is unicode data in the
@@ -481,6 +480,7 @@ def _get_win_folder_with_ctypes(csidl_name):
 
 def _get_win_folder_with_jna(csidl_name):
     import array
+
     from com.sun import jna
     from com.sun.jna.platform import win32
 
@@ -534,19 +534,19 @@ if __name__ == "__main__":
     print("-- app dirs (with optional 'version')")
     dirs = AppDirs(appname, appauthor, version="1.0")
     for prop in props:
-        print(("%s: %s" % (prop, getattr(dirs, prop))))
+        print("%s: %s" % (prop, getattr(dirs, prop)))
 
     print("\n-- app dirs (without optional 'version')")
     dirs = AppDirs(appname, appauthor)
     for prop in props:
-        print(("%s: %s" % (prop, getattr(dirs, prop))))
+        print("%s: %s" % (prop, getattr(dirs, prop)))
 
     print("\n-- app dirs (without optional 'appauthor')")
     dirs = AppDirs(appname)
     for prop in props:
-        print(("%s: %s" % (prop, getattr(dirs, prop))))
+        print("%s: %s" % (prop, getattr(dirs, prop)))
 
     print("\n-- app dirs (with disabled 'appauthor')")
     dirs = AppDirs(appname, appauthor=False)
     for prop in props:
-        print(("%s: %s" % (prop, getattr(dirs, prop))))
+        print("%s: %s" % (prop, getattr(dirs, prop)))

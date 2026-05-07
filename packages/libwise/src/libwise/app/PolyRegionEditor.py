@@ -8,14 +8,12 @@ Adapted from matplotlib/examples/event_handling/poly_editor.py
 """
 import os
 
+import matplotlib.pyplot as plt
 import numpy as np
-
-from libwise import uiutils, imgutils, plotutils
-
+from matplotlib.patches import Polygon
 from PyQt5 import QtWidgets
 
-import matplotlib.pyplot as plt
-from matplotlib.patches import Polygon
+from libwise import imgutils, plotutils, uiutils
 
 
 def dist_point_to_segment(p, s0, s1):

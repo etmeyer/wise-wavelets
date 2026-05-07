@@ -1,14 +1,12 @@
 from importlib import resources
 
-from PyQt5 import QtCore, QtGui, QtWidgets
+import matplotlib.backends.qt_editor.figureoptions as figureoptions
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
-
-import matplotlib.backends.qt_editor.figureoptions as figureoptions
+from PyQt5 import QtCore, QtGui, QtWidgets
 from scipy import ndimage as ndi
 
 from . import uiutils
-
 from .plotutils_base import *
 
 
@@ -85,7 +83,7 @@ class Cursor(QtCore.QObject):
         self.canvas.update()
 
 
-class AbstractTwoPointsRequest(object):
+class AbstractTwoPointsRequest:
 
     def __init__(self, canvas):
         self.canvas = canvas
@@ -1065,8 +1063,7 @@ class SaveFigure(uiutils.UI):
                 name = (axes.get_title() or
                         " - ".join([_f for _f in [axes.get_xlabel(),
                                                  axes.get_ylabel()] if _f]) or
-                        "<anonymous {} (id: {:#x})>".format(
-                            type(axes).__name__, id(axes)))
+                        f"<anonymous {type(axes).__name__} (id: {id(axes):#x})>")
                 titles.append(name)
             item, ok = QtWidgets.QInputDialog.getItem(
                 None, 'Customize', 'Select axes:', titles, 0, False)

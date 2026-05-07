@@ -7,29 +7,24 @@ Created on Feb 6, 2012
 @author: fmertens
 '''
 
-import os
-import re
-import sys
-import math
-import pickle
 import calendar
-import datetime
-import itertools
 import collections
 import configparser
+import datetime
+import itertools
+import math
+import os
+import pickle
+import re
+import sys
 
 import numpy as np
-from scipy import optimize
-from scipy import interpolate
-from scipy.ndimage import map_coordinates
+from scipy import interpolate, optimize
+from scipy.ndimage import center_of_mass, grey_dilation, map_coordinates
 from scipy.ndimage import convolve1d as scipy_convolve1d
-from scipy.optimize import leastsq, curve_fit
-from scipy.ndimage import grey_dilation
-from scipy.ndimage import center_of_mass
+from scipy.optimize import curve_fit, leastsq
 from skimage.morphology import diamond
-from uncertainties import ufloat, umath, unumpy
-from uncertainties import UFloat
-
+from uncertainties import UFloat, ufloat, umath, unumpy
 
 # inline import:
 # heavy and rarely used: from scipy import signal
@@ -157,7 +152,7 @@ def local_max(array, p, tol, fit_gaussian=False, fit_gaussian_n=3):
     clip = lambda p: (clamp(p[0], 0, array.shape[0]), clamp(p[1], 0, array.shape[1]))
     index = clip(np.array(p) - tol) + clip(np.array(p) + tol)
     tol_array = array[tuple(index2slice(index))]
-    cmax = coord_max(tol_array, fit_gaussian=fit_gaussian, fit_gaussian_n=fit_gaussian_n) 
+    cmax = coord_max(tol_array, fit_gaussian=fit_gaussian, fit_gaussian_n=fit_gaussian_n)
     cmax += np.array([index[0], index[1]])
     return tol_array.max(), cmax
 
@@ -192,7 +187,7 @@ def get_line_between_points(array, p1, p2, order=1):
 
 def get_ellipse_radius(a, b, theta):
     ''' See http://math.stackexchange.com/questions/432902/how-to-get-the-radius-of-an-ellipse-at-a-specific-angle-by-knowing-its-semi-majo '''
-    
+
     return a * b / np.sqrt(a ** 2 * np.sin(theta) ** 2 + b ** 2 * np.cos(theta) ** 2)
 
 
@@ -209,7 +204,7 @@ def create_ellipse(r, xc, alpha, n=100, angle_range=(0,2*np.pi)):
     From https://code.google.com/p/fit-ellipse/source/browse/trunk/fit_ellipse.py
 
     Author: Alexis Mignon; Licence: GPL v3
-    
+
     Parameters
     ----------
     r: tuple
@@ -223,7 +218,7 @@ def create_ellipse(r, xc, alpha, n=100, angle_range=(0,2*np.pi)):
         The number of points to create
     angle_range : tuple (a0, a1)
         angles between which points are created.
-        
+
     Returns
     -------
         (n * 2) array of points """
@@ -231,7 +226,7 @@ def create_ellipse(r, xc, alpha, n=100, angle_range=(0,2*np.pi)):
         [np.cos(alpha), -np.sin(alpha)],
         [np.sin(alpha), np.cos(alpha)]
     ])
-    
+
     a0,a1 = angle_range
     angles = np.linspace(a0,a1,n)
     X = np.vstack([ np.cos(angles) * r[0], np.sin(angles) * r[1]]).T
@@ -280,7 +275,7 @@ def create_ellipse(r, xc, alpha, n=100, angle_range=(0,2*np.pi)):
 #         op[1, 1] = -2
 #         op[op == 0] = 1
 #         d[direction] = op
-    
+
 #     if direction is None:
 #         return d
 #     return d[direction]
@@ -291,7 +286,7 @@ def create_ellipse(r, xc, alpha, n=100, angle_range=(0,2*np.pi)):
 #     for direction, op in get_robinson3_operator().items():
 #         op[op == -1] = 1
 #         d[direction] = op
-    
+
 #     if direction is None:
 #         return d
 #     return d[direction]
@@ -647,7 +642,7 @@ def align_on_com(array1, array2):
             shape.append(max(array1.shape[dim], array2.shape[dim] - delta))
     out1 = np.zeros(shape)
     fill_at(out1, pos1, array1)
-    out2 = np.zeros(shape)    
+    out2 = np.zeros(shape)
     fill_at(out2, pos2, array2)
 
     return out1, out2
@@ -743,8 +738,7 @@ def combinations_multiple_r(array, min_r=1, max_r=None):
     if max_r is None:
         max_r = len(array)
     for r in range(min_r, max_r + 1):
-        for combi in itertools.combinations(array, r):
-            yield combi
+        yield from itertools.combinations(array, r)
 
 
 def uniq_subsets(s):
@@ -778,8 +772,7 @@ def k_subset(s, k, filter=None):
 
 def all_k_subset(s, k, filter=None):
     for subset in combinations_multiple_r(s):
-        for l in k_subset(subset, k, filter=filter):
-            yield l
+        yield from k_subset(subset, k, filter=filter)
 
 
 def lists_combinations(l1, l2, k=None, filter=None):
@@ -947,7 +940,7 @@ def uniq(array):
     return list(collections.OrderedDict.fromkeys(array))
 
 
-def find_peaks(img, width, threashold, exclude_border=True, max_peaks=None, fit_gaussian=False, 
+def find_peaks(img, width, threashold, exclude_border=True, max_peaks=None, fit_gaussian=False,
                fit_gaussian_n=3, exclude_border_dist=1):
     ''' Caveats: if peak is spread over 2 pixel with exact same intensity, then 2 peaks will be detected '''
     if img.ndim == 1:
@@ -1158,7 +1151,7 @@ def load_object(filename, dir=DATA_DIR):
     ''' DEPRECATED '''
     path = os.path.abspath(os.path.join(dir, filename + '.data'))
     print("Loading object from '%s' ..." % path)
-    file = open(path, 'r')
+    file = open(path)
     object = pickle.load(file)
     print("Object loaded.")
     return object
@@ -1383,7 +1376,7 @@ def _convolve_1d(a, v, boundary='symm', mode='same', axis=0):
     assert mode in ['same', 'valid']
     assert v.ndim == 1
     res = scipy_convolve1d(a, v, mode=CONV_BOUNDARY_MAP2[boundary], axis=axis)
-    
+
     if mode == 'valid':
         l = (len(v) - 1) // 2
         r = (len(v) - 1) - l
@@ -1885,7 +1878,7 @@ def get_pair(value, dtype=None):
     elif s.ndim == 0:
         return np.array([value, value], dtype=dtype)
     else:
-        raise ValueError("Value should be of dimension 0 or 1 (is )" % s.ndim)
+        raise ValueError("Value should be of dimension 0 or 1 (is %s)" % s.ndim)
 
 
 def is_callable(obj):
@@ -2125,7 +2118,7 @@ def assert_raise(exception, fct, *args):
         assert True
 
 
-class AbstractParameter(object):
+class AbstractParameter:
 
     def __call__(self):
         return self.get()
@@ -2137,7 +2130,7 @@ class AbstractParameter(object):
 class Constant(AbstractParameter):
 
     def __init__(self, value):
-        self.value = value        
+        self.value = value
 
     def get(self, shape=None):
         if shape is None:
@@ -2204,7 +2197,7 @@ class UniformFloat(AbstractParameter):
         return value
 
 
-class ConfigurationsContainer(object):
+class ConfigurationsContainer:
 
     def __init__(self, configs):
         self._configs = configs
@@ -2247,7 +2240,7 @@ class BaseConfiguration(ConfigurationsContainer):
 
     def __init__(self, settings, title):
         # settings order: key, default, doc, validator, decoder, encoder, level
-        # class attributes need to start with "_" so that we can set 
+        # class attributes need to start with "_" so that we can set
         # option using simple attribute assignment (ex: config.option = value)
         # levels: 0: show in doc(), 1: save/load to/from file, 2: not saved
         self._title = title
@@ -2409,7 +2402,7 @@ def format_table(data, header=None, min_col_size=10, max_col_size=None):
 
     dim = len(data[0])
     if header :
-        assert len(header) == dim 
+        assert len(header) == dim
         data = [header] + [None] + data
     col_size = [min_col_size] * dim
     for i, line in enumerate(data) :
@@ -2438,7 +2431,7 @@ def format_table(data, header=None, min_col_size=10, max_col_size=None):
         for i in range(dim) :
             res += "%-*s" % (col_size[i], str(line[i])[:col_size[i]])
             res += '|'
-        res += "\n" 
+        res += "\n"
     return res
 
 
@@ -2462,7 +2455,7 @@ def uarray_dec(u_array):
     return uarray_n(u_array), uarray_s(u_array)
 
 
-class AbstractFct(object):
+class AbstractFct:
 
     def __init__(self, p0):
         self.p0 = p0
@@ -2574,7 +2567,7 @@ class CosinusFct(AbstractFct):
         return a * np.cos(x * w)
 
     def get_text_equ(self, label='y'):
-        return "$%s = %.2f \cos(%.4f x)$" % (label, self.a, self.w)
+        return r"$%s = %.2f \cos(%.4f x)$" % (label, self.a, self.w)
 
     @classmethod
     def fit(klass, x, y):
@@ -2627,11 +2620,11 @@ class AbsCosinusFct(CosinusFct):
         return a * np.abs(np.cos(x * w))
 
     def get_text_equ(self, label='y'):
-        return "$%s = %.2f abs(\cos(%.4f x * 2 \pi))$" % (label, self.a, self.w)
+        return r"$%s = %.2f abs(\cos(%.4f x * 2 \pi))$" % (label, self.a, self.w)
 
 
 class GeneralisedLogisticFct(AbstractFct):
-    ''' http://en.wikipedia.org/wiki/Generalized_logistic_curve 
+    ''' http://en.wikipedia.org/wiki/Generalized_logistic_curve
 
         A: the lower asymptote;
         K: the upper asymptote. If A=0 then K is called the carrying capacity;
@@ -2806,10 +2799,12 @@ class DummyFilter(AbstractFilter):
 
 def test_upsample():
     import time
-    from . import plotutils, imgutils
+
     from matplotlib.mlab import csd, detrend_mean
     from scipy.ndimage import rotate
     from scipy.spatial.distance import cdist
+
+    from . import imgutils, plotutils
 
     i1 = imgutils.gaussian(50, width=10, center=[25.2, 25])
     i2 = imgutils.gaussian(50, width=10, center=[25, 25])
@@ -2878,26 +2873,28 @@ def test_upsample():
         '''
         # this function is translated from matlab, so I'm just going to pretend
         # it is matlab/pylab
-        from numpy.fft import ifftshift,fftfreq
-        from numpy import pi,newaxis,floor
+        from numpy import floor, newaxis, pi
+        from numpy.fft import fftfreq, ifftshift
 
-        nr,nc=np.shape(inp);
+        nr,nc=np.shape(inp)
         # Set defaults
-        if noc is None: noc=nc;
-        if nor is None: nor=nr;
+        if noc is None:
+            noc = nc
+        if nor is None:
+            nor = nr
         # Compute kernels and obtain DFT by matrix products
         term1c = ( ifftshift(np.arange(nc,dtype='float') - floor(nc/2)).T[:,newaxis] )/nc # fftfreq
         term2c = (( np.arange(noc,dtype='float') - coff )/usfac)[newaxis,:] # output points
-        kernc=np.exp((-1j*2*pi)*term1c*term2c);
+        kernc=np.exp((-1j*2*pi)*term1c*term2c)
 
         term1r = ( np.arange(nor,dtype='float').T - roff )[:,newaxis] # output points
         term2r = ( ifftshift(np.arange(nr,dtype='float')) - floor(nr/2) )[newaxis,:] # fftfreq
-        kernr=np.exp((-1j*2*pi/(nr*usfac))*term1r*term2r);
+        kernr=np.exp((-1j*2*pi/(nr*usfac))*term1r*term2r)
         #kernc=exp((-i*2*pi/(nc*usfac))*( ifftshift([0:nc-1]).' - floor(nc/2) )*( [0:noc-1] - coff ));
         #kernr=exp((-i*2*pi/(nr*usfac))*( [0:nor-1].' - roff )*( ifftshift([0:nr-1]) - floor(nr/2) ));
-        out=np.dot(np.dot(kernr,inp),kernc);
+        out=np.dot(np.dot(kernr,inp),kernc)
         #return np.roll(np.roll(out,-1,axis=0),-1,axis=1)
-        return out 
+        return out
 
 
     def fourier_interp2d(data, outinds, nthreads=1, use_numpy_fft=False,

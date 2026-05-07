@@ -9,32 +9,28 @@ Created on Feb 22, 2012
 Requirement: astropy version >= 0.3
 '''
 
+import copy
+import datetime
+import decimal
 import os
 import re
-import copy
-import decimal
-import datetime
 from functools import reduce
 from importlib import resources
+
+import astropy.cosmology as cosmology
+import astropy.io.fits as pyfits
+import astropy.units as u
+import astropy.wcs as pywcs
+import matplotlib.ticker as mticker
 import numpy as np
 import PIL.Image
 import skimage.data
-
-from scipy.ndimage import center_of_mass, rotate, zoom
-
-import astropy.units as u
-import astropy.wcs as pywcs
-import astropy.io.fits as pyfits
-import astropy.cosmology as cosmology
 from astropy.time import TimeDelta
-
-import matplotlib.ticker as mticker
+from scipy.ndimage import center_of_mass, rotate, zoom
 
 RESOURCE_PATH = 'resources'
 
-from . import nputils
-from . import signalutils
-
+from . import nputils, signalutils
 
 GALAXY_GIF_PATH = os.path.join(RESOURCE_PATH, "aa.gif")
 
@@ -298,7 +294,7 @@ def guess_and_open(file, fits_extension=0, check_stack_img=False):
     raise Exception("No handler to open: %s" % file)
 
 
-class AbstractBeam(object):
+class AbstractBeam:
 
     def __init__(self):
         self._beam = None
@@ -375,7 +371,7 @@ class GaussianBeam(AbstractBeam):
         header.set("BPA", np.degrees(self.bpa))
 
 
-class Transform(object):
+class Transform:
 
     def __init__(self, fct_s2p, fct_p2s):
         self.fct_s2p = fct_s2p
@@ -475,7 +471,7 @@ class ScaleTransform(Transform):
         return 1 / self.a
 
 
-class ProjectionSettings(object):
+class ProjectionSettings:
 
     def __init__(self, unit=u.deg, relative=False, center='pix_ref', distance=None, z=0, cosmo=None):
         '''
@@ -496,7 +492,7 @@ class ProjectionSettings(object):
         self.distance = distance
 
 
-class AbstractCoordinateSystem(object):
+class AbstractCoordinateSystem:
 
     def get_projection(self, settings):
         pass
@@ -599,7 +595,7 @@ class WorldCoordinateSystem(AbstractCoordinateSystem):
         return WorldCoordinateSystem(wcs)
 
 
-class FormatterPrettyPrint(object):
+class FormatterPrettyPrint:
     ''' Will go away when matplotlib #4761 is fixed (affect v1.2 to 1.4).
         This introduce an other less visible bug.
         In case it affects you, please use a proper Formatter like FormatterDMS
@@ -623,7 +619,7 @@ class FormatterPrettyPrint(object):
         return [self._fmt(v) for v in values]
 
 
-class Projection(object):
+class Projection:
 
     def __init__(self, transform, xlabel, ylabel, unit, coordinate_system):
         self.transform = transform
@@ -672,7 +668,7 @@ class Projection(object):
     def angular_separation(self, xy_pixel1, xy_pixel2):
         xy_coord1 = self.p2s(xy_pixel1)
         xy_coord2 = self.p2s(xy_pixel2)
-        return nputils.l2norm((xy_coord2 - xy_coord1)) * self.unit
+        return nputils.l2norm(xy_coord2 - xy_coord1) * self.unit
 
     def angular_separation_pa(self, xy_pixel1, xy_pixel2):
         xy_coord1 = self.p2s(xy_pixel1)
@@ -898,7 +894,7 @@ class RelativePixelProjection(AbstractRelativeProjection, Projection):
         Projection.__init__(self, ScaleTransform(1, np.array(xy_pixel_center), 1), "X", "Y", unit, coordinate_system)
 
 
-class ImageSet(object):
+class ImageSet:
     ''' Object used to store beam information
         until we can save full detection result'''
 
@@ -960,7 +956,7 @@ class ImageSet(object):
         return new
 
 
-class ImageMeta(object):
+class ImageMeta:
 
     def __init__(self, epoch, coordinate_system, beam):
         self.epoch = epoch
@@ -977,7 +973,7 @@ class ImageMeta(object):
         return self.epoch
 
 
-class Image(object):
+class Image:
 
     EPOCH_COUNTER = 0
 
@@ -1200,7 +1196,7 @@ class FitsImage(Image):
         self.freq_key = freq_key
         self.beam = None
         self.header = fits[extension].header
-        if extension is not 0:
+        if extension != 0:
             self.zero_header = fits[0].header
         else:
             self.zero_header = self.header
@@ -1264,7 +1260,7 @@ class FitsImage(Image):
         return GaussianBeam(bmaj / scale, bmin / scale, np.radians(bpa))
 
     def check_aips_clean_beam(self):
-        pattern = 'AIPS\s*CLEAN\s*BMAJ=(.*)BMIN=(.*)BPA=(.*)'
+        pattern = r'AIPS\s*CLEAN\s*BMAJ=(.*)BMIN=(.*)BPA=(.*)'
         for line in self.header['HISTORY']:
             res = re.search(pattern, line)
             if res is not None:
@@ -1381,13 +1377,13 @@ class StackedImage(FitsImage):
         # self.all_datas.append(image.data)
         if not nputils.shape_eq(image.data, self.data):
             raise Exception("Image shape are not adequate for stacking")
-        if action is 'mean':
+        if action == 'mean':
             self.data = self.data * (len(self) / float(len(self) + 1)) + image.data / float(len(self) + 1)
-        elif action is 'add':
+        elif action == 'add':
             self.data += image.data
-        elif action is 'max':
+        elif action == 'max':
             self.data = np.max([self.data, image.data], axis=0)
-        elif action is 'min':
+        elif action == 'min':
             self.data = np.min([self.data, image.data], axis=0)
         # elif action.startswith('per'):
         #     self.data = np.percentile(self.all_datas, int(action[3:]), axis=0)
@@ -1430,7 +1426,7 @@ class StackedImage(FitsImage):
         return hdu
 
 
-class StackedImageBuilder():
+class StackedImageBuilder:
 
     def __init__(self):
         self.image = None
@@ -1452,7 +1448,7 @@ class StackedImageBuilder():
 
 class FastHeaderReader(list):
 
-    _RE_FITS_HEADER_LINE = re.compile("^([^=]{8})=([ ]*'.*'[ ]*|[ ]*[0-9.\-\+E]+[ ]*|[ ]*NAN[ ]*|[ ]*[TF][ ]*)/?(.*)$")
+    _RE_FITS_HEADER_LINE = re.compile(r"^([^=]{8})=([ ]*'.*'[ ]*|[ ]*[0-9.\-\+E]+[ ]*|[ ]*NAN[ ]*|[ ]*[TF][ ]*)/?(.*)$")
 
     def __init__(self, file, keys=None):
         self.file = file
@@ -1551,7 +1547,7 @@ class Mask(Image):
         return self.get_mask().sum()
 
 
-class PolyRegion(object):
+class PolyRegion:
 
     def __init__(self, vertices=None, color='blue', title=''):
         self.vertices = vertices
@@ -1617,7 +1613,7 @@ class PolyRegion(object):
                 fd.writelines(content)
 
 
-class Region(object):
+class Region:
     ''' Wrapper for pyregion ShapeList, so that we can deal directly with CoordinateSystsem'''
 
     def __init__(self, filename):
@@ -1784,7 +1780,7 @@ class ImageRegion(Image):
         return ia + ib
 
 
-class ImageBuilder(object):
+class ImageBuilder:
 
     def __init__(self):
         self.img = None

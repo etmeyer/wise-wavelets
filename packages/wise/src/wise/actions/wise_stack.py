@@ -3,6 +3,7 @@
 import libwise.scriptshelper as sh
 
 import wise
+
 from . import actions
 
 USAGE = '''Stack images

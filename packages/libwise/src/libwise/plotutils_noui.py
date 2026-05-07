@@ -1,6 +1,6 @@
-from .plotutils_base import *
-
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
+from .plotutils_base import *
 
 
 def subplots(**kargs):

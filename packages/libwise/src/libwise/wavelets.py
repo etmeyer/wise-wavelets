@@ -7,12 +7,13 @@ Created on Feb 6, 2012
 import re
 
 import numpy as np
-from . import wavelets_coefficients as wc
 
 from libwise import nputils
 
+from . import wavelets_coefficients as wc
 
-class WaveletFamilyBase(object):
+
+class WaveletFamilyBase:
 
     def __init__(self, name, orders):
         self.name = name
@@ -75,7 +76,7 @@ class BSplineWaveletFamily(DiscreteWaveletFamilyBase):
         DiscreteWaveletFamilyBase.__init__(self, 'B Spline', wc.bspline)
 
 
-class WaveletBase(object):
+class WaveletBase:
 
     def __init__(self, name, family):
         self.name = name
@@ -162,7 +163,7 @@ class DiscreteWaveletBase(WaveletBase):
             points = np.setdiff1d(np.arange(0, 1, pow(2, -j)), pointsDone)
             pointsDone = np.r_[points, pointsDone]
             for point in points:
-                im = int(np.floor((point + 0.5)))
+                im = int(np.floor(point + 0.5))
                 iv = (2 * point) % 1
                 v[point] = np.dot(m[im], v[iv])
                 phi[point * pow(2, level)::pow(2, level)] = np.real(v[point])
@@ -180,8 +181,8 @@ class DiscreteWaveletBase(WaveletBase):
         f = np.linspace(-1 / (2 * pow(2, -level)),
                         1 / (2 * pow(2, -level)), n)
 
-        tf_phi = np.fft.fftshift((np.fft.fft(phi, n)))
-        tf_psi = np.fft.fftshift((np.fft.fft(psi, n)))
+        tf_phi = np.fft.fftshift(np.fft.fft(phi, n))
+        tf_psi = np.fft.fftshift(np.fft.fft(psi, n))
 
         if fmax > fmin:
             good = (f >= fmin) & (f <= fmax)

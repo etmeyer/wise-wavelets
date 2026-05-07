@@ -1,29 +1,31 @@
-import os
-import re
+import datetime
 import glob
 import logging
-import datetime
-
-from . import wds
-from . import matcher
-from . import wiseutils
-from . import features as wfeatures
-
-import numpy as np
-
-from libwise import plotutils, nputils, imgutils
-from libwise.nputils import validator_is, is_callable, validator_in_range, validator_list, str2bool, str2floatlist
-
-import jsonpickle as jp
+import os
+import re
 
 import astropy.units as u
+import jsonpickle as jp
+import numpy as np
+from libwise import imgutils, nputils, plotutils
+from libwise.nputils import (
+    is_callable,
+    str2bool,
+    str2floatlist,
+    validator_in_range,
+    validator_is,
+    validator_list,
+)
+
+from . import features as wfeatures
+from . import matcher, wds, wiseutils
 
 logger = logging.getLogger(__name__)
 
 
 def quantity_decode(s):
     try:
-        value, unit = re.match('(\d+\.*\d*)\s*([a-zA-Z]+)', s).group(1,2)
+        value, unit = re.match(r'(\d+\.*\d*)\s*([a-zA-Z]+)', s).group(1,2)
     except:
         raise ValueError("Quantity '%s' is not in the right format." % s)
     return float(value) * u.Unit(unit)
@@ -40,11 +42,11 @@ class DataConfiguration(nputils.BaseConfiguration):
         ["ref_image_filename", "reference_image", "Reference image filename", validator_is(str), str, str, 0],
         ["mask_filename", "mask.fits", "Mask filename", validator_is(str), str, str, 0],
         ["bg_fct", None, "Background extraction fct", is_callable, None, None, 2],
-        ["bg_coords", None, "Background region in coordinates [Xa,Ya,Xb,Yb]", validator_list(4, (int, float)), 
+        ["bg_coords", None, "Background region in coordinates [Xa,Ya,Xb,Yb]", validator_list(4, (int, float)),
             str2floatlist, jp.encode, 0],
         ["bg_use_ksigma_method", False, "Use ksigma method to estimate the background level", validator_is(bool), str2bool, str, 0],
-        ["roi_coords", None, "Region of interest in coordinates [Xa,Ya,Xb,Yb]", validator_list(4, (int, float)), 
-            str2floatlist, jp.encode, 0],            
+        ["roi_coords", None, "Region of interest in coordinates [Xa,Ya,Xb,Yb]", validator_list(4, (int, float)),
+            str2floatlist, jp.encode, 0],
         ["core_offset_filename", "core.dat", "Core offset filename", validator_is(str), str, str, 0],
         ["core_offset_fct", None, "Core offset generation fct", is_callable, None, None, 2],
         ["pre_bg_process_fct", None, "Initial processing before bg extraction", is_callable, None, None, 2],
@@ -60,12 +62,12 @@ class DataConfiguration(nputils.BaseConfiguration):
         ]
 
         # nputils.BaseConfiguration.__init__(self, data, title="Finder configuration")
-        super(DataConfiguration, self).__init__(data, title="Data configuration")
+        super().__init__(data, title="Data configuration")
 
 
 class AnalysisConfiguration(nputils.ConfigurationsContainer):
     """Analysis configuration container.
-    
+
     Attributes
     ----------
     data : :class:`DataConfiguration`
@@ -91,9 +93,9 @@ class AnalysisConfiguration(nputils.ConfigurationsContainer):
     #     print "Saved matcher configuration @ %s" % base + ".matcher.conf"
 
 
-class AnalysisResult(object):
+class AnalysisResult:
     """Analysis result container.
-    
+
     Parameters
     ----------
     config : :class:`AnalysisConfiguration`
@@ -155,7 +157,7 @@ class AnalysisResult(object):
         return self.detection
 
 
-class AnalysisContext(object):
+class AnalysisContext:
     """An analysis context encapsulates all the configuration and the results
     of a project.
 
@@ -170,7 +172,7 @@ class AnalysisContext(object):
     >>> ctx.config.matcher.method_klass = wise.ScaleMatcherMSCSC2
 
     >>> ctx.select_files(os.path.expanduser("~/project/files/*"))
-    
+
 
     Parameters
     ----------
@@ -199,7 +201,7 @@ class AnalysisContext(object):
         self._cache_core_offset = None
 
     def get_data_dir(self):
-        """Return the project data directory as configured by config.data.data_dir. 
+        """Return the project data directory as configured by config.data.data_dir.
         If the directory does not exist, it will be created. """
         path = self.config.data.data_dir
         if self.config.data.data_dir is None:
@@ -210,7 +212,7 @@ class AnalysisContext(object):
         return path
 
     def get_projection(self, img=None):
-        """ Return a :class:`libwise.imgutils.Projection` corresponding to `img` and the settings 
+        """ Return a :class:`libwise.imgutils.Projection` corresponding to `img` and the settings
         defined in config.data. If `img` is not set, the reference image will be used instead.
 
         Parameters
@@ -219,10 +221,10 @@ class AnalysisContext(object):
         """
         if img is None:
             img = self.get_ref_image()
-        return img.get_projection(relative=self.config.data.projection_relative, 
-                                  center=self.config.data.projection_center, 
-                                  unit=self.config.data.projection_unit, 
-                                  distance=self.config.data.object_distance, 
+        return img.get_projection(relative=self.config.data.projection_relative,
+                                  center=self.config.data.projection_center,
+                                  unit=self.config.data.projection_unit,
+                                  distance=self.config.data.object_distance,
                                   z=self.config.data.object_z)
 
     def get_core_offset_filename(self):
@@ -232,7 +234,7 @@ class AnalysisContext(object):
         return os.path.join(path, self.config.data.core_offset_filename)
 
     def get_core_offset(self):
-        """ Return a :class:`CoreOffsetPositions`  based on the core position 
+        """ Return a :class:`CoreOffsetPositions`  based on the core position
         defined in the file self.config.data.core_offset_filename.
         """
         filename = self.get_core_offset_filename()
@@ -270,12 +272,12 @@ class AnalysisContext(object):
         return os.path.join(path, self.config.data.stack_image_filename)
 
     def get_ref_image(self, preprocess=True):
-        """Return the reference image (:class:`libwise.imgutils.Image`) of the project, 
+        """Return the reference image (:class:`libwise.imgutils.Image`) of the project,
         used for the projection defintion and several plotting tasks.
 
-        A reference image can be set using self.config.data.ref_image_filename. 
+        A reference image can be set using self.config.data.ref_image_filename.
         Alternatively the first file of the project is used.
-        
+
         Parameters
         ----------
         preprocess : bool, optional
@@ -296,7 +298,7 @@ class AnalysisContext(object):
 
     def set_ref_image(self, img):
         """Set the reference image.
-        
+
         Parameters
         ----------
         img : :class:`libwise.imgutils.Image`
@@ -323,7 +325,7 @@ class AnalysisContext(object):
 
     def align(self, img):
         """Align image using core position defined in self.config.data.core_offset_filename.
-        
+
         Parameters
         ----------
         img : :class:`libwise.imgutils.Image`
@@ -335,9 +337,9 @@ class AnalysisContext(object):
             core_offset.align_img(img, projection=self.get_projection(img))
 
     def build_stack_image(self, preprocess=False, nsigma=0, nsigma_connected=False):
-        """Create a stacked image (:class:`libwise.imgutils.StackedImage` of all 
+        """Create a stacked image (:class:`libwise.imgutils.StackedImage` of all
            the project images, aligning them if necessary.
-        
+
         Parameters
         ----------
         preprocess : bool, optional
@@ -455,7 +457,7 @@ class AnalysisContext(object):
     def save_mask_file(self, mask_fct):
         """Create a mask image based on `mask_fct` and save the result on disk using
         path defined in self.config.data.mask_filename. `mask_fct` must be a function
-        accepting an :class:`AnalysisContext` as argument and returning a corresponding 
+        accepting an :class:`AnalysisContext` as argument and returning a corresponding
         mask as :class:`libwise.imgutils.Image`.
         """
         filename = self.get_mask_filename()
@@ -499,7 +501,7 @@ class AnalysisContext(object):
         return res
 
     def select_files(self, files, start_date=None, end_date=None, filter_dates=None, step=1):
-        """Set the images files of the projects. The `files` parameter accept shell like wildcards, 
+        """Set the images files of the projects. The `files` parameter accept shell like wildcards,
         and it is possible to filter files by dates.
 
         Examples
@@ -510,7 +512,7 @@ class AnalysisContext(object):
         >>> ctx.select_files('/project/files/*.fits', start_date=datetime.datetime(2000, 1, 1))
 
         >>> ctx.select_files('/project/files/*.fits', step=2)
-        
+
 
         Parameters
         ----------
@@ -527,7 +529,7 @@ class AnalysisContext(object):
         if isinstance(files, str):
             files = glob.glob(files)
 
-        self.files = imgutils.fast_sorted_fits(files, start_date=start_date, 
+        self.files = imgutils.fast_sorted_fits(files, start_date=start_date,
                             end_date=end_date, filter_dates=filter_dates, step=step)
 
         print("Number of files selected:", len(self.files))

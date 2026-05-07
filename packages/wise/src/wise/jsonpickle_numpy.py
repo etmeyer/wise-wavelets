@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 # This file is part of jsonpickle (https://github.com/jsonpickle/)
 #
 # Copyright (C) 2008 John Paulett (john -at- paulett.org)
@@ -8,10 +7,11 @@
 
 
 
+import ast
+
+import jsonpickle
 import numpy as np
 
-import ast
-import jsonpickle
 # import unicode from jsonpickle, depending on its version apparently function name is different.
 try:
     from jsonpickle.compat import str

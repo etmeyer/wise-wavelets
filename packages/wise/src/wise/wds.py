@@ -1,13 +1,19 @@
+import jsonpickle as jp
 import numpy as np
-from skimage.segmentation import watershed
+from libwise import imgutils, nputils, wavelets, wtutils
+from libwise.nputils import (
+    is_callable,
+    str2bool,
+    str2jsonclass,
+    str2jsonfunction,
+    validator_in_range,
+    validator_is,
+    validator_is_class,
+    validator_list,
+)
 from scipy import ndimage as ndi
 from scipy.ndimage import gaussian_filter
-
-from libwise import nputils, imgutils, wtutils, wavelets
-from libwise.nputils import validator_is, is_callable, validator_in_range, str2jsonfunction
-from libwise.nputils import validator_list, validator_is_class, str2bool, str2jsonclass
-
-import jsonpickle as jp
+from skimage.segmentation import watershed
 
 from .features import *
 
@@ -122,11 +128,11 @@ class Segment(ImageFeature):
         return self.segmented_image.get_center_of_mass(self)
 
     def get_coord(self, mode=None):
-        if mode is None or mode is 'lm':
+        if mode is None or mode == 'lm':
             coord = Feature.get_coord(self)
-        elif mode is 'com':
+        elif mode == 'com':
             coord = self.get_center_of_mass()
-        elif mode is 'cos':
+        elif mode == 'cos':
             coord = self.get_center_of_shape()
         return coord
 
@@ -285,7 +291,7 @@ class SegmentedImages(DatedFeaturesGroup):
                 segment1.add_inner_feature(feature.copy())
         else:
             segment1.add_inner_feature(segment2)
-        if not segment1 in segment1.get_inner_features():
+        if segment1 not in segment1.get_inner_features():
             segment1.add_inner_feature(segment1.copy())
 
         # get new local max
@@ -450,7 +456,7 @@ class SegmentedImages(DatedFeaturesGroup):
         return new
 
 
-class AbstractScale(object):
+class AbstractScale:
 
     def __init__(self, scale):
         self.scale = scale
@@ -520,10 +526,10 @@ class FinderConfiguration(nputils.BaseConfiguration):
                 validator_is(bool), str2bool, str, 1],
         ]
 
-        super(FinderConfiguration, self).__init__(data, title="Finder configuration")
+        super().__init__(data, title="Finder configuration")
 
 
-class Node(object):
+class Node:
 
     def __init__(self, obj, parent, childs=[]):
         self.parent = parent
@@ -539,7 +545,7 @@ class Node(object):
         return "Node(%s)" % self.get_id()
 
     def show(self, level):
-        print(" " * level + "\-- %s" % self.get_id())
+        print(" " * level + r"\-- %s" % self.get_id())
         for child in self.childs:
             child.show(level + 1)
 
@@ -547,7 +553,7 @@ class Node(object):
         return self.obj
 
     def is_root(self):
-        return self.parent == None
+        return self.parent is None
 
     def add_child(self, child):
         self.childs.append(child)
@@ -583,7 +589,7 @@ class MultiScaleNode(list):
         return [node.get().get_segmented_image().get_scale() for node in self]
 
 
-class MultiScaleTree(object):
+class MultiScaleTree:
 
     def __init__(self):
         self.root = Node(None, None, [])
@@ -617,7 +623,7 @@ class MultiScaleTree(object):
         return self.ms_nodes.get(node, None)
 
 
-class MultiScaleRelation(object):
+class MultiScaleRelation:
 
     def __init__(self, ms_image):
         self.ms_image = ms_image
@@ -683,8 +689,7 @@ class BaseMultiScaleImage(AbstractKeyList):
 
     def features_iter(self):
         for segments in self:
-            for segment in segments:
-                yield segment
+            yield from segments
 
     def get_epoch(self):
         return self.epoch
@@ -828,8 +833,7 @@ class MultiScaleImageSet(AbstractKeyList):
     def features_iter(self):
         for ms_segments in self:
             for segments in ms_segments:
-                for segment in segments:
-                    yield segment
+                yield from segments
 
     def is_full_wds(self):
         try:
@@ -885,10 +889,10 @@ class MultiScaleImageSet(AbstractKeyList):
             if feature_filter is not None and not feature_filter(feature):
                 continue
             scale = np.round(float(line[5]) / projection.mean_pixel_scale())
-            if not date in epochs:
+            if date not in epochs:
                 epochs[date] = dict()
             ms_features = epochs[date]
-            if not scale in ms_features:
+            if scale not in ms_features:
                 ms_features[scale] = DatedFeaturesGroupScale(scale, epoch=date)
             ms_features[scale].add_feature(feature)
 
@@ -901,7 +905,7 @@ class MultiScaleImageSet(AbstractKeyList):
         return new
 
 
-class AbstractMultiScaleDecomposition(object):
+class AbstractMultiScaleDecomposition:
 
     reversable = False
 
@@ -991,7 +995,7 @@ class DoGMultiscaleDecomposition(WaveletMultiscaleDecomposition):
         if max_scale is None:
             max_scale = min(self.img.data.shape) / 4
 
-        if angle is 'beam' and self.img.has_beam():
+        if angle == 'beam' and self.img.has_beam():
             angle = img.get_beam().angle
 
         widths = np.arange(min_scale, max_scale + 2 * step, step)
@@ -1020,7 +1024,7 @@ class MinScaleMultiscaleDecomposition(WaveletMultiscaleDecomposition):
         if max_scale is None:
             max_scale = min(self.img.data.shape) / 4
 
-        if angle is 'beam' and self.img.has_beam():
+        if angle == 'beam' and self.img.has_beam():
             angle = self.img.get_beam().angle
 
         widths = np.arange(min_scale, max_scale, step)
@@ -1034,7 +1038,7 @@ class MinScaleMultiscaleDecomposition(WaveletMultiscaleDecomposition):
         return list(zip(scales, scales_noises, widths))
 
 
-class FeaturesFinder(object):
+class FeaturesFinder:
 
     def __init__(self, img, background, config=None,
                  segment=True, filter=None):

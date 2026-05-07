@@ -53,7 +53,7 @@ def test_projection():
     stack = FigureStack()
 
     img = imgutils.Image(imgutils.galaxy())
-    prj = imgutils.Projection(imgutils.ScaleTransform(2, np.array(img.data.shape) / 2), "X", "Y", 
+    prj = imgutils.Projection(imgutils.ScaleTransform(2, np.array(img.data.shape) / 2), "X", "Y",
                               imgutils.u.pix, imgutils.PixelCoordinateSystem())
 
     fig, ax = stack.add_subplots()
@@ -211,7 +211,7 @@ def test_colorbar():
     #                    loc=4,
     #                    bbox_to_anchor=(0.1, 0., 1, 1),
     #                    bbox_transform=ax2.transAxes,
-    #                    borderpad=0, 
+    #                    borderpad=0,
     #                    )
 
     colorbar = ColorbarSetting()

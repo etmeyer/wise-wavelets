@@ -6,9 +6,7 @@ Created on Feb 13, 2012
 
 import numpy as np
 
-from . import nputils
-from . import imgutils
-from . import wavelets
+from . import imgutils, nputils, wavelets
 
 
 def get_wavelet_obj(w):

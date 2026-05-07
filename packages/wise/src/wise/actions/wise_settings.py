@@ -3,13 +3,13 @@
 import os
 import re
 
-from libwise import imgutils, uiutils
+import astropy.units as u
 import libwise.scriptshelper as sh
+from libwise import imgutils, uiutils
 
 import wise
-from . import actions
 
-import astropy.units as u
+from . import actions
 
 USAGE = '''Set and get WISE configuration.
 

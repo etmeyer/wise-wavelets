@@ -2,10 +2,11 @@
 
 import sys
 
-from libwise import nputils
 import libwise.scriptshelper as sh
+from libwise import nputils
 
 import wise
+
 from . import actions
 
 USAGE = '''Run the matching procedure

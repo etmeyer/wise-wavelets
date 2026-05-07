@@ -5,7 +5,8 @@ Created on Mar 12, 2012
 '''
 
 import astropy.io.fits as pyfits
-from libwise import uiutils, imgutils, plotutils, wtutils, wavelets
+
+from libwise import imgutils, plotutils, uiutils, wavelets, wtutils
 
 from . import waveletsui
 
@@ -66,7 +67,7 @@ class WaveletTransform2D(uiutils.Experience):
             data = self.img.get().data
             res = wtutils.wavedec(data, self.wavelet.get(), scale_max,
                                   dec=self.dec.get(), boundary=self.ext.get(), thread=thread)
-            if res == None:
+            if res is None:
                 return False
             self.current_wavedec = [imgutils.Image.from_image(self.img.get(), k) for k in res]
 

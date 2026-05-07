@@ -4,11 +4,10 @@ Created on Feb 15, 2016
 @author: fmertens
 '''
 
+import fnmatch
 import os
 import re
 import sys
-import fnmatch
-
 
 _SH_VERSION = None
 
@@ -34,21 +33,21 @@ def usage(exit=False) :
     if exit :
         sys.exit(0)
 
-        
+
 def version(exit=False) :
     print('Version %s' % _SH_VERSION)
     if exit :
         sys.exit(0)
 
-    
+
 def init(script_version, script_usage) :
-    ''' Gestion des scipts : fonction d'initialisation. 
-    
-        Cette fonction gere les options --help, --version et --debug 
-        
-        Attention : L'option --debug est supprime de sys.argv si presente. 
-        Utilisez get_debug() pour savoir si --debug a ete passe en option. 
-        
+    ''' Gestion des scipts : fonction d'initialisation.
+
+        Cette fonction gere les options --help, --version et --debug
+
+        Attention : L'option --debug est supprime de sys.argv si presente.
+        Utilisez get_debug() pour savoir si --debug a ete passe en option.
+
         <code python>
         init(0.1, 'Utilisation : script -a -b VALEUR1 -c VALEUR2 ARG1 ARG2')
         a = get_opt_bool(None, 'a')
@@ -58,7 +57,7 @@ def init(script_version, script_usage) :
         if len(args) != 2 :
             usage(True)
         </code> '''
-    
+
     global _SH_USAGE, _SH_VERSION, _SH_ARGS
     _SH_USAGE = script_usage
     _SH_VERSION = script_version
@@ -70,19 +69,19 @@ def init(script_version, script_usage) :
     # elif "--debug" in _SH_ARGS :
     #     _SH_ARGS.remove("--debug")
     #     set_debug(True)
-        
+
 
 def get_opt_value(opt_name, opt_short_name, multiple = False, default=None) :
     ''' Gestion des scripts : retourne la valeur d'une option passe en argument
         du type --//opt_name//=value et/ou -//opt_short_name// value.
-        
+
         //opt_short_name// doit etre une lettre.
-        
+
         Si //multiple// = True : possibilte de passer plusieurs options en argument.
-        La fonction retourne alors une liste de valeurs. 
-        
+        La fonction retourne alors une liste de valeurs.
+
         **init()** doit etre appelle avant d'utiliser cette fonction.'''
-    
+
     global _SH_ARGS
     values = []
     i = len(_SH_ARGS) - 1
@@ -110,11 +109,11 @@ def get_opt_value(opt_name, opt_short_name, multiple = False, default=None) :
 def get_opt_bool(opt_name, opt_short_name) :
     ''' Gestion des scripts : retourne si oui ou non (True/False) une option
         du type --//opt_name// et/ou -//opt_short_name// a ete passe en argument.
-        
+
         //opt_short_name// doit etre une lettre.
-        
+
         **init()** doit etre appelle avant d'utiliser cette fonction.'''
-    
+
     global _SH_ARGS
     value = False
     i = len(_SH_ARGS) - 1
@@ -128,15 +127,15 @@ def get_opt_bool(opt_name, opt_short_name) :
 
 def get_args(min_nargs=0) :
     ''' Gestion des scripts : retourne les arguments. C'est a dire tous ce qui n'est pas
-        option. 
-        
+        option.
+
         Toutes les options doivent avoir ete gere par **get_opt_value()**
-        et **get_opt_bool()**. 
-        
+        et **get_opt_bool()**.
+
         Si il reste des options en argument non gere, cette fonction generera une exception.
-        
+
         **init()** doit etre appelle avant d'utiliser cette fonction.'''
-    
+
     global _SH_ARGS
     opts = [ k for k in _SH_ARGS if k[0] == '-' ]
     if opts :
@@ -197,7 +196,7 @@ def asklist(prompt, list) :
         if not ok :
             cwrite("Incorrect choice\n")
     return s
-    
+
 
 def ask(prompt, check_fct=False, check_re=False, check_list=False, default=None) :
     ok = False

@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
-from libwise import uiutils, wavelets, plotutils
-from . import waveletsui
 import numpy as np
+
+from libwise import plotutils, uiutils, wavelets
+
+from . import waveletsui
 
 
 class WaveletBrowser(uiutils.Experience):

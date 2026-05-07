@@ -5,6 +5,7 @@ Created on Feb 22, 2012
 '''
 
 import numpy as np
+
 from . import nputils
 
 
@@ -78,8 +79,8 @@ if __name__ == '__main__':
         def set_data(self, data):
             self.data = data
 
-    import wds
     import matplotlib.pyplot as plot
+    import wds
 
     # l = lorentzian(500, gamma=10., center=200)
     i = gaussian(100, width=5, center=50)

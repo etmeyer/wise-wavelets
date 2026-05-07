@@ -4,9 +4,10 @@ Created on Mar 14, 2012
 @author: fmertens
 '''
 import numpy as np
-from . import waveletsui
 
-from libwise import uiutils, plotutils, signalutils, nputils, wavelets, wtutils
+from libwise import nputils, plotutils, signalutils, uiutils, wavelets, wtutils
+
+from . import waveletsui
 
 
 class WaveletTransform(uiutils.Experience):

@@ -1,15 +1,12 @@
 #! /usr/bin/env python
 
 import libwise
-from libwise import nputils
 import libwise.scriptshelper as sh
-
-import wise
-from wise.actions import actions
-from wise import wiseutils
-from libwise import plotutils
-
 import matplotlib.pyplot as plt
+import wise
+from libwise import nputils, plotutils
+from wise import wiseutils
+from wise.actions import actions
 
 USAGE = '''Plot all components trajectories on the reference map
 
