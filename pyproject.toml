@@ -1,0 +1,22 @@
+# This file holds shared tool config only. There is no [project] table at the
+# root — the two installable packages live under packages/libwise and
+# packages/wise, each with its own pyproject.toml.
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = ["build", "dist"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP"]
+ignore = [
+    "E501",  # line length handled by formatter
+    "E741",  # legacy ambiguous names (l, I) used widely in the science code
+    "F401",  # re-exports via `from .x import *` are intentional in __init__
+    "F403",
+    "F405",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["packages/libwise/tests", "packages/wise/tests"]
+filterwarnings = ["ignore::DeprecationWarning"]

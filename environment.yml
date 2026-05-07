@@ -1,0 +1,25 @@
+name: wise
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.11
+  - numpy>=1.24
+  - scipy>=1.11
+  - scikit-image>=0.22
+  - astropy>=6.0
+  - matplotlib>=3.7
+  - pyregion>=2.2
+  - uncertainties>=3.2
+  - pandas>=2.0
+  - pillow>=10.0
+  - appdirs>=1.4
+  - imageio>=2.31
+  - jsonpickle>=3.0
+  - pyqt>=5.15            # PyQt5 — drives libwise/app and plotutils_ui
+  - pytest>=8.0
+  - ruff>=0.6
+  - pip
+  - pip:
+    - -e packages/libwise
+    - -e packages/wise
