@@ -13,6 +13,7 @@ from libwise import imgutils, nputils, plotutils
 
 from . import features as wfeatures
 from . import matcher, project, scc, wds, wiseutils
+from .features import _cmp
 
 unit_c = u.core.Unit("c", const.c, doc="light speed")
 
@@ -1360,7 +1361,7 @@ def _test_load_3c120_config():
     def get_core(ctx, img):
         bg = ctx.get_bg(img)
         ctx.pre_process(img)
-        cmp_y = lambda x, y: cmp(x.get_coord()[1], y.get_coord()[1])
+        cmp_y = lambda x, y: _cmp(x.get_coord()[1], y.get_coord()[1])
         core = wiseutils.align_image_on_core(img, bg, cmp_y)
         core = ctx.get_projection(img).p2s(plotutils.p2i(core))
 

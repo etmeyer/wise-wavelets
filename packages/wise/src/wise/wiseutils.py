@@ -14,6 +14,7 @@ from scipy.optimize import curve_fit
 
 from . import features as wfeatures
 from . import matcher, wds
+from .features import _cmp
 
 unit_c = u.core.Unit("c", const.c, doc="light speed")
 p2i = imgutils.p2i
@@ -980,7 +981,7 @@ def align_image_on_brightest(img, bg, scale):
 
     group = wds.FeaturesFinder(img, bg, finder_conf).execute()[0]
 
-    cmp_intensity = lambda x, y: cmp(x.get_intensity(), y.get_intensity())
+    cmp_intensity = lambda x, y: _cmp(x.get_intensity(), y.get_intensity())
     nucleus = group.sorted_list(cmp=cmp_intensity)[-1]
 
     return nucleus.get_coord()
@@ -994,7 +995,7 @@ def align_image_on_cores_com(img, bg):
 
     group = wds.FeaturesFinder(img, bg, finder_conf).execute()[0]
 
-    cmp_intensity = lambda x, y: cmp(x.get_intensity(), y.get_intensity())
+    cmp_intensity = lambda x, y: _cmp(x.get_intensity(), y.get_intensity())
     brightest = group.sorted_list(cmp=cmp_intensity)[-1]
 
     cores = wfeatures.FeaturesGroup()
@@ -1014,7 +1015,7 @@ def align_image_on_cores_com(img, bg):
 
 
 def align_image_on_southern_core(img, bg):
-    cmp_y = lambda x, y: cmp(x.get_coord()[0], y.get_coord()[0])
+    cmp_y = lambda x, y: _cmp(x.get_coord()[0], y.get_coord()[0])
 
     return align_image_on_core(img, bg, cmp_y)
 
@@ -1028,7 +1029,7 @@ def align_image_on_core(img, bg, cmp_cores, core_ratio=0.1, scale=1, reg_filter=
 
     group = wds.FeaturesFinder(img, bg, finder_conf).execute()[0]
 
-    cmp_intensity = lambda x, y: cmp(x.get_intensity(), y.get_intensity())
+    cmp_intensity = lambda x, y: _cmp(x.get_intensity(), y.get_intensity())
     brightest = group.sorted_list(cmp=cmp_intensity)[-1]
 
     cores = wfeatures.FeaturesGroup()
@@ -1103,7 +1104,7 @@ def align_image_on_cores_cos(img, bg):
 
     group = wds.FeaturesFinder(img, bg, finder_conf).execute()[0]
 
-    cmp_intensity = lambda x, y: cmp(x.get_intensity(), y.get_intensity())
+    cmp_intensity = lambda x, y: _cmp(x.get_intensity(), y.get_intensity())
     brightest = group.sorted_list(cmp=cmp_intensity)[-1]
 
     cores = wfeatures.FeaturesGroup()

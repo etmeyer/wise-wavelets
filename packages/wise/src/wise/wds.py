@@ -16,6 +16,7 @@ from scipy.ndimage import gaussian_filter
 from skimage.segmentation import watershed
 
 from .features import *
+from .features import _cmp
 
 p2i = imgutils.p2i
 logger = logging.getLogger(__name__)
@@ -221,7 +222,7 @@ class SegmentedImages(DatedFeaturesGroup):
     def watershed_segmentation(self, features, mask, feature_filter=None):
         markers = np.zeros_like(self.img.data, dtype=np.int16)
 
-        cmp_intensity = lambda x, y: cmp(x.get_intensity(), y.get_intensity())
+        cmp_intensity = lambda x, y: _cmp(x.get_intensity(), y.get_intensity())
         features = features.sorted_list(cmp=cmp_intensity)[::-1]
 
         for i, feature in enumerate(features):

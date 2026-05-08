@@ -22,6 +22,7 @@ from libwise.nputils import (
 from scipy.cluster.hierarchy import linkage
 
 from .features import *
+from .features import _cmp
 from .wds import *
 
 p2i = imgutils.p2i
@@ -1024,7 +1025,7 @@ class ScaleMatcherMSCSC(BaseScaleMatcher):
         delta_info = DeltaInformation(self.segments1, average_tol=self.scale * 10)
 
         matching_group = ScaleMatchingGroup()
-        cmp_intensity = lambda x, y: cmp(x.get_intensity(), y.get_intensity())
+        cmp_intensity = lambda x, y: _cmp(x.get_intensity(), y.get_intensity())
 
         for segment1 in to_match1.sorted_list(cmp=cmp_intensity):
             match_item = self.find_matches(segment1, to_match2_query)
@@ -1306,7 +1307,7 @@ class ScaleMatcherMSCSC2(BaseScaleMatcher):
         delta_info = DeltaInformation(self.segments1, average_tol=self.scale * 10)
 
         matching_group = ScaleMatchingGroup()
-        cmp_intensity = lambda x, y: cmp(x.get_intensity(), y.get_intensity())
+        cmp_intensity = lambda x, y: _cmp(x.get_intensity(), y.get_intensity())
 
         for segment1 in to_match1.sorted_list(cmp=cmp_intensity):
             match_item = self.find_matches(segment1, to_match2_query)

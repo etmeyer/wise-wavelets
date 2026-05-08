@@ -1,7 +1,7 @@
 import datetime
 import logging
 import os
-from functools import reduce
+from functools import cmp_to_key, reduce
 
 import astropy.units as u
 import numpy as np
@@ -10,6 +10,14 @@ from scipy.spatial import KDTree
 
 p2i = imgutils.p2i
 logger = logging.getLogger(__name__)
+
+
+def _cmp(a, b):
+    if a < b:
+        return -1
+    if a > b:
+        return 1
+    return 0
 
 
 class Feature:
@@ -45,12 +53,15 @@ class Feature:
         return str(self)
 
     def __cmp__(self, other):
-        res = cmp(self.initial_coord[0], other.initial_coord[0])
+        res = _cmp(self.initial_coord[0], other.initial_coord[0])
         if res == 0:
-            res = cmp(self.initial_coord[1], other.initial_coord[1])
+            res = _cmp(self.initial_coord[1], other.initial_coord[1])
         if res == 0:
-            res = cmp(self.intensity, other.intensity)
+            res = _cmp(self.intensity, other.intensity)
         return res
+
+    def __lt__(self, other):
+        return self.__cmp__(other) < 0
 
     def set_coord(self, coord):
         """Set the coordinate of the feature."""
@@ -333,7 +344,7 @@ class FeaturesGroup:
             if tol is None or dist < tol:
                 founds.append([f, dist])
         # sort the founds matching feature by distance
-        founds = sorted(founds, cmp=lambda x, y: cmp(x[1], y[1]))
+        founds = sorted(founds, key=lambda x: x[1])
         return [k[0] for k in founds]
 
     def find_at_coord(self, coord, tol=0, coord_fct=None):
@@ -347,7 +358,7 @@ class FeaturesGroup:
             if tol is None or dist < tol:
                 founds.append([feature, dist])
         # sort the founds matching feature by distance
-        founds = sorted(founds, cmp=lambda x, y: cmp(x[1], y[1]))
+        founds = sorted(founds, key=lambda x: x[1])
         return [k[0] for k in founds]
 
     def sorted_list(self, cmp=None, key=None):
@@ -356,7 +367,9 @@ class FeaturesGroup:
         if cmp is None and key is None:
             key = lambda f: f.get_intensity()
         l = list(self.get_features())
-        return sorted(l, cmp=cmp, key=key)
+        if cmp is not None:
+            return sorted(l, key=cmp_to_key(cmp))
+        return sorted(l, key=key)
 
     def get_match(self, features_group2, tol=0, pop=True):
         f1_no_match = FeaturesGroup()
