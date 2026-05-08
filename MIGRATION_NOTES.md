@@ -615,3 +615,59 @@ after toogle_off:    mode.name='NONE', _active=None
 8 skipped. `cd ~/wise-test && QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg
 timeout 10 wise view_features result 8` reaches the Qt event loop
 with zero stderr.
+
+## Phase 8d — dead Py2-era version gates (`__version__` str vs numeric)
+
+Py2's cross-type ordering put any `str` greater than any `float`, so
+upstream gates like `np.__version__ < 1.5` quietly evaluated to
+`False` (string > float) and the AND-gated branch was already dead.
+Py3's strict ordering raises `TypeError` instead. The fix is to
+delete the dead branches outright — every gate identified pinned a
+version far below our `environment.yml` minimums (numpy ≥1.24,
+matplotlib ≥3.7), so the False arm was unreachable in practice.
+
+### Removed — `nputils.py::LinearFct.fit`
+
+Crashed `wise plot_sep_from_core` (TypeError on `np.__version__ < 1.5`).
+The legacy branch referenced an undefined name `err` (not the
+`sigma` parameter), confirming it was dead even in Py2.
+
+| File | Removed |
+| --- | --- |
+| `libwise/nputils.py` (~L2511) | `if np.__version__ < 1.5 and sigma is not None: …leastsq(errfunc=…/err…)` branch; kept the `np.polynomial.polynomial.polyfit(x, y, 1, w=w)` arm. |
+
+### Removed — `presetutils.py::mpl_1_5`
+
+A version gate that side-stepped the `TypeError` by slicing+casting
+(`float(matplotlib.__version__[:3]) >= 1.5`) — non-crashing under
+matplotlib 3.x but still encoding a 2015-era branch. Both gated
+branches assumed pre-1.5 matplotlib (`axes.color_cycle` was the
+deprecated rcParams key removed in matplotlib 2.0). Inlined the
+modern arm.
+
+| File | Old | New |
+| --- | --- | --- |
+| `libwise/presetutils.py:15` | `mpl_1_5 = float(matplotlib.__version__[:3]) >= 1.5` | (removed) |
+| `…set_color_cycles` (~L26) | `if mpl_1_5: rcParams['axes.prop_cycle']=… else: rcParams['axes.color_cycle']=…` | unconditional `rcParams['axes.prop_cycle']=…` |
+| `…RcPreset.compat` (~L99) | `if mpl_1_5 and key == 'axes.color_cycle': … rename` | drop the `mpl_1_5 and` part — the rename already short-circuits on the key equality |
+
+### Other version-gate patterns audited (clean)
+
+| Pattern | Found? |
+| --- | --- |
+| `(np\|scipy\|matplotlib\|skimage\|astropy\|pandas)\.__version__\s*[<>=!]` | none beyond the two above |
+| `float(…__version__…)` / `int(…__version__…)` / `__version__[…]` slicing | none (after fix) |
+| `LooseVersion` / `StrictVersion` / `packaging.version.Version` | none |
+
+(No need to introduce `packaging.version.Version()` comparisons:
+nothing remaining could plausibly fire against the pinned minimums.)
+
+### Verification
+
+`cd ~/wise-test && QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg \
+  timeout 10 wise plot_sep_from_core result 4 --fit --min-link-size=4
+  --num` runs through `LinearFct.fit` (now reaching
+`np.polynomial.polynomial.polyfit`) and reaches the Qt event loop
+with **zero** stderr (process killed by timeout, not by exception).
+`pytest packages/libwise/tests packages/wise/tests` still 52 passed,
+8 skipped.

@@ -12,8 +12,6 @@ DEFAULT_PRESETS_PATH = 'presets'
 
 USER_PRESETS_PATH = appdirs.user_data_dir('libwise')
 
-mpl_1_5 = float(matplotlib.__version__[:3]) >= 1.5
-
 
 def set_rc_preset(preset_name, kargs={}):
     preset = RcPreset.load(preset_name)
@@ -23,10 +21,7 @@ def set_rc_preset(preset_name, kargs={}):
 
 
 def set_color_cycles(colors):
-    if mpl_1_5:
-        matplotlib.rcParams["axes.prop_cycle"] = matplotlib.cycler('color', colors)
-    else:
-        matplotlib.rcParams["axes.color_cycle"] = colors
+    matplotlib.rcParams["axes.prop_cycle"] = matplotlib.cycler('color', colors)
 
 
 def get_all_user_presets_names():
@@ -96,7 +91,7 @@ class RcPreset:
                 if item.startswith("u'") or item.startswith("u'"):
                     item = item[1:]
                 value.append(item.strip('\'" '))
-        if mpl_1_5 and key == 'axes.color_cycle':
+        if key == 'axes.color_cycle':
             key = 'axes.prop_cycle'
             value = matplotlib.cycler('color', value)
         return key, value

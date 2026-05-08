@@ -2508,15 +2508,10 @@ class LinearFct(AbstractFct):
         x = np.asarray(x)
         y = np.asarray(y)
 
-        if np.__version__ < 1.5 and sigma is not None:
-            errfunc = lambda p, l, u: (u - LinearFct.fct(l, *p)) / err
-            pinit = [1.0, 1.0]
-            (a, b), success = leastsq(errfunc, pinit, args=(x, y))
-        else:
-            w = None
-            if sigma is not None:
-                w = 1 / np.array(sigma)
-            b, a = np.polynomial.polynomial.polyfit(x, y, 1, w=w)
+        w = None
+        if sigma is not None:
+            w = 1 / np.array(sigma)
+        b, a = np.polynomial.polynomial.polyfit(x, y, 1, w=w)
 
         fct = LinearFct(a, b)
         RMSE = (fct(x) - y).std(ddof=2)
