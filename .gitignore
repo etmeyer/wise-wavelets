@@ -34,3 +34,8 @@ ENV/
 *.swo
 *~
 .DS_Store
+*~
+
+# Sphinx build output (rendered site lives on GitHub Pages, not in the repo)
+docs/_build/
+.#*
