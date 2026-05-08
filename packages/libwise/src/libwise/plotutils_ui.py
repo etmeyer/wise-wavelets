@@ -652,6 +652,10 @@ class ExtendedNavigationToolbar(NavigationToolbar):
         self.toolitems.insert(7, ('Stats', 'Get statistics on a portion of an image/line',
                                   os.path.join(imgutils.RESOURCE_PATH, "stats"), 'stats'))
         NavigationToolbar.__init__(self, canvas, window)
+        # Custom-mode state (PROFILE / STATS). Built-in PAN/ZOOM live on
+        # parent's self.mode (a _Mode enum) since matplotlib 3.3 — _active
+        # was removed there. We keep _active here only for our own modes.
+        self._active = None
         self._actions['profile'].setCheckable(True)
         self._actions['stats'].setCheckable(True)
 
@@ -671,12 +675,12 @@ class ExtendedNavigationToolbar(NavigationToolbar):
         self._actions['stats'].setChecked(self._active == 'STATS')
 
     def zoom(self):
-        if self._active != 'ZOOM':
+        if self.mode.name != 'ZOOM':
             self.toogle_off_all_active()
         NavigationToolbar.zoom(self)
 
     def pan(self):
-        if self._active != 'PAN':
+        if self.mode.name != 'PAN':
             self.toogle_off_all_active()
         NavigationToolbar.pan(self)
 
@@ -701,7 +705,9 @@ class ExtendedNavigationToolbar(NavigationToolbar):
         self._update_buttons_checked()
 
     def toogle_off_all_active(self):
-        if self._active in ['ZOOM', 'PAN', 'STATS', 'PROFILE']:
+        if self.mode.name in ('ZOOM', 'PAN'):
+            getattr(self, self.mode.name.lower())()
+        elif self._active in ('STATS', 'PROFILE'):
             getattr(self, self._active.lower())()
 
     def save_figure(self, *args):

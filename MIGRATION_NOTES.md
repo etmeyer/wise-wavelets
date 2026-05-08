@@ -559,3 +559,59 @@ on the 474-row `result.ms.dat` from the 3C120 walkthrough.
 event loop with **zero** stderr output (process killed by timeout, not
 by exception). `pytest packages/libwise/tests packages/wise/tests`
 still 52 passed, 8 skipped.
+
+## Phase 8c — matplotlib 3.3+ toolbar API drift (`_active` → `mode`)
+
+`libwise.plotutils_ui.ExtendedNavigationToolbar` (a Qt5
+`NavigationToolbar2QT` subclass that adds custom Profile/Stats modes)
+referenced the parent's `self._active` private attribute. matplotlib
+3.3 replaced it with `self.mode`, a `_Mode` enum (`NONE`/`PAN`/`ZOOM`).
+Reading `self._active` on matplotlib ≥3.3 raises `AttributeError` as
+soon as the user clicks Pan/Zoom (or hovers, depending on backend).
+
+The subclass was using `_active` for two things at once:
+
+1. detecting matplotlib's built-in PAN/ZOOM state, and
+2. tracking its own custom PROFILE/STATS toggle state.
+
+Split those: PAN/ZOOM now read from `self.mode.name`; PROFILE/STATS
+keep `self._active`, but the subclass now initializes
+`self._active = None` itself (the parent no longer provides it).
+
+| File / call site | Old | New |
+| --- | --- | --- |
+| `plotutils_ui.py::ExtendedNavigationToolbar.__init__` | (relied on parent's `self._active`) | adds `self._active = None` after `super().__init__` |
+| `…zoom` (~L674) | `if self._active != 'ZOOM':` | `if self.mode.name != 'ZOOM':` |
+| `…pan` (~L679) | `if self._active != 'PAN':` | `if self.mode.name != 'PAN':` |
+| `…toogle_off_all_active` (~L703) | one-arm check on `self._active in ('ZOOM','PAN','STATS','PROFILE')` | two-arm: `self.mode.name in ('ZOOM','PAN')` first, else `self._active in ('STATS','PROFILE')` |
+
+Other PROFILE/STATS uses of `self._active` (lines 670–671, 684–705)
+stayed as-is — they only ever store/compare custom-mode state.
+
+### Other removed private toolbar internals audited (clean)
+
+| Pattern | Found? |
+| --- | --- |
+| `_idPress` / `_idRelease` | none |
+| `_lastCursor` | none |
+| `_active` in `libwise/app/*` (e.g. PolyRegionEditor) | none |
+
+(Note: `WaveletDenoise.py` has a `self.mode` attribute, but it's a
+`hard`/`soft` denoising-mode UI control unrelated to the toolbar.)
+
+### Verification
+
+Direct toolbar exercise under matplotlib 3.10 / PyQt5 5.15:
+
+```text
+instantiated OK; mode.name='NONE'; _active=None
+after zoom():        mode.name='ZOOM', _active=None
+after zoom() again:  mode.name='NONE', _active=None
+after pan():         mode.name='PAN',  _active=None
+after toogle_off:    mode.name='NONE', _active=None
+```
+
+`pytest packages/libwise/tests packages/wise/tests` still 52 passed,
+8 skipped. `cd ~/wise-test && QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg
+timeout 10 wise view_features result 8` reaches the Qt event loop
+with zero stderr.
