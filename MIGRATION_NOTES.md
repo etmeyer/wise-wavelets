@@ -330,3 +330,133 @@ were removed for the same reason as the skipped extension tests.
 uses `pywt` as a reference implementation to cross-check libwise's
 own (from-scratch) wavelet transforms; without it the test module
 won't even collect. Production libwise code does not import `pywt`.
+
+## Phase 8 — first-user smoke test (3C120 walkthrough)
+
+Ran the full pipeline on 10 epochs of `0430+052.u.2012_*.icn.fits`
+(`wise info` → `settings set` → `stack` → `detect` → `match`). The
+upstream pytest sweep in Phase 6 didn't exercise these end-to-end CLI
+paths, so each new step surfaced a Py2→Py3 regression that 2to3 missed
+or that needed manual cleanup. All seven were minimal mechanical fixes
+of the same family already documented in Phase 6 — none touched
+algorithm or I/O semantics.
+
+### Fixed — `list(filter(...))` over a local-variable callable
+
+`imgutils.fast_sorted_fits` (line 257) had `if not list(filter(date)):`
+where `filter` is a local variable holding a `bool`-returning
+predicate built by `nputils.date_filter`. 2to3 wrapped the call in
+`list(...)` because it assumed `filter` was the Python 3 lazy
+builtin. Same pattern Phase 6 fixed in `nputils.k_subset` ("verify
+grep wasn't strict enough" — true again). Stripped the `list(...)`.
+
+| File | Old | New |
+| --- | --- | --- |
+| `libwise/imgutils.py:257` | `if not list(filter(date)):` | `if not filter(date):` |
+
+### Fixed — configparser binary-mode write
+
+`nputils.ConfigurationsContainer.to_file` opened the config file with
+`'wb'`, but `configparser.RawConfigParser.write()` requires text mode
+in Py3 (Py2 wrote bytes). Switched to `'w'` — the writer's `[section]`
+header `format(...)` call was the actual `TypeError` source.
+
+| File | Old | New |
+| --- | --- | --- |
+| `libwise/nputils.py:2219` | `with open(filename, 'wb') as fh:` | `with open(filename, 'w') as fh:` |
+
+### Fixed — `print(list(string))` in `wise settings show`
+
+`wise/actions/wise_settings.py` had `print(list(config.values()))`
+and `print(list(section.values()))`. `Configuration.values()` returns
+a fully formatted multi-line string; the `list(...)` wrap iterated it
+into a list of single characters, so `wise settings show data`
+printed `['D', 'a', 't', 'a', ...]`. The wrap was a 2to3 leftover
+(Py2 `print list(...)` → Py3 `print(list(...))`); the underlying
+`list(string)` was already wrong but harmless under Py2 print
+formatting. Dropped the `list(...)`.
+
+| File | Old | New |
+| --- | --- | --- |
+| `wise/actions/wise_settings.py:85, 93` | `print(list(config.values()))`, `print(list(section.values()))` | `print(config.values())`, `print(section.values())` |
+
+### Fixed — Py3 dropped `cmp=` on `sorted()` and the `cmp()` builtin
+
+The matching/segmentation code used 3-way comparators throughout
+(`sorted_list(cmp=cmp_intensity)` plus `cmp_intensity = lambda x, y: cmp(...)`).
+`sorted()` in Py3 only accepts `key=`, and `cmp()` itself was removed
+from builtins. Two-part fix:
+
+1. `features.FeaturesGroup.sorted_list` now wraps the cmp argument
+   with `functools.cmp_to_key` when given. Existing `sorted_list(cmp=...)`
+   call sites (matcher, wds, wiseutils, tasks) keep working unchanged
+   on the call side. Also rewrote the two `sorted(founds, cmp=...)`
+   sites in `find` / `find_at_coord` to plain `key=lambda x: x[1]`
+   (they were sorting by a scalar distance — no cmp needed).
+2. Added a private `_cmp(a, b)` helper in `features.py` and imported
+   it explicitly into `wds.py`, `matcher.py`, `wiseutils.py`, and
+   `tasks.py` (it starts with `_`, so `from .features import *` does
+   not re-export it). All `cmp(...)` call sites switched to `_cmp(...)`.
+   First impl `(a > b) - (a < b)` raised on numpy bools — replaced
+   with `if/elif` form that returns `-1 / 1 / 0` and accepts numpy
+   scalars.
+
+| File | Change |
+| --- | --- |
+| `wise/features.py` | Added `from functools import cmp_to_key`; added module-level `_cmp(a, b)`; rewrote `find`/`find_at_coord` to `key=lambda x: x[1]`; `sorted_list` now does `sorted(l, key=cmp_to_key(cmp))` when `cmp is not None`; `Feature.__cmp__` body switched to `_cmp` (still dead in Py3 — see below) |
+| `wise/wds.py` | `from .features import _cmp`; `cmp_intensity = lambda x, y: _cmp(...)` |
+| `wise/matcher.py` | Same import + 2 lambda rewrites |
+| `wise/wiseutils.py` | Same import + 5 lambda rewrites |
+| `wise/tasks.py` | Same import + 1 lambda rewrite |
+
+`grep -rn ' cmp(' packages/ --include='*.py'` is now clean of the
+Py2 builtin.
+
+### Fixed — `Feature` had no `__lt__` for Py3 sort
+
+Py2 `Segment.sort()` (Segment subclasses Feature) drove ordering
+through `Feature.__cmp__`. Py3 `list.sort()` ignores `__cmp__` and
+calls `__lt__`. `nputils.uniq_subsets` does `y.sort()` on a list of
+Segments and raised `TypeError: '<' not supported between instances
+of 'Segment' and 'Segment'`. Added `__lt__` that delegates to the
+existing `__cmp__`:
+
+| File | Added |
+| --- | --- |
+| `wise/features.py::Feature` | `def __lt__(self, other): return self.__cmp__(other) < 0` |
+
+`__cmp__` itself stays — it is called explicitly by nothing in Py3,
+but it still encodes the intended tie-break order (initial_coord[0]
+→ initial_coord[1] → intensity), and `__lt__` reuses it.
+
+### Fixed — float shift produces float slice indices
+
+`imgutils.ImageRegion.set_shift` stored `self.shift = np.round(shift)`,
+which returns a `float64` array. Downstream `get_region_slice()` then
+built `slice(-(x0 + dx), None)` etc. — Py3 strictly requires int
+slice indices (Py2 was lenient under some numpy versions). Cast the
+rounded result:
+
+| File | Old | New |
+| --- | --- | --- |
+| `libwise/imgutils.py::ImageRegion.set_shift` (~L1706) | `self.shift = np.round(shift)` | `self.shift = np.round(shift).astype(int)` |
+
+### Verification
+
+`stack`, `detect` (10 epochs), and `match` (9 epoch pairs × 4 scales)
+now run to completion against the 3C120 dataset. Artifacts written
+to `result/`: `result.ms.dat` (477 lines, all-features list),
+`result.set.dat` (10 lines, one per FITS file), and four
+`result_{4,6,8,12}.ms.dfc.dat` matched-component lists (114, 94, 83,
+67 lines respectively). Match-ratio summary printed at the end was
+`Sum:27, Mean:0.751, P90:1` — i.e. 27 of 36 scale×epoch matches at
+≥correlation_threshold 0.65, in line with the upstream walkthrough's
+expected order. No warnings from this run other than two
+`Warning: high total features to optimize` notices on the
+2012-11-02→2012-11-28 pair, which are upstream-emitted hints from
+`matcher.optimize`, not port-related.
+
+GUI viewers (`wise view`, `view_features`, `plot_features`,
+`plot_sep_from_core`, `view_links`) were out of scope for this smoke
+run and have not yet been exercised — Phase 5 verified Qt imports
+clean but not interactive widget behavior under PyQt5.
