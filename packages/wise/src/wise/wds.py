@@ -875,7 +875,7 @@ class MultiScaleImageSet(AbstractKeyList):
     def from_file(file, projection, image_set, feature_filter=None):
         '''Format is: epoch, x, y, intensity, snr, scale'''
         new = MultiScaleImageSet()
-        array = np.loadtxt(file, dtype=str, delimiter=' ')
+        array = np.genfromtxt(file, dtype=str, delimiter=' ')
         epochs = dict()
         img_metas = dict()
         cs = projection.get_coordinate_system()

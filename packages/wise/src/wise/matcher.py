@@ -470,7 +470,7 @@ class FeaturesLinkBuilder:
 
         file = file + suffix
         new = FeaturesLinkBuilder()
-        array = np.loadtxt(file, dtype=str, delimiter=' ')
+        array = np.genfromtxt(file, dtype=str, delimiter=' ')
         relations = []
         current_component_id = 0
         coord_sys = projection.get_coordinate_system()
