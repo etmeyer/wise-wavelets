@@ -7,15 +7,10 @@ scipy 1.16, scikit-image ≥0.22, astropy ≥6, matplotlib ≥3.9, and PyQt5.
 
 ## Documentation
 
-Walkthroughs and reference material live in [`docs/`](docs/):
+Walkthroughs and reference material are mirrored from the original at
+https://etmeyer.github.io/wise-wavelets/
 
-- [`docs/tutorials_cmd/Walkthrough3C120.rst`](docs/tutorials_cmd/Walkthrough3C120.rst) — full CLI pipeline against MOJAVE VLBA data
-- [`docs/tutorials_cmd/WalkthroughWaterDiffusion.rst`](docs/tutorials_cmd/WalkthroughWaterDiffusion.rst) — alternate worked example
-- [`docs/tutorials_notebook/`](docs/tutorials_notebook/) — Jupyter notebook versions
-
-Originally written by Florent Mertens for the upstream WISE project; mirrored
-here with attribution under GPL-2.0. See [`docs/ATTRIBUTION.md`](docs/ATTRIBUTION.md).
-
+(Note: I have not fully tested the page or the tutorial. Spot-checks seem ok.)
 
 ## Status
 
