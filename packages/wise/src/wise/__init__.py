@@ -9,7 +9,7 @@ from .scc import *
 from .wds import *
 from .wiseutils import *
 
-__version__ = '0.4.7'
+__version__ = '0.5.0.dev0'
 
 
 def get_version():

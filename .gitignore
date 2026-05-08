@@ -34,6 +34,3 @@ ENV/
 *.swo
 *~
 .DS_Store
-
-# Sandbox quirk
-.trash_rollback/

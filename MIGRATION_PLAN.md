@@ -7,7 +7,7 @@ released against Python 2; `wise` depends heavily on `libwise`, so they must
 be ported together.
 
 This document is the brief for the executor (Claude Code or a human). The
-working directory `wise_mertens/` is currently empty; everything is built up
+working directory `wise-wavelets/` is currently empty; everything is built up
 from scratch.
 
 ---
@@ -32,7 +32,7 @@ from scratch.
 ## Repository layout (target)
 
 ```
-wise_mertens/
+wise-wavelets/
 ├── .gitignore
 ├── README.md
 ├── MIGRATION_NOTES.md           # log of substitutions made (filled in as you go)
@@ -76,7 +76,7 @@ something breaks later.
 
 ### Phase 0 — Scaffold
 
-1. `git init -b main` in `wise_mertens/`.
+1. `git init -b main` in `wise-wavelets/`.
 2. Create `environment.yml` per the template at the bottom of this doc.
 3. Create a tool-only root `pyproject.toml` (no `[project]` table — this file
    exists only to hold `[tool.ruff]` and `[tool.pytest.ini_options]` so both
@@ -612,7 +612,7 @@ machine won't hit this.
 
 The migration is "done" when:
 
-1. `conda env create -f environment.yml` from `wise_mertens/` resolves and
+1. `conda env create -f environment.yml` from `wise-wavelets/` resolves and
    installs both packages cleanly (the `pip:` block produces editable
    installs for `libwise` and `wisetool`).
 2. After `conda activate wise`: `python -c "import libwise, wise;
