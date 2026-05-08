@@ -897,7 +897,7 @@ class VelocityData(SSPData):
         # angular_sep_error = projection.angular_separation(coord1, coord1 + np.array([np.sqrt(2) / 2] * 2))
 
         if angular_sep.unit.is_equivalent(u.deg):
-            ra_error1, dec_error1 = cdf[['ra_error', 'dec_error']].as_matrix().T
+            ra_error1, dec_error1 = cdf[['ra_error', 'dec_error']].to_numpy().T
             ra_error2, dec_error2 = ra_error1, dec_error1
 
             angular_sep_error_ra = np.sqrt(ra_error1 ** 2 + ra_error2 ** 2) * projection.get_unit()

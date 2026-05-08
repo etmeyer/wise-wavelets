@@ -524,26 +524,38 @@ preserved as the row index.
 | `.lookup(` | none |
 | `.ix[` | none |
 
-### Flagged but not auto-fixed
+### Fixed — `DataFrame.as_matrix()` removed in pandas 1.0
 
-`wise/wiseutils.py:900` (`VelocityData.add_delta_info`):
+| File | Old | New |
+| --- | --- | --- |
+| `wise/wiseutils.py::VelocityData.add_delta_info` (~L900) | `cdf[['ra_error', 'dec_error']].as_matrix().T` | `cdf[['ra_error', 'dec_error']].to_numpy().T` |
 
-```python
-ra_error1, dec_error1 = cdf[['ra_error', 'dec_error']].as_matrix().T
-```
+Behavior is identical for the extraction case (2-D float numeric
+columns → 2-D ndarray). Single call site in the codebase; not on the
+`view_features` path so the GUI smoke didn't trip on it, but the
+velocity/match-result code paths now run too.
 
-`DataFrame.as_matrix()` was deprecated in pandas 0.23 and removed in
-pandas 1.0 — the obvious replacement is `.to_numpy()`. Not in the
-caller path of `view_features` so the GUI smoke did not hit it; left
-for the user to triage when the velocity/match-result code path is
-exercised.
+### Silenced — `np.loadtxt` "Input line 1 contained no data" warning
+
+numpy 1.23+ emits a `UserWarning` from `np.loadtxt` whenever the
+first line is comment-only — the `wise.savetxt`-written `.ms.dat` and
+`.ms.dfc.dat` files start with two-or-three `#`-prefixed header lines,
+so every `from_file` load printed the warning. `np.genfromtxt` takes
+a different code path that doesn't emit the warning, returns the
+identical `(N, ncol)` `<U`-dtype array for `dtype=str, delimiter=' '`
+input, and is a 1-token swap. Verified shape/dtype/contents bit-equal
+on the 474-row `result.ms.dat` from the 3C120 walkthrough.
+
+| File | Old | New |
+| --- | --- | --- |
+| `wise/wds.py::MultiScaleImageSet.from_file` (~L878) | `np.loadtxt(file, dtype=str, delimiter=' ')` | `np.genfromtxt(file, dtype=str, delimiter=' ')` |
+| `wise/matcher.py::FeaturesLinkBuilder.from_file` (~L473) | same | same |
 
 ### Verification
 
 `cd ~/wise-test && QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg \
-  timeout 15 wise view_features result 8` runs through the
-`SSPData.from_results` → `add_features_group` path without traceback
-and reaches the Qt event loop (process killed by timeout, not by
-exception — only two harmless `numpy.loadtxt` "no data on line 1"
-warnings emitted). `pytest packages/libwise/tests packages/wise/tests`
+  timeout 10 wise view_features result 8` runs through
+`SSPData.from_results` → `add_features_group` and reaches the Qt
+event loop with **zero** stderr output (process killed by timeout, not
+by exception). `pytest packages/libwise/tests packages/wise/tests`
 still 52 passed, 8 skipped.
