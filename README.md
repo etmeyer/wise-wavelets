@@ -5,6 +5,18 @@ Both upstreams target Python 2 and were last released against an earlier
 scientific-Python stack; this monorepo ports them together to numpy 2.x,
 scipy 1.16, scikit-image ≥0.22, astropy ≥6, matplotlib ≥3.9, and PyQt5.
 
+## Documentation
+
+Walkthroughs and reference material live in [`docs/`](docs/):
+
+- [`docs/tutorials_cmd/Walkthrough3C120.rst`](docs/tutorials_cmd/Walkthrough3C120.rst) — full CLI pipeline against MOJAVE VLBA data
+- [`docs/tutorials_cmd/WalkthroughWaterDiffusion.rst`](docs/tutorials_cmd/WalkthroughWaterDiffusion.rst) — alternate worked example
+- [`docs/tutorials_notebook/`](docs/tutorials_notebook/) — Jupyter notebook versions
+
+Originally written by Florent Mertens for the upstream WISE project; mirrored
+here with attribution under GPL-2.0. See [`docs/ATTRIBUTION.md`](docs/ATTRIBUTION.md).
+
+
 ## Status
 
 Ported and tested against the original 3C120 walkthrough (minus the application of precise core positions). The library imports cleanly and the existing test suite is green:
