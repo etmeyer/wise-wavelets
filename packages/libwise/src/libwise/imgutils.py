@@ -1703,7 +1703,7 @@ class ImageRegion(Image):
     def set_shift(self, shift):
         ''' shift shall be of type int or will be rounded '''
         if shift is not None:
-            self.shift = np.round(shift)
+            self.shift = np.round(shift).astype(int)
         else:
             self.shift = None
 
