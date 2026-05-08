@@ -441,6 +441,40 @@ rounded result:
 | --- | --- | --- |
 | `libwise/imgutils.py::ImageRegion.set_shift` (~L1706) | `self.shift = np.round(shift)` | `self.shift = np.round(shift).astype(int)` |
 
+### Fixed — FITS files opened in text mode
+
+`imgutils.is_fits` and `imgutils.FastHeaderReader.read` opened the
+file with `open(file)` — Py3 default is text mode with the platform
+locale codec. The 3C120 walkthrough did not surface this because real
+.icn.fits headers span multiple 2880-byte blocks of pure ASCII, so
+the text-mode buffered decoder happened to succeed on the first
+chunk. The new pytest-driven synthetic FITS (single-block header,
+binary data starting at byte 2880) hits the binary region inside the
+buffered read and raises `UnicodeDecodeError`. Switched both to
+binary mode; in `FastHeaderReader.read`, decode each 80-byte line as
+ASCII (FITS spec), with `errors='replace'` so a malformed line
+degrades gracefully into a non-matching string instead of crashing
+mid-iteration.
+
+| File | Old | New |
+| --- | --- | --- |
+| `libwise/imgutils.py::is_fits` | `with open(file) as f: return f.read(6) == 'SIMPLE'` | `with open(file, 'rb') as f: return f.read(6) == b'SIMPLE'` |
+| `libwise/imgutils.py::FastHeaderReader.read` | `with open(self.file) as fd: ... line = fd.read(80)` | `with open(self.file, 'rb') as fd: ... line = fd.read(80).decode('ascii', errors='replace')` |
+
+### Locked in via pytest
+
+The seven Phase 8 fixes are now exercised by
+`packages/wise/tests/test_smoke_pipeline.py`. The test generates a
+2-epoch 64×64 synthetic FITS dataset (two gaussians per epoch, one
+shifted slightly between epochs), drives `AnalysisContext.detection()`
+and `AnalysisContext.match()` directly (bypassing the interactive
+CLI prompts in `wise detect`), and asserts that the orchestration
+layer completes without traceback. SNR thresholds are bumped
+(`alpha_threashold=10`, `alpha_detection=15`) and the noise floor
+is kept at σ=0.001 so the matcher's `optimize()` step stays
+combinatorially bounded — the test exists to catch port regressions,
+not to characterize matcher convergence on noisy synthetic input.
+
 ### Verification
 
 `stack`, `detect` (10 epochs), and `match` (9 epoch pairs × 4 scales)

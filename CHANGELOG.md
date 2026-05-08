@@ -8,9 +8,19 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 First-user smoke test (3C120 walkthrough on 10 epochs of
 `0430+052.u.2012_*.icn.fits`) caught seven Py2→Py3 regressions that
-neither `2to3` nor the upstream pytest sweep exercised. All seven were
-mechanical fixes; algorithm and I/O semantics unchanged. See
-`MIGRATION_NOTES.md` Phase 8 for per-fix detail.
+neither `2to3` nor the upstream pytest sweep exercised. Adding a
+synthetic-FITS pytest to lock those in surfaced two more (FITS files
+opened in text mode), giving nine total. All nine were mechanical
+fixes; algorithm and I/O semantics unchanged. See `MIGRATION_NOTES.md`
+Phase 8 for per-fix detail.
+
+### Added
+
+- `packages/wise/tests/test_smoke_pipeline.py`: integration smoke
+  test driving `detection → match` against a synthetic 2-epoch 64×64
+  FITS dataset. Locks in the Phase 8 regressions so future port
+  drift in the orchestration layer fails pytest rather than waiting
+  for a hand-run.
 
 ### Fixed
 
@@ -28,6 +38,11 @@ mechanical fixes; algorithm and I/O semantics unchanged. See
   `list.sort()` orders `Segment` instances.
 - `imgutils.ImageRegion.set_shift`: cast `np.round(shift)` to `int` so
   downstream `slice(...)` indices are integers (Py3 strict).
+- `imgutils.is_fits` and `imgutils.FastHeaderReader.read`: open FITS
+  files in binary mode. Py3 text-mode default raised
+  `UnicodeDecodeError` once the buffered decoder hit binary data
+  past the (single-block) header; real .icn.fits headers happened
+  to span multiple 2880-byte ASCII blocks and masked this.
 
 ## [0.5.0.dev0] — 2026-05-07
 
