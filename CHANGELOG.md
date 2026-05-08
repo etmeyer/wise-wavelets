@@ -4,6 +4,31 @@ All notable changes to wise-wavelets are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0.dev1] — 2026-05-07
+
+First-user smoke test (3C120 walkthrough on 10 epochs of
+`0430+052.u.2012_*.icn.fits`) caught seven Py2→Py3 regressions that
+neither `2to3` nor the upstream pytest sweep exercised. All seven were
+mechanical fixes; algorithm and I/O semantics unchanged. See
+`MIGRATION_NOTES.md` Phase 8 for per-fix detail.
+
+### Fixed
+
+- `imgutils.fast_sorted_fits`: dropped `list(filter(date))` wrap where
+  `filter` is a local-variable predicate, not the lazy builtin.
+- `nputils.ConfigurationsContainer.to_file`: opened in text mode `'w'`
+  (Py3 `configparser.RawConfigParser.write` requires `str`).
+- `wise/actions/wise_settings.py`: dropped `list(...)` around
+  `Configuration.values()` in `wise settings show`; `values()` returns a
+  formatted string and `list(string)` iterated it into single characters.
+- `cmp()` builtin polyfill: added `_cmp(a, b)` in `wise.features`,
+  imported into `matcher`, `tasks`, `wds`, `wiseutils`. Rewrote
+  `sorted(..., cmp=...)` sites via `functools.cmp_to_key` (or directly
+  to `key=`). Added `Feature.__lt__` delegating to `__cmp__` so Py3
+  `list.sort()` orders `Segment` instances.
+- `imgutils.ImageRegion.set_shift`: cast `np.round(shift)` to `int` so
+  downstream `slice(...)` indices are integers (Py3 strict).
+
 ## [0.5.0.dev0] — 2026-05-07
 
 First release of the modernization fork. Both packages (`libwise`, `wisetool`)
