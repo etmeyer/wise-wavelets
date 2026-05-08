@@ -493,4 +493,57 @@ expected order. No warnings from this run other than two
 GUI viewers (`wise view`, `view_features`, `plot_features`,
 `plot_sep_from_core`, `view_links`) were out of scope for this smoke
 run and have not yet been exercised — Phase 5 verified Qt imports
-clean but not interactive widget behavior under PyQt5.
+clean but not interactive widget behavior under PyQt5. See Phase 8b
+below for `view_features`.
+
+## Phase 8b — GUI smoke test (`wise view_features`)
+
+First exercise of a GUI viewer under PyQt5 against the Phase 8 result
+artifacts (`wise view_features result 8`). Surfaced a pandas-2.0
+removal: `DataFrame.append`, removed in pandas 2.0, was crashing
+`SSPData.add_features_group` before the Qt window could open.
+
+### Fixed — `DataFrame.append` removed in pandas 2.0
+
+| File | Old | New |
+| --- | --- | --- |
+| `wise/wiseutils.py::SSPData.add_features_group` (~L843) | `self.df = self.df.append(df)` | `self.df = pd.concat([self.df, df], ignore_index=True)` |
+
+Used `ignore_index=True`: the SSPData `view_*` code paths consume the
+frame via `data.df['features'].values`, `data.df.groupby('region')`,
+and column-aligned `pd.Series(..., index=self.df.index)` assignment —
+none of which depend on the original `feature.get_id()` values being
+preserved as the row index.
+
+### Other pandas-deprecation patterns audited (clean)
+
+| Pattern | Found? |
+| --- | --- |
+| `.iteritems(` | none |
+| `squeeze=True` (read_csv) | none |
+| `.lookup(` | none |
+| `.ix[` | none |
+
+### Flagged but not auto-fixed
+
+`wise/wiseutils.py:900` (`VelocityData.add_delta_info`):
+
+```python
+ra_error1, dec_error1 = cdf[['ra_error', 'dec_error']].as_matrix().T
+```
+
+`DataFrame.as_matrix()` was deprecated in pandas 0.23 and removed in
+pandas 1.0 — the obvious replacement is `.to_numpy()`. Not in the
+caller path of `view_features` so the GUI smoke did not hit it; left
+for the user to triage when the velocity/match-result code path is
+exercised.
+
+### Verification
+
+`cd ~/wise-test && QT_QPA_PLATFORM=offscreen MPLBACKEND=Agg \
+  timeout 15 wise view_features result 8` runs through the
+`SSPData.from_results` → `add_features_group` path without traceback
+and reaches the Qt event loop (process killed by timeout, not by
+exception — only two harmless `numpy.loadtxt` "no data on line 1"
+warnings emitted). `pytest packages/libwise/tests packages/wise/tests`
+still 52 passed, 8 skipped.

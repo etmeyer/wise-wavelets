@@ -840,7 +840,7 @@ class SSPData:
         if scale is not None:
             df.loc[:, 'scale'] = scale
 
-        self.df = self.df.append(df)
+        self.df = pd.concat([self.df, df], ignore_index=True)
 
         return df
 
