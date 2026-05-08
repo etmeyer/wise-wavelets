@@ -2216,7 +2216,7 @@ class ConfigurationsContainer:
             for option, value in config.items(max_level=1, encode=True):
                 parser.set(section, option, value)
 
-        with open(filename, 'wb') as fh:
+        with open(filename, 'w') as fh:
             parser.write(fh)
 
     def from_file(self, filename):

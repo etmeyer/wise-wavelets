@@ -254,7 +254,7 @@ def fast_sorted_fits(files, key="DATE-OBS", start_date=None, end_date=None, filt
     for file in files:
         if is_fits(file):
             date = get_fits_epoch_fast(file)
-            if not list(filter(date)):
+            if not filter(date):
                 continue
             file_date.append((file, date))
         elif is_img(file):

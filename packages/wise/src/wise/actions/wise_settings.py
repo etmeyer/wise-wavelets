@@ -82,7 +82,7 @@ def main():
 
     if len(args) == 0 or args[0] in ['get', 'show']:
         if len(args) < 2:
-            print(list(config.values()))
+            print(config.values())
         elif '.' in args[1]:
             section_name, option = args[1].split('.', 2)
             section = get_section(section_name, config)
@@ -90,7 +90,7 @@ def main():
             print('%s: %s' % (args[1], section.get(option, encode=True)))
         else:
             section = get_section(args[1], config)
-            print(list(section.values()))
+            print(section.values())
 
     elif args[0] == 'set':
         for arg in args[1:]:
