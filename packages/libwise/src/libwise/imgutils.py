@@ -268,8 +268,8 @@ def fast_sorted_fits(files, key="DATE-OBS", start_date=None, end_date=None, filt
 
 def is_fits(file):
     ''' check if file is a FITS file'''
-    with open(file) as f:
-        return f.read(6) == 'SIMPLE'
+    with open(file, 'rb') as f:
+        return f.read(6) == b'SIMPLE'
 
 
 def is_img(file):
@@ -1456,9 +1456,9 @@ class FastHeaderReader(list):
         self.read()
 
     def read(self):
-        with open(self.file) as fd:
+        with open(self.file, 'rb') as fd:
             for i in range(100):
-                line = fd.read(80)
+                line = fd.read(80).decode('ascii', errors='replace')
                 if line == 'END' + ' ' * 77:
                     break
                 key = line[:8].rstrip()
