@@ -110,6 +110,14 @@ Tutorials
    tutorials_cmd/index
    tutorials_notebook/index
 
+Data file formats:
+------------------
+
+.. toctree::
+   :maxdepth: 2
+
+   data_formats
+
 Full API documentation:
 -----------------------
 
