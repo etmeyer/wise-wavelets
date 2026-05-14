@@ -1202,16 +1202,24 @@ class FitsImage(Image):
             self.zero_header = self.header
         self.file = file
 
-        if self.header['NAXIS'] == 4:
-            data = fits[extension].data[0, 0]
-        elif self.header['NAXIS'] == 2:
-            data = fits[extension].data
-        else:
-            raise ValueError("Not supported: naxis %s" % self.header['NAXIS'])
+        data = fits[extension].data
+        if data is None:
+            raise ValueError("FITS extension %d has no data" % extension)
+        # CASA-exported images typically come through with NAXIS=4 (Stokes,
+        # freq, Dec, RA) even when the Stokes/freq axes are length 1. Squeeze
+        # any size-1 leading axes down to a 2D celestial image.
+        data = np.squeeze(data)
+        if data.ndim != 2:
+            raise ValueError(
+                "FITS image data has %d non-trivial axes (shape %s); only 2D "
+                "celestial images are supported" % (data.ndim, data.shape)
+            )
         if float64:
             data = data.astype(np.float64)
 
-        self.wcs = pywcs.WCS(self.header, naxis=2, fobj=fits)
+        # .celestial extracts the RA/Dec subset of the WCS regardless of axis
+        # order, so freq/Stokes axes don't pollute pixel-scale lookups.
+        self.wcs = pywcs.WCS(self.header, fobj=fits).celestial
         if "DATE-OBS" in self.zero_header:
             epoch = nputils.guess_date(self.zero_header["DATE-OBS"], ["%Y-%m-%d", "%d/%m/%y"])
         else:

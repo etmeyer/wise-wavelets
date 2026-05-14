@@ -1,5 +1,6 @@
 import numpy as np
 import pytest
+from astropy.io import fits as pyfits
 from libwise import imgutils, nputils
 
 
@@ -142,6 +143,117 @@ def test_gaussien_width_even():
 
     assert do_gaussien(exp, 4, width=width)
     assert do_gaussien(exp, 4, nsigma=10, width=width)
+
+
+def _write_fits(tmp_path, data, axis_types, axis_units, crval, cdelt, crpix,
+                extra_header=None):
+    naxis = data.ndim
+    header = pyfits.Header()
+    header['SIMPLE'] = True
+    header['BITPIX'] = -64
+    header['NAXIS'] = naxis
+    # FITS axis order is the reverse of numpy axis order.
+    for i, n in enumerate(reversed(data.shape), start=1):
+        header['NAXIS%d' % i] = n
+    for i, (ctype, cunit, val, delt, pix) in enumerate(
+        zip(axis_types, axis_units, crval, cdelt, crpix), start=1
+    ):
+        header['CTYPE%d' % i] = ctype
+        header['CUNIT%d' % i] = cunit
+        header['CRVAL%d' % i] = val
+        header['CDELT%d' % i] = delt
+        header['CRPIX%d' % i] = pix
+    if extra_header:
+        for k, v in extra_header.items():
+            header[k] = v
+    hdu = pyfits.PrimaryHDU(data=data, header=header)
+    path = tmp_path / "test.fits"
+    hdu.writeto(path, overwrite=True)
+    return str(path)
+
+
+def test_fits_loader_handles_4d_casa_cube(tmp_path):
+    # CASA-exported continuum images come as (Stokes, freq, Dec, RA) with
+    # the spectral and Stokes axes length 1.
+    data = np.arange(80 * 60, dtype=np.float32).reshape(1, 1, 60, 80)
+    path = _write_fits(
+        tmp_path,
+        data,
+        axis_types=['RA---SIN', 'DEC--SIN', 'FREQ', 'STOKES'],
+        axis_units=['deg', 'deg', 'Hz', ''],
+        crval=[180.0, 25.0, 1.4e9, 1.0],
+        cdelt=[-1e-4, 1e-4, 1e6, 1.0],
+        crpix=[40.0, 30.0, 1.0, 1.0],
+        extra_header={'BMAJ': 2e-4, 'BMIN': 1e-4, 'BPA': 30.0,
+                      'BUNIT': 'JY/BEAM', 'OBJECT': 'TEST',
+                      'DATE-OBS': '2024-01-15'},
+    )
+
+    img = imgutils.FitsImage(path)
+
+    assert img.data.shape == (60, 80)
+    assert img.data.dtype == np.float64
+    assert np.allclose(img.data, data[0, 0].astype(np.float64))
+    # Celestial WCS should expose only the 2 sky axes — no freq/Stokes pollution.
+    assert img.wcs.naxis == 2
+    assert img.get_object() == 'TEST'
+
+
+def test_fits_loader_squeezes_3d_data(tmp_path):
+    # Some pipelines emit NAXIS=3 (freq or Stokes axis dropped, the other
+    # length 1). The loader should squeeze that down too.
+    data = np.arange(50 * 40, dtype=np.float32).reshape(1, 50, 40)
+    path = _write_fits(
+        tmp_path,
+        data,
+        axis_types=['RA---SIN', 'DEC--SIN', 'FREQ'],
+        axis_units=['deg', 'deg', 'Hz'],
+        crval=[180.0, 25.0, 1.4e9],
+        cdelt=[-1e-4, 1e-4, 1e6],
+        crpix=[20.0, 25.0, 1.0],
+    )
+
+    img = imgutils.FitsImage(path)
+
+    assert img.data.shape == (50, 40)
+    assert img.wcs.naxis == 2
+
+
+def test_fits_loader_still_handles_2d(tmp_path):
+    # Legacy AIPS-style 2D files (like the MOJAVE 3C120 data) must still work.
+    data = np.arange(30 * 20, dtype=np.float32).reshape(30, 20)
+    path = _write_fits(
+        tmp_path,
+        data,
+        axis_types=['RA---SIN', 'DEC--SIN'],
+        axis_units=['deg', 'deg'],
+        crval=[180.0, 25.0],
+        cdelt=[-1e-4, 1e-4],
+        crpix=[10.0, 15.0],
+    )
+
+    img = imgutils.FitsImage(path)
+
+    assert img.data.shape == (30, 20)
+    assert img.wcs.naxis == 2
+
+
+def test_fits_loader_rejects_real_cube(tmp_path):
+    # A genuine cube (multi-channel) cannot be reduced to 2D — surface a
+    # clear error rather than silently picking one plane.
+    data = np.zeros((1, 4, 30, 20), dtype=np.float32)
+    path = _write_fits(
+        tmp_path,
+        data,
+        axis_types=['RA---SIN', 'DEC--SIN', 'FREQ', 'STOKES'],
+        axis_units=['deg', 'deg', 'Hz', ''],
+        crval=[180.0, 25.0, 1.4e9, 1.0],
+        cdelt=[-1e-4, 1e-4, 1e6, 1.0],
+        crpix=[10.0, 15.0, 1.0, 1.0],
+    )
+
+    with pytest.raises(ValueError, match="non-trivial axes"):
+        imgutils.FitsImage(path)
 
 
 @pytest.mark.skip(reason="Test uses imgutils.Region([5, 5]).add_rectangle(...) — that constructor takes a pyregion filename, and add_rectangle/get_mask methods don't exist on Region")
