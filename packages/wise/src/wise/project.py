@@ -23,6 +23,9 @@ from . import matcher, wds, wiseutils
 logger = logging.getLogger(__name__)
 
 
+DEFAULT_REF_IMAGE_FILENAME = "reference_image"
+
+
 def quantity_decode(s):
     try:
         value, unit = re.match(r'(\d+\.*\d*)\s*([a-zA-Z]+)', s).group(1,2)
@@ -39,7 +42,7 @@ class DataConfiguration(nputils.BaseConfiguration):
         ["data_dir", None, "Base data directory", validator_is(str), str, str, 0],
         ["fits_extension", 0, "Extension index", validator_is(int), int, str, 0],
         ["stack_image_filename", "full_stack_image.fits", "Stack Image filename", nputils.validator_is(str), str, str, 2],
-        ["ref_image_filename", "reference_image", "Reference image filename", validator_is(str), str, str, 0],
+        ["ref_image_filename", DEFAULT_REF_IMAGE_FILENAME, "Reference image filename", validator_is(str), str, str, 0],
         ["mask_filename", "mask.fits", "Mask filename", validator_is(str), str, str, 0],
         ["bg_fct", None, "Background extraction fct", is_callable, None, None, 2],
         ["bg_coords", None, "Background region in coordinates [Xa,Ya,Xb,Yb]", validator_list(4, (int, float)),
@@ -276,17 +279,40 @@ class AnalysisContext:
         used for the projection defintion and several plotting tasks.
 
         A reference image can be set using self.config.data.ref_image_filename.
-        Alternatively the first file of the project is used.
+        Alternatively the first file of the project is used, but only when
+        ref_image_filename is left at its default value
+        (:data:`DEFAULT_REF_IMAGE_FILENAME`). If the setting has been customised
+        and the resolved path does not exist, :class:`FileNotFoundError` is
+        raised.
 
         Parameters
         ----------
         preprocess : bool, optional
             If True, the reference image is pre processed .
+
+        Raises
+        ------
+        FileNotFoundError
+            If ``data.ref_image_filename`` has been customised to a path that
+            does not exist on disk.
+        RuntimeError
+            If no reference image is configured and no files have been
+            selected (call :meth:`select_files` first).
         """
-        ref_file =  os.path.join(self.get_data_dir(), self.config.data.ref_image_filename)
+        ref_name = self.config.data.ref_image_filename
+        ref_file = os.path.join(self.get_data_dir(), ref_name)
         if not os.path.isfile(ref_file):
+            if ref_name != DEFAULT_REF_IMAGE_FILENAME:
+                raise FileNotFoundError(
+                    f"Reference image not found at {os.path.abspath(ref_file)!r}. "
+                    f"Check data.ref_image_filename and data.data_dir."
+                )
             if len(self.files) == 0:
-                raise Exception("No files selected")
+                raise RuntimeError(
+                    f"No reference image at {os.path.abspath(ref_file)!r} and no "
+                    f"files selected for this project. Call ctx.select_files(...) "
+                    f"before requesting the reference image (e.g. before tasks.load)."
+                )
             ref_file = self.files[0]
 
         img = imgutils.guess_and_open(ref_file, check_stack_img=True)
