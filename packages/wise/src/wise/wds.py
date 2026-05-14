@@ -220,7 +220,7 @@ class SegmentedImages(DatedFeaturesGroup):
         self.ids[segment.get_segmentid()] = segment
 
     def watershed_segmentation(self, features, mask, feature_filter=None):
-        markers = np.zeros_like(self.img.data, dtype=np.int16)
+        markers = np.zeros_like(self.img.data, dtype=np.int32)
 
         cmp_intensity = lambda x, y: _cmp(x.get_intensity(), y.get_intensity())
         features = features.sorted_list(cmp=cmp_intensity)[::-1]
