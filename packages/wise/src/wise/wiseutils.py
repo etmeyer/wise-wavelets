@@ -752,7 +752,16 @@ class DifmapModel(list):
 
 
 class CoreOffsetPositions:
-    ''' Format is: epoch (iso:%Y-%m-%d), id (always 0), dist, pa (in degrees). All space separated'''
+    '''Per-epoch core offset positions used for image alignment.
+
+    File format: whitespace-separated columns ``epoch id r pa`` per row,
+    where ``epoch`` is ``YYYY-MM-DD``, ``id`` is reserved (always 0),
+    ``r`` is the radial offset in ``data.projection_unit`` (default mas),
+    and ``pa`` is the position angle in degrees east of north.
+
+    See :ref:`core_offset_file` for the full specification, including
+    units, conventions, and common pitfalls.
+    '''
 
     def __init__(self):
         self.cores = dict()
