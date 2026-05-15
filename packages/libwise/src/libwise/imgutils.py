@@ -14,6 +14,7 @@ import datetime
 import decimal
 import os
 import re
+import warnings
 from functools import reduce
 from importlib import resources
 
@@ -238,9 +239,21 @@ def lena():
 #     return sorted(files)
 
 
+# FITS-standard DATE-OBS variants per FITS 4.0 §9.1.1, plus the legacy
+# dd/mm/yy form. Timezone-suffixed forms (Z, +00:00) still won't parse and
+# are handled by the skip-with-warning fallback in fast_sorted_fits.
+_DATE_OBS_FORMATS = [
+    "%Y-%m-%dT%H:%M:%S.%f",
+    "%Y-%m-%dT%H:%M:%S",
+    "%Y-%m-%dT%H:%M",
+    "%Y-%m-%d",
+    "%d/%m/%y",
+]
+
+
 def get_fits_epoch_fast(file):
     header = FastHeaderReader(file)
-    date = nputils.guess_date(header.get_value("DATE-OBS"), ["%Y-%m-%d", "%d/%m/%y"])
+    date = nputils.guess_date(header.get_value("DATE-OBS"), _DATE_OBS_FORMATS)
 
     return date
 
@@ -254,11 +267,19 @@ def fast_sorted_fits(files, key="DATE-OBS", start_date=None, end_date=None, filt
     for file in files:
         if is_fits(file):
             date = get_fits_epoch_fast(file)
+            if date is None:
+                warnings.warn(
+                    "Skipping %s: DATE-OBS could not be parsed" % file,
+                    stacklevel=2,
+                )
+                continue
             if not filter(date):
                 continue
             file_date.append((file, date))
         elif is_img(file):
             file_date.append((file, file))
+    if not file_date:
+        return []
     file_date = sorted(file_date, key=lambda k: k[1])
     files = list(zip(*file_date))[0]
     if step > 1:
@@ -1221,7 +1242,7 @@ class FitsImage(Image):
         # order, so freq/Stokes axes don't pollute pixel-scale lookups.
         self.wcs = pywcs.WCS(self.header, fobj=fits).celestial
         if "DATE-OBS" in self.zero_header:
-            epoch = nputils.guess_date(self.zero_header["DATE-OBS"], ["%Y-%m-%d", "%d/%m/%y"])
+            epoch = nputils.guess_date(self.zero_header["DATE-OBS"], _DATE_OBS_FORMATS)
         else:
             epoch = None
 

@@ -39,3 +39,6 @@ ENV/
 # Sphinx build output (rendered site lives on GitHub Pages, not in the repo)
 docs/_build/
 .#*
+
+# Local scratch / ad-hoc test fixtures (not shipped with the repo)
+testing/
