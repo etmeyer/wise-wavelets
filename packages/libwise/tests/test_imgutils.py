@@ -1,3 +1,6 @@
+import datetime
+import warnings
+
 import numpy as np
 import pytest
 from astropy.io import fits as pyfits
@@ -394,6 +397,61 @@ def test_image_region_zoom():
     do_test([1, 1], [5, 6], [1, 0, 4, 5], [4, 3])
     do_test([3, 4], [5, 6], [1, 0, 4, 5], [5, 6])
     do_test([3, 4], [5, 6], [1, 0, 4, 5], [4, 4])
+
+
+def _write_minimal_fits(path, date_obs):
+    data = np.zeros((4, 4), dtype=np.float32)
+    hdu = pyfits.PrimaryHDU(data=data)
+    hdu.header['DATE-OBS'] = date_obs
+    hdu.writeto(str(path), overwrite=True)
+    return str(path)
+
+
+def test_fast_sorted_fits_mixes_date_only_and_iso_with_time(tmp_path):
+    # Regression for issue #10: ISO-with-time DATE-OBS (common in VLBA
+    # correlator output) used to return None from get_fits_epoch_fast,
+    # which then crashed sorted() with a NoneType/datetime TypeError.
+    iso = _write_minimal_fits(tmp_path / "iso.fits", '2019-03-15T12:34:56.7')
+    date_only = _write_minimal_fits(tmp_path / "date_only.fits", '2018-01-25')
+
+    out = imgutils.fast_sorted_fits([iso, date_only])
+
+    assert list(out) == [date_only, iso]
+
+
+def test_fast_sorted_fits_skips_unparseable_dates(tmp_path):
+    # Defense in depth: if a DATE-OBS still eludes the format list (e.g.
+    # timezone-suffixed forms like '...Z' or '...+00:00'), drop that file
+    # with a warning rather than crash the whole batch.
+    good = _write_minimal_fits(tmp_path / "good.fits", '2018-01-25')
+    bad = _write_minimal_fits(tmp_path / "bad.fits", '2019-03-15T12:34:56Z')
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        out = imgutils.fast_sorted_fits([good, bad])
+
+    assert list(out) == [good]
+    assert any('DATE-OBS' in str(w.message) and 'bad.fits' in str(w.message)
+               for w in caught)
+
+
+def test_fast_sorted_fits_iso_ordering(tmp_path):
+    # Two ISO-with-time files should sort chronologically by their full
+    # timestamp, not just the date portion.
+    early = _write_minimal_fits(tmp_path / "early.fits", '2019-03-15T01:00:00')
+    late = _write_minimal_fits(tmp_path / "late.fits", '2019-03-15T23:00:00')
+
+    out = imgutils.fast_sorted_fits([late, early])
+
+    assert list(out) == [early, late]
+
+
+def test_get_fits_epoch_fast_parses_iso_with_subseconds(tmp_path):
+    path = _write_minimal_fits(tmp_path / "iso.fits", '2019-03-15T12:34:56.7')
+
+    epoch = imgutils.get_fits_epoch_fast(path)
+
+    assert epoch == datetime.datetime(2019, 3, 15, 12, 34, 56, 700000)
 
 
 def test_get_ensemble_index():
