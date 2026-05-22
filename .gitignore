@@ -42,3 +42,7 @@ docs/_build/
 
 # Local scratch / ad-hoc test fixtures (not shipped with the repo)
 testing/
+
+# Personal notes / briefings / scratch files prefixed with a single underscore.
+# Pattern intentionally excludes dunder names (__init__.py, __pycache__, etc).
+_[!_]*
