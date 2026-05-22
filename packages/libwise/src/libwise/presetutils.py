@@ -1,10 +1,13 @@
 import glob
+import logging
 import os
 from importlib import resources
 
 import matplotlib
 
 from . import appdirs, nputils
+
+logger = logging.getLogger(__name__)
 
 RC_DEFAULTS = matplotlib.RcParams(matplotlib.rcParams.copy())
 
@@ -224,7 +227,7 @@ class RcPreset:
         print("Saved preset:", self.get_name())
 
     def apply(self, figure=None, figsize=None):
-        print("Applying preset:", self.name)
+        logger.debug("Applying preset: %s", self.name)
         matplotlib.rcParams.update(self.rc_params)
         if figure is not None:
             if figsize is None:

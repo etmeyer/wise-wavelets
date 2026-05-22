@@ -70,3 +70,55 @@ def test_non_interactive_no_files_is_clean_error():
     # Either exit 0 (no files found) or 2 (usage error from click) is fine;
     # the key requirement is no uncaught exception traceback.
     assert "Traceback" not in result.output
+
+
+# ---------------------------------------------------------------------------
+# PR2 tests: settings table format, A6 cwd note
+# ---------------------------------------------------------------------------
+
+def test_settings_show_six_column_table():
+    """wise settings show data includes all six column headers."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["settings", "show", "data"])
+    assert result.exit_code == 0, result.output
+    for col in ("Option", "Value", "Default", "Unit", "Range", "Documentation"):
+        assert col in result.output, f"Column '{col}' missing from settings show output"
+
+
+def test_settings_show_all_sections():
+    """wise settings show (no section) includes all three section titles."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["settings", "show"])
+    assert result.exit_code == 0, result.output
+    for title in ("Data configuration", "Finder configuration", "Matcher configuration"):
+        assert title in result.output, f"'{title}' missing from settings show output"
+
+
+def test_settings_doc_same_as_show():
+    """wise settings doc produces the same 6-column table as wise settings show."""
+    runner = CliRunner()
+    # Both must succeed and include all six column headers.
+    for cmd in ["show", "doc"]:
+        result = runner.invoke(cli, ["settings", cmd, "data"])
+        assert result.exit_code == 0, f"settings {cmd} failed: {result.output}"
+        for col in ("Option", "Value", "Default", "Unit", "Range", "Documentation"):
+            assert col in result.output, (
+                f"Column '{col}' missing from settings {cmd} output"
+            )
+
+
+def test_settings_show_data_dir_cwd_note(tmp_path, monkeypatch):
+    """When data_dir is None, the Value cell shows the cwd note."""
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+    result = runner.invoke(cli, ["settings", "show", "data"])
+    assert result.exit_code == 0, result.output
+    assert "cwd:" in result.output
+
+
+def test_settings_show_sigma_unit_in_finder():
+    """wise settings show finder includes 'σ' for alpha fields."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["settings", "show", "finder"])
+    assert result.exit_code == 0, result.output
+    assert "σ" in result.output

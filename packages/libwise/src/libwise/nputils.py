@@ -1885,6 +1885,9 @@ def is_callable(obj):
     return hasattr(obj, '__call__')
 
 
+is_callable.describe = lambda: "callable"
+
+
 def is_str_number(str):
     try:
         float(str)
@@ -2228,26 +2231,36 @@ class ConfigurationsContainer:
             for option, value in parser.items(section):
                 config.set(option, value, decode=True)
 
-    def doc(self, max_level=0):
-        return "\n".join([k.doc(max_level=max_level) for k in self._configs])
+    def doc(self, max_level=0, display_overrides=None):
+        return "\n".join([k.doc(max_level=max_level, display_overrides=display_overrides) for k in self._configs])
 
-    def values(self, max_level=0):
-        return "\n".join([k.values(max_level=max_level) for k in self._configs])
+    def values(self, max_level=0, display_overrides=None):
+        return "\n".join([k.values(max_level=max_level, display_overrides=display_overrides) for k in self._configs])
 
 
 
 class BaseConfiguration(ConfigurationsContainer):
 
     def __init__(self, settings, title):
-        # settings order: key, default, doc, validator, decoder, encoder, level
+        # settings order: key, default, doc, unit, validator, decoder, encoder, level
+        # backward compat: 7-tuple (no unit) is padded with unit=None
         # class attributes need to start with "_" so that we can set
         # option using simple attribute assignment (ex: config.option = value)
         # levels: 0: show in doc(), 1: save/load to/from file, 2: not saved
+        padded = []
+        for s in settings:
+            if len(s) == 7:
+                key, default, doc, validator, decoder, encoder, lvl = s
+                padded.append((key, default, doc, None, validator, decoder, encoder, lvl))
+            else:
+                padded.append(s)
+        settings = padded
         self._title = title
-        self._keys, defaults, docs, validators, decoders, encoders, level = list(zip(*settings))
+        self._keys, defaults, docs, units, validators, decoders, encoders, level = list(zip(*settings))
         self._defaults = collections.OrderedDict(list(zip(self._keys, defaults)))
         self._values = collections.OrderedDict(list(zip(self._keys, defaults)))
         self._docs = collections.OrderedDict(list(zip(self._keys, docs)))
+        self._units = collections.OrderedDict(list(zip(self._keys, units)))
         self._validators = collections.OrderedDict(list(zip(self._keys, validators)))
         self._decoders = collections.OrderedDict(list(zip(self._keys, decoders)))
         self._encoders = collections.OrderedDict(list(zip(self._keys, encoders)))
@@ -2321,25 +2334,33 @@ class BaseConfiguration(ConfigurationsContainer):
         assert option in self._keys
         return self._docs.get(option)
 
-    def doc(self, max_level=0):
-        array = []
-        for key in self.iter_options(max_level=max_level):
-            doc = self.get_doc(key)
-            default = self.get_default(key)
-            array.append([key, doc, default])
+    def get_unit(self, option):
+        assert option in self._keys
+        return self._units.get(option)
 
-        table = format_table(array, ["Option", "Documentation", "Default"], max_col_size=40)
+    def doc(self, max_level=0, display_overrides=None):
+        return self.values(max_level=max_level, display_overrides=display_overrides)
 
-        return "Documentation for:%s\n%s" % (self._title, table)
-
-    def values(self, max_level=0):
+    def values(self, max_level=0, display_overrides=None):
         array = []
         for key in self.iter_options(max_level=max_level):
             value = self.get(key)
-            array.append([key, value])
+            if display_overrides and key in display_overrides:
+                value_str = display_overrides[key]
+            else:
+                value_str = value
+            default = self.get_default(key)
+            unit = self._units.get(key) or ""
+            validator = self._validators.get(key)
+            if validator is not None and hasattr(validator, 'describe'):
+                range_str = validator.describe()
+            else:
+                range_str = "-"
+            doc = self.get_doc(key)
+            array.append([key, value_str, default, unit, range_str, doc])
 
-        table = format_table(array, ["Option", "Value"], max_col_size=40)
-
+        header = ["Option", "Value", "Default", "Unit", "Range", "Documentation"]
+        table = format_table(array, header, max_col_size=40)
         return "%s:\n%s" % (self._title, table)
 
     def get_title(self):
@@ -2353,6 +2374,9 @@ def validator_in_range(vmin, vmax, instance=(float, int, int)):
             return True
         return False
 
+    validator.describe = lambda: "%s – %s" % (vmin, vmax)
+    validator.min = vmin
+    validator.max = vmax
     return validator
 
 
@@ -2363,6 +2387,7 @@ def validator_in(list_allowed):
             return True
         return False
 
+    validator.describe = lambda: " | ".join(str(x) for x in list_allowed)
     return validator
 
 
@@ -2371,6 +2396,13 @@ def validator_is(instance):
     def validator(value):
         return isinstance(value, instance)
 
+    if instance is bool:
+        desc = "True | False"
+    elif isinstance(instance, tuple):
+        desc = " | ".join(t.__name__ for t in instance)
+    else:
+        desc = instance.__name__
+    validator.describe = lambda: desc
     return validator
 
 
@@ -2379,6 +2411,7 @@ def validator_is_class(klass):
     def validator(value):
         return issubclass(value, klass)
 
+    validator.describe = lambda: "subclass of %s" % klass.__name__
     return validator
 
 
@@ -2394,6 +2427,17 @@ def validator_list(length, instance=None):
                 return False
         return True
 
+    letters = [chr(ord('a') + i) for i in range(min(length, 26))]
+    list_str = "[%s]" % ", ".join(letters)
+    if instance is not None:
+        if isinstance(instance, tuple):
+            type_str = " | ".join(t.__name__ for t in instance)
+        else:
+            type_str = instance.__name__
+        desc = "%s (%s)" % (list_str, type_str)
+    else:
+        desc = list_str
+    validator.describe = lambda: desc
     return validator
 
 
@@ -2418,6 +2462,8 @@ def format_table(data, header=None, min_col_size=10, max_col_size=None):
                 if iws != -1 and iws > 0:
                     s, new_line[j] = s[:iws].strip(), s[iws:].strip()
             n = len(s) + 1
+            if max_col_size is not None:
+                n = min(n, max_col_size + 1)
             data[i][j] = s
             if n > col_size[j] :
                 col_size[j] = n
@@ -2429,7 +2475,10 @@ def format_table(data, header=None, min_col_size=10, max_col_size=None):
             res += "-" * (sum(col_size) + dim) + "\n"
             continue
         for i in range(dim) :
-            res += "%-*s" % (col_size[i], str(line[i])[:col_size[i]])
+            cell = str(line[i])
+            if len(cell) > col_size[i]:
+                cell = cell[:col_size[i] - 1] + "…"
+            res += "%-*s" % (col_size[i], cell)
             res += '|'
         res += "\n"
     return res

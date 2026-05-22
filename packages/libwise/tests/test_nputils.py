@@ -713,3 +713,134 @@ def test_align_on_com():
 if __name__ == '__main__':
     for attr in __dict__:
         print(attr)
+
+
+# ---------------------------------------------------------------------------
+# PR2 tests: validator .describe(), BaseConfiguration unit field, format_table
+# ---------------------------------------------------------------------------
+
+def test_validator_in_range_describe():
+    v = nputils.validator_in_range(0.1, 20)
+    assert hasattr(v, 'describe')
+    assert v.describe() == "0.1 – 20"
+    assert v.min == 0.1
+    assert v.max == 20
+
+
+def test_validator_in_describe():
+    v = nputils.validator_in(['lm', 'com'])
+    assert v.describe() == "lm | com"
+
+
+def test_validator_is_bool_describe():
+    v = nputils.validator_is(bool)
+    assert v.describe() == "True | False"
+
+
+def test_validator_is_str_describe():
+    v = nputils.validator_is(str)
+    assert v.describe() == "str"
+
+
+def test_validator_is_tuple_describe():
+    v = nputils.validator_is((int, float))
+    assert v.describe() == "int | float"
+
+
+def test_validator_is_class_describe():
+    v = nputils.validator_is_class(list)
+    assert v.describe() == "subclass of list"
+
+
+def test_validator_list_describe():
+    v = nputils.validator_list(4, (int, float))
+    assert v.describe() == "[a, b, c, d] (int | float)"
+
+
+def test_validator_list_no_type_describe():
+    v = nputils.validator_list(2)
+    assert v.describe() == "[a, b]"
+
+
+def test_is_callable_describe():
+    assert hasattr(nputils.is_callable, 'describe')
+    assert nputils.is_callable.describe() == "callable"
+
+
+def test_base_configuration_unit_field():
+    """8-tuple settings expose unit via get_unit()."""
+    import collections
+    settings = [
+        ("myopt", 42, "A doc", "myunit", nputils.validator_in_range(0, 100), int, str, 0),
+    ]
+    cfg = nputils.BaseConfiguration(settings, "Test")
+    assert cfg.get_unit("myopt") == "myunit"
+
+
+def test_base_configuration_7tuple_backward_compat():
+    """7-tuple settings (no unit field) still work; unit defaults to None."""
+    settings = [
+        ("myopt", 42, "A doc", nputils.validator_in_range(0, 100), int, str, 0),
+    ]
+    cfg = nputils.BaseConfiguration(settings, "Test")
+    assert cfg.get_unit("myopt") is None
+
+
+def test_base_configuration_values_six_columns():
+    """values() output contains all six column headers."""
+    settings = [
+        ("alpha", 3.0, "Some threshold", "σ", nputils.validator_in_range(0.1, 20), float, str, 0),
+    ]
+    cfg = nputils.BaseConfiguration(settings, "TestCfg")
+    table = cfg.values()
+    for col in ("Option", "Value", "Default", "Unit", "Range", "Documentation"):
+        assert col in table, f"Column '{col}' missing from table"
+    assert "σ" in table
+    assert "0.1 – 20" in table
+
+
+def test_base_configuration_doc_equals_values():
+    """doc() produces the same output as values()."""
+    settings = [
+        ("opt", 1, "doc text", None, nputils.validator_is(int), int, str, 0),
+    ]
+    cfg = nputils.BaseConfiguration(settings, "T")
+    assert cfg.doc() == cfg.values()
+
+
+def test_base_configuration_display_overrides():
+    """display_overrides replaces a value cell without touching the model."""
+    settings = [
+        ("data_dir", None, "dir", None, nputils.validator_is(str), str, str, 0),
+    ]
+    cfg = nputils.BaseConfiguration(settings, "T")
+    table = cfg.values(display_overrides={"data_dir": "None (cwd: /tmp)"})
+    assert "None (cwd: /tmp)" in table
+    assert cfg.get("data_dir") is None  # model unchanged
+
+
+def test_format_table_truncation_ellipsis():
+    """Long no-space values get an ellipsis in the rendered cell."""
+    longval = "x" * 60
+    data = [["short", longval]]
+    rendered = nputils.format_table(data, ["A", "B"], max_col_size=20)
+    assert "…" in rendered
+    # col_size is capped at max_col_size + 1; each rendered data cell is
+    # exactly col_size chars (left-padded by %-*s), so max is max_col_size + 1.
+    # Skip the dashed separator line which doesn't use pipe delimiters.
+    for line in rendered.splitlines():
+        if "|" not in line:
+            continue
+        cells = line.rstrip("\n").split("|")
+        for cell in cells:
+            if cell:
+                assert len(cell) <= 21, f"Cell too wide: {repr(cell)}"
+
+
+def test_format_table_no_ellipsis_for_short_values():
+    """Short values are not truncated and don't get an ellipsis."""
+    data = [["hello", "world"]]
+    rendered = nputils.format_table(data, ["A", "B"], max_col_size=20)
+    assert "…" not in rendered
+    assert "hello" in rendered
+    assert "world" in rendered
