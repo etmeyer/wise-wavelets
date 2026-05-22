@@ -63,8 +63,9 @@ def info_files(ctx):
     .. _tags: task_general
     '''
     data_beam = []
-    header = ["File", "Date", "Shape", "Pixel scale", "Beam"]
     data_table = []
+    proj_unit = ctx.get_projection(ctx.open_file(ctx.files[0])).get_unit() if ctx.files else ""
+    header = ["File", "Date", "Shape", f"Pixel scale ({proj_unit})", f"Beam ({proj_unit})"]
     for file in ctx.files:
         img = ctx.open_file(file)
         beam = img.get_beam()

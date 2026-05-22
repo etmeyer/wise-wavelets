@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 import sys
 
@@ -129,7 +130,6 @@ def settings(ctx: click.Context, args: tuple[str, ...]) -> None:
     wise settings doc [SECTION[.OPTION]]
     wise settings restore CONFIG_FILE
     """
-    import os
     import re as _re
 
     import astropy.units as u
@@ -203,17 +203,27 @@ def settings(ctx: click.Context, args: tuple[str, ...]) -> None:
         click.echo("Setting delta_range_filter to: %s" % range_filter)
         config.matcher.delta_range_filter = range_filter
 
+    def _data_dir_overrides():
+        """Return display_overrides for the data section's data_dir cwd note."""
+        if config.data.data_dir is None:
+            return {"data_dir": "None (cwd: %s)" % os.getcwd()}
+        return None
+
     if len(args) == 0 or args[0] in ("get", "show"):
         if len(args) < 2:
-            click.echo(config.values())
+            click.echo(config.values(display_overrides=_data_dir_overrides()))
         elif "." in args[1]:
             section_name, option = args[1].split(".", 2)
             section = _get_section(section_name)
             _check_option(section, option)
-            click.echo("%s: %s" % (args[1], section.get(option, encode=True)))
+            if section_name == "data" and option == "data_dir" and config.data.data_dir is None:
+                click.echo("%s: None (cwd: %s)" % (args[1], os.getcwd()))
+            else:
+                click.echo("%s: %s" % (args[1], section.get(option, encode=True)))
         else:
             section = _get_section(args[1])
-            click.echo(section.values())
+            overrides = _data_dir_overrides() if args[1] == "data" else None
+            click.echo(section.values(display_overrides=overrides))
 
     elif args[0] == "set":
         for arg in args[1:]:
@@ -236,18 +246,25 @@ def settings(ctx: click.Context, args: tuple[str, ...]) -> None:
             click.echo("Configuration saved")
 
     elif args[0] == "doc":
+        import warnings as _warnings
+        _warnings.warn(
+            "'wise settings doc' is deprecated and will be removed in wise 1.0. "
+            "Use 'wise settings show' instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if len(args) == 1:
-            click.echo(config.doc())
+            click.echo(config.doc(display_overrides=_data_dir_overrides()))
         elif "." in args[1]:
             section_name, option = args[1].split(".", 2)
             section = _get_section(section_name)
             _check_option(section, option)
-            click.echo(
-                "Documentation of %s: %s" % (args[1], section.get_doc(option))
-            )
+            overrides = _data_dir_overrides() if section_name == "data" else None
+            click.echo(section.doc(display_overrides=overrides))
         else:
             section = _get_section(args[1])
-            click.echo(section.doc())
+            overrides = _data_dir_overrides() if args[1] == "data" else None
+            click.echo(section.doc(display_overrides=overrides))
 
     elif args[0] == "restore":
         import os as _os
@@ -350,6 +367,8 @@ def detect(
                 )
             name = click.prompt("Name", default="result")
         wise.tasks.save(context, name)
+        saved_path = os.path.abspath(os.path.join(context.get_data_dir(), name))
+        click.echo("Saved to %s/" % saved_path)
 
 
 # ---------------------------------------------------------------------------
@@ -434,6 +453,8 @@ def match(
                 )
             name = click.prompt("Name", default="result")
         wise.tasks.save(context, name)
+        saved_path = os.path.abspath(os.path.join(context.get_data_dir(), name))
+        click.echo("Saved to %s/" % saved_path)
 
 
 # ---------------------------------------------------------------------------

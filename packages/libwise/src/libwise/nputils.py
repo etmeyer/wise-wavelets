@@ -2231,11 +2231,11 @@ class ConfigurationsContainer:
             for option, value in parser.items(section):
                 config.set(option, value, decode=True)
 
-    def doc(self, max_level=0):
-        return "\n".join([k.doc(max_level=max_level) for k in self._configs])
+    def doc(self, max_level=0, display_overrides=None):
+        return "\n".join([k.doc(max_level=max_level, display_overrides=display_overrides) for k in self._configs])
 
-    def values(self, max_level=0):
-        return "\n".join([k.values(max_level=max_level) for k in self._configs])
+    def values(self, max_level=0, display_overrides=None):
+        return "\n".join([k.values(max_level=max_level, display_overrides=display_overrides) for k in self._configs])
 
 
 
@@ -2338,8 +2338,8 @@ class BaseConfiguration(ConfigurationsContainer):
         assert option in self._keys
         return self._units.get(option)
 
-    def doc(self, max_level=0):
-        return self.values(max_level=max_level)
+    def doc(self, max_level=0, display_overrides=None):
+        return self.values(max_level=max_level, display_overrides=display_overrides)
 
     def values(self, max_level=0, display_overrides=None):
         array = []
