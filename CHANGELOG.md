@@ -40,6 +40,47 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `--version`, verbosity mutual-exclusion, and a non-interactive
   no-files clean-exit check.
 
+- **Unified settings table** (A1): `wise settings show` now renders a
+  single 6-column table — `Option | Value | Default | Unit | Range |
+  Documentation` — for every configuration section. The separate
+  `wise settings doc` command is deprecated and now produces identical
+  output; it will be removed in wise 1.0.
+
+- **Unit metadata** (A1): `DataConfiguration`, `FinderConfiguration`,
+  and `MatcherConfiguration` carry a new `unit` field on every settings
+  tuple. Notable values: `bg_coords` / `roi_coords` → `"mas (=
+  data.projection_unit)"`, `alpha_threashold` / `alpha_detection` →
+  `"σ"`, `min_scale` / `max_scale` → `"wavelet level (int 0–10)"`,
+  `object_z` → `"redshift"`. Callers that subclass `BaseConfiguration`
+  with 7-element tuples continue to work (the missing `unit` is padded
+  with `None` at init time).
+
+- **Validator range descriptions** (A1): Every validator factory
+  (`validator_in_range`, `validator_in`, `validator_is`,
+  `validator_is_class`, `validator_list`, `is_callable`) now exposes a
+  `.describe()` method so the settings table can show a human-readable
+  Range column. `validator_in_range` also exposes `.min` and `.max`.
+
+- **`wise settings show data.data_dir` cwd note** (A6 interim): When
+  `data.data_dir` is `None`, the Value cell now reads `"None (cwd:
+  <abs-path>)"` instead of bare `None`, making the cwd fallback
+  explicit. Full project-root resolution is deferred to PR5 (Phase 2).
+
+- **Projection-unit headers in `wise info`** (E3): The "Pixel scale"
+  and "Beam" columns in the `wise info` table now include the
+  projection unit in their header (e.g. `"Pixel scale (mas)"`,
+  `"Beam (mas)"`). Changing `data.projection_unit` updates the headers
+  automatically.
+
+- **Save-path echo in `wise detect` / `wise match`** (E4): After
+  saving a result, both commands now print `"Saved to <abs-path>/"` so
+  users know exactly where the output landed.
+
+- **Truncation indicator in `format_table`** (E2): When a cell value
+  has no whitespace within `max_col_size` (e.g. a jsonpickle-encoded
+  callable), it is now truncated to the column width and the final
+  character is replaced with `…` instead of being silently cut.
+
 ### Changed
 
 - `libwise.scriptshelper` is no longer imported by any
@@ -48,6 +89,18 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   still use it; it is not deleted.
 - `wise select_files --end-date` short option is `-e` (corrected from
   the old `-d` USAGE string, matching the original code behaviour).
+
+### Fixed
+
+- **"Applying preset" banner** (E1): `RcPreset.apply()` previously
+  printed `"Applying preset: display"` on every command invocation.
+  This is now routed through `logger.debug()` and only appears under
+  `wise --debug`.
+
+### Deprecated
+
+- `wise settings doc` is deprecated; it now produces the same output
+  as `wise settings show`. It will be removed in wise 1.0.
 
 ## [0.5.0] — 2026-05-22
 
