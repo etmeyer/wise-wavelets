@@ -9,6 +9,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "libwise",
+    "click>=8.1",
     "numpy>=1.24",
     "scipy>=1.11",
     "scikit-image>=0.22",

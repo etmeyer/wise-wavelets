@@ -1,6 +1,7 @@
 import datetime
 import glob
 import inspect
+import logging
 import os
 import re
 import sys
@@ -8,12 +9,15 @@ import time
 
 import astropy.constants as const
 import astropy.units as u
+import click
 import numpy as np
 from libwise import imgutils, nputils, plotutils
 
 from . import features as wfeatures
 from . import matcher, project, scc, wds, wiseutils
 from .features import _cmp
+
+logger = logging.getLogger(__name__)
 
 unit_c = u.core.Unit("c", const.c, doc="light speed")
 
@@ -77,10 +81,10 @@ def info_files(ctx):
         shape_str = "%sx%s" % img.data.shape
         data_table.append([os.path.basename(file), date, shape_str, f"{k * u:.3f}", beam_str])
 
-    print(nputils.format_table(data_table, header))
-    print("Number of files: %s" % (len(ctx.files)))
+    click.echo(nputils.format_table(data_table, header))
+    click.echo("Number of files: %s" % (len(ctx.files)))
     if len(data_beam) > 0:
-        print("Mean beam: Bmin: %.3f, Bmaj: %.3f, Angle:%.2f" % tuple(np.mean(data_beam, axis=0)))
+        click.echo("Mean beam: Bmin: %.3f, Bmaj: %.3f, Angle:%.2f" % tuple(np.mean(data_beam, axis=0)))
 
 
 def set_stack_image_as_ref(ctx, nsigma=3, nsigma_connected=True):
@@ -155,7 +159,7 @@ def info_files_delta(ctx, delta_time_unit=u.day, angular_velocity_unit=u.mas / u
         date1 = img1.get_epoch(str_format='%Y-%m-%d')
         date2 = img2.get_epoch(str_format='%Y-%m-%d')
         if not isinstance(date1, datetime.date):
-            print("Images have no date information")
+            logger.warning("Images have no date information")
             return
         delta_t = ((img2.get_epoch() - img1.get_epoch()).total_seconds() * u.second).to(delta_time_unit)
         all_delta_time.append(delta_t)
@@ -177,13 +181,13 @@ def info_files_delta(ctx, delta_time_unit=u.day, angular_velocity_unit=u.mas / u
     all_delta_time = nputils.quantities_to_array(all_delta_time)
     all_velocity_px = nputils.quantities_to_array(all_velocity_px)
 
-    print(nputils.format_table(data, header))
+    click.echo(nputils.format_table(data, header))
 
-    print("Mean Delta time: %s +- %s" % (np.mean(all_delta_time), np.std(all_delta_time)))
-    print("Mean Velocity resolution: %s +- %s" % (np.mean(all_velocity_px), np.std(all_velocity_px)))
+    click.echo("Mean Delta time: %s +- %s" % (np.mean(all_delta_time), np.std(all_delta_time)))
+    click.echo("Mean Velocity resolution: %s +- %s" % (np.mean(all_velocity_px), np.std(all_velocity_px)))
     if has_distance:
         all_velocity_c_px = nputils.quantities_to_array(all_velocity_c_px)
-        print("Mean Velocity resolution: %s +- %s" % (np.mean(all_velocity_c_px), np.std(all_velocity_c_px)))
+        click.echo("Mean Velocity resolution: %s +- %s" % (np.mean(all_velocity_c_px), np.std(all_velocity_c_px)))
 
 
 def detection_all(ctx, filter=None):
@@ -227,7 +231,7 @@ def match_all(ctx, filter=None):
         ctx.result.add_detection_result(img, result_copy)
 
         if prev_result is not None:
-            print("Matching %s vs %s (%s / %s)" % (prev_img, img, i, len(ctx.files) - 1))
+            logger.info("Matching %s vs %s (%s / %s)", prev_img, img, i, len(ctx.files) - 1)
             match_res = ctx.match(prev_result, res)
             ctx.result.add_match_result(match_res)
 
@@ -241,7 +245,7 @@ def match_all(ctx, filter=None):
         prev_result = result_copy
         prev_img = img
 
-    print("Match ratio stat:", nputils.stat(match_ratio_list))
+    logger.info("Match ratio stat: %s", nputils.stat(match_ratio_list))
 
 
 def bootstrap_matching(ctx, n=100, filter=None, cb_post_match=None):
@@ -263,7 +267,7 @@ def bootstrap_matching(ctx, n=100, filter=None, cb_post_match=None):
         if i > 0:
             remaining = (np.round((time.time() - t) / float(i) * (n - i)))
             eta = " (ETA: %s)" % time.strftime("%H:%M:%S", time.localtime(time.time() + remaining))
-        print("Run %s / %s%s" % (i + 1, n, eta))
+        logger.info("Run %s / %s%s", i + 1, n, eta)
 
         shuffled = nputils.permutation_no_succesive(all_epochs)
         match_ratio_list = []
@@ -298,9 +302,7 @@ def bootstrap_matching(ctx, n=100, filter=None, cb_post_match=None):
 
         # print "Match ratio stat:", nputils.stat(match_ratio_list)
 
-    # print all_match_ratio
-
-    print("Match ratio stat:", nputils.stat(all_match_ratio))
+    logger.info("Match ratio stat: %s", nputils.stat(all_match_ratio))
 
 
 def save(ctx, name, coord_mode='com', measured_delta=True):
@@ -318,7 +320,7 @@ def save(ctx, name, coord_mode='com', measured_delta=True):
     .. _tags: task_general
     '''
     if not ctx.result.has_detection_result():
-        print("No result to save")
+        logger.warning("No result to save")
         return
 
     ref_img = ctx.get_ref_image()
@@ -359,7 +361,7 @@ def load(ctx, name, projection=None, merge_with_previous=False, min_link_size=2)
 
     path = os.path.join(ctx.get_data_dir(), name)
     if not os.path.isdir(path):
-        print("No results saved with name %s" % name)
+        logger.warning("No results saved with name %s", name)
         return
 
     img_set_file = os.path.join(path, "%s.set.dat" % name)
@@ -411,7 +413,7 @@ def view_all(ctx, preprocess=True, show_mask=True, show_regions=[], save_filenam
     .. _tags: task_general
     '''
     if len(ctx.files) == 0:
-        print("No files selected")
+        logger.warning("No files selected")
         return
 
     stack = plotutils.FigureStack()
@@ -532,7 +534,7 @@ def view_wds(ctx, title=True, num=True, scales=None, save_filename=None, **kwarg
     .. _tags: task_detection
     '''
     if not ctx.result.has_detection_result():
-        print("No result found. Run detect_all() or match_all() first.")
+        logger.warning("No result found. Run detect_all() or match_all() first.")
         return
 
     detection_result = ctx.get_detection_result()
@@ -542,11 +544,11 @@ def view_wds(ctx, title=True, num=True, scales=None, save_filename=None, **kwarg
     scales = _get_scales(scales, ctx.result.get_scales())
 
     if not detection_result.is_full_wds():
-        print("This task require full WDS result. Please run detection again.")
+        logger.warning("This task requires full WDS result. Please run detection again.")
         return
 
     if len(scales) == 0:
-        print("No result found for this scales. Available scales:", ctx.result.get_scales())
+        logger.warning("No result found for these scales. Available: %s", ctx.result.get_scales())
         return
 
     stack = plotutils.FigureStack()
@@ -594,7 +596,7 @@ def view_all_features(ctx, scales, region_list=None, legend=False, feature_filte
     .. _tags: task_detection
     '''
     if not ctx.result.has_detection_result():
-        print("No result found. Run detect_all() or match_all() first.")
+        logger.warning("No result found. Run detect_all() or match_all() first.")
         return
 
     ref_img = ctx.get_ref_image()
@@ -602,7 +604,7 @@ def view_all_features(ctx, scales, region_list=None, legend=False, feature_filte
     scales = _get_scales(scales, ctx.result.get_scales())
 
     if len(scales) == 0:
-        print("No result found for this scales. Available scales:", ctx.result.get_scales())
+        logger.warning("No result found for these scales. Available: %s", ctx.result.get_scales())
         return
 
     data = wiseutils.SSPData.from_results(ctx.get_result(), projection, scales)
@@ -673,7 +675,7 @@ def plot_separation_from_core(ctx, scales=None, feature_filter=None, min_link_si
     .. _tags: task_matching
     """
     if not ctx.result.has_match_result():
-        print("No result found. Run match_all() first.")
+        logger.warning("No result found. Run match_all() first.")
         return
 
     stack = plotutils.FigureStack()
@@ -683,7 +685,7 @@ def plot_separation_from_core(ctx, scales=None, feature_filter=None, min_link_si
     scales = _get_scales(scales, ctx.result.get_scales())
 
     if len(scales) == 0:
-        print("No result found for this scales. Available scales:", ctx.result.get_scales())
+        logger.warning("No result found for these scales. Available: %s", ctx.result.get_scales())
         return
 
     ms_match_results, link_builders = ctx.get_match_result()
@@ -750,7 +752,7 @@ def plot_all_features(ctx, scales=None, pa=False, feature_filter=None, save_file
     .. _tags: task_detection
     """
     if not ctx.result.has_detection_result():
-        print("No result found. Run detect_all() or match_all() first.")
+        logger.warning("No result found. Run detect_all() or match_all() first.")
         return
 
     ref_img = ctx.get_ref_image()
@@ -758,7 +760,7 @@ def plot_all_features(ctx, scales=None, pa=False, feature_filter=None, save_file
     scales = _get_scales(scales, ctx.result.get_scales())
 
     if len(scales) == 0:
-        print("No result found for this scales. Available scales:", ctx.result.get_scales())
+        logger.warning("No result found for these scales. Available: %s", ctx.result.get_scales())
         return
 
     data = wiseutils.SSPData.from_results(ctx.get_result(), projection, scales)
@@ -815,11 +817,11 @@ def view_displacements(ctx, scale, feature_filter=None, title=True, save_filenam
     .. _tags: task_matching
     '''
     if not ctx.result.has_match_result():
-        print("No result found. Run match_all() first.")
+        logger.warning("No result found. Run match_all() first.")
         return
 
     if scale not in ctx.result.get_scales():
-        print("No result found for this scale. Available scales:", ctx.result.get_scales())
+        logger.warning("No result found for this scale. Available: %s", ctx.result.get_scales())
         return
 
     stack = plotutils.FigureStack()
@@ -897,14 +899,14 @@ def view_links(ctx, scales=None, feature_filter=None, min_link_size=2, map_cmap=
     .. _tags: task_matching
     '''
     if not ctx.result.has_match_result():
-        print("No result found. Run match_all() first.")
+        logger.warning("No result found. Run match_all() first.")
         return
 
     stack = plotutils.FigureStack()
     scales = _get_scales(scales, ctx.result.get_scales())
 
     if len(scales) == 0:
-        print("No result found for this scales. Available scales:", ctx.result.get_scales())
+        logger.warning("No result found for these scales. Available: %s", ctx.result.get_scales())
         return
 
     ref_img = ctx.get_ref_image()
@@ -941,13 +943,13 @@ def get_velocities_data(ctx, scales=None, region_list=None, min_link_size=2,
                         feature_filter=None, add_match_features=False,
                         **kargs):
     if not ctx.result.has_match_result():
-        print("No result found. Run match_all() first.")
+        logger.warning("No result found. Run match_all() first.")
         return
 
     scales = _get_scales(scales, ctx.result.get_scales())
 
     if len(scales) == 0:
-        print("No result found for this scales. Available scales:", ctx.result.get_scales())
+        logger.warning("No result found for these scales. Available: %s", ctx.result.get_scales())
         return
 
     ref_img = ctx.get_ref_image()
@@ -1035,7 +1037,7 @@ def list_saved_results(ctx):
 
         data.append([name, n, first, last, bool(len(scales)), ", ".join(scales)])
 
-    print(nputils.format_table(data, header))
+    click.echo(nputils.format_table(data, header))
 
 
 def list_tasks():
@@ -1048,7 +1050,7 @@ def list_tasks():
         if inspect.isfunction(value) and doc is not None and not name.startswith('_'):
             data.append([name, doc.splitlines()[0]])
 
-    print(nputils.format_table(data, header))
+    click.echo(nputils.format_table(data, header))
 
 
 def build_detection_stack_image(ctx, preprocess=True, smooth=False):
@@ -1188,11 +1190,11 @@ def stack_cross_correlation(ctx, config, debug=0, nwise=2, stack=None):
         delta_t, velocity_pix, tol_pix = scc_result.get_velocity_resolution(prj, img1, img2)
 
         if not nputils.in_range(tol_pix, config.get("tol_pix_range")):
-            print("-> Skip: Not in the allowed range of pixel velocity resolution:", tol_pix)
+            logger.debug("-> Skip: velocity resolution %s not in allowed range", tol_pix)
             continue
 
         res1 = ctx.detection(img1, filter=config.get("filter1"))
-        print("-> Numbers of detected SSP: %s" % ", ".join([str(k.size()) for k in res1]))
+        logger.debug("Numbers of detected SSP: %s", ", ".join([str(k.size()) for k in res1]))
         res2 = ctx.detection(img2, filter=config.get("filter2"))
 
         scc_result.process(prj, res1, res2)
@@ -1220,7 +1222,7 @@ def bootstrap_scc(ctx, config, output_dir, n, nwise = 2, append=False,
     random_shift = config.get("img_rnd_shift")
 
     if config.get("shuffle") == config.get("rnd_pos_shift"):
-        print("Configuration Error: either 'shuffle' or 'rnd_pos_shift' need to be set")
+        logger.error("Configuration error: either 'shuffle' or 'rnd_pos_shift' must be set")
         return
 
     all_files = list(ctx.files)
@@ -1239,9 +1241,9 @@ def bootstrap_scc(ctx, config, output_dir, n, nwise = 2, append=False,
         img2.data = nputils.shift2d(img2.data, np.random.uniform(-random_shift, random_shift, 2))
 
         res1 = ctx.detection(img1, filter=config.get("filter1"))
-        print("-> Numbers of detected SSP: %s" % ", ".join([str(k.size()) for k in res1]))
+        logger.debug("Numbers of detected SSP: %s", ", ".join([str(k.size()) for k in res1]))
         res2 = ctx.detection(img2, filter=config.get("filter2"))
-        print("-> Numbers of detected SSP: %s" % ", ".join([str(k.size()) for k in res2]))
+        logger.debug("Numbers of detected SSP: %s", ", ".join([str(k.size()) for k in res2]))
 
         all_res1[file1] = res1
         all_res2[file1] = res2
@@ -1273,7 +1275,7 @@ def bootstrap_scc(ctx, config, output_dir, n, nwise = 2, append=False,
         if i > 0:
             remaining = (np.round((time.time() - t) / float(i) * (n - i)))
             eta = " (ETA: %s)" % time.strftime("%H:%M:%S", time.localtime(time.time() + remaining))
-        print("Run %s / %s%s" % (i + 1, n, eta))
+        logger.info("Run %s / %s%s", i + 1, n, eta)
 
         if config.get("shuffle"):
             # np.random.shuffle(all_files)
@@ -1299,7 +1301,7 @@ def bootstrap_scc(ctx, config, output_dir, n, nwise = 2, append=False,
             delta_t, velocity_pix, tol_pix = scc_result.get_velocity_resolution(prj, res1, res2)
 
             if not nputils.in_range(tol_pix, config.get("tol_pix_range")):
-                print("-> Skip: Not in the allowed range of pixel velocity resolution:", tol_pix)
+                logger.debug("-> Skip: velocity resolution %s not in allowed range", tol_pix)
                 continue
 
             scc_result.process(prj, res1, res2)
@@ -1316,7 +1318,7 @@ def bootstrap_scc(ctx, config, output_dir, n, nwise = 2, append=False,
             gncc_map = scc_result.get_global_ncc(smooth_len=1)
             imgutils.Image(gncc_map).save_to_fits(os.path.join(output_dir, "gncc_map_%s.fits" % (start + i)))
 
-    print("Done")
+    logger.info("Done")
 
 
 def _get_scales(scales, all_scales):

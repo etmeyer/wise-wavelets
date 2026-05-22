@@ -4,6 +4,51 @@ All notable changes to wise-wavelets are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Click-based CLI** (F1, F2): `wise` is now a proper `click.Group`.
+  All 12 subcommands (`info`, `stack`, `settings`, `detect`, `match`,
+  `view`, `view_features`, `view_links`, `plot_features`,
+  `plot_sep_from_core`, `region`, `select_files`) are registered as
+  `@click.command` entries and inherit global flags:
+  - `--verbose / -v` — INFO-level logging to stderr
+  - `--quiet / -q` — ERROR-level only
+  - `--debug` — DEBUG-level
+  - `--non-interactive` — raises `UsageError` instead of prompting
+  - `--version` — prints `wise <version> (libwise: <version>)`
+  - `--help / -h` — standard click help on every command
+
+- **Non-interactive scripting flags** for the previously prompt-only
+  commands:
+  - `wise detect --name NAME --save/--no-save --view-scales SCALES`
+  - `wise match --name NAME --save/--no-save --view-scales SCALE`
+  These allow fully unattended pipelines without `--non-interactive`.
+
+- **Structured logging** (F2): status output (progress notes, warnings,
+  internal debug lines) throughout `wise.project`, `wise.tasks`,
+  `wise.wds`, `wise.matcher`, and `wise.wiseutils` now goes through
+  `logging.getLogger(__name__)`. User-facing data output (`wise info`
+  tables, `wise settings show` output) uses `click.echo()`.
+  `logging.captureWarnings(True)` is wired at group startup, routing
+  library warnings through the same handler (groundwork for the
+  astropy `FITSFixedWarning` silencer in PR3/E5).
+
+- **CliRunner smoke tests** (F7 baseline): `packages/wise/tests/
+  test_cli_smoke.py` — 16 tests covering `--help` on every subcommand,
+  `--version`, verbosity mutual-exclusion, and a non-interactive
+  no-files clean-exit check.
+
+### Changed
+
+- `libwise.scriptshelper` is no longer imported by any
+  `wise.actions.wise_*` module. The libwise standalone scripts
+  (`wt-denoise`, `wt2d`, `fits-crop`) and `wise/contrib/` modules
+  still use it; it is not deleted.
+- `wise select_files --end-date` short option is `-e` (corrected from
+  the old `-d` USAGE string, matching the original code behaviour).
+
 ## [0.5.0] — 2026-05-22
 
 Promotes `0.5.0.dev1` to a stable release. Seven additional Py3
