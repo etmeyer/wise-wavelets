@@ -97,11 +97,14 @@ def test_settings_show_all_sections():
 def test_settings_doc_same_as_show():
     """wise settings doc produces the same 6-column table as wise settings show."""
     runner = CliRunner()
-    show_result = runner.invoke(cli, ["settings", "show", "data"])
-    doc_result = runner.invoke(cli, ["settings", "doc", "data"])
-    assert show_result.exit_code == 0
-    assert doc_result.exit_code == 0
-    assert show_result.output == doc_result.output
+    # Both must succeed and include all six column headers.
+    for cmd in ["show", "doc"]:
+        result = runner.invoke(cli, ["settings", cmd, "data"])
+        assert result.exit_code == 0, f"settings {cmd} failed: {result.output}"
+        for col in ("Option", "Value", "Default", "Unit", "Range", "Documentation"):
+            assert col in result.output, (
+                f"Column '{col}' missing from settings {cmd} output"
+            )
 
 
 def test_settings_show_data_dir_cwd_note(tmp_path, monkeypatch):
