@@ -415,7 +415,7 @@ class FeaturesLinkBuilder:
         filename = file + suffix
         np.savetxt(filename, l, ["%f", "%.5f", "%.5f", "%.6f", "%.3f", "%s", "%s", "%.5f", "%.5f"],
                    delimiter=' ', header=header)
-        print("Saved link builder @ %s" % filename)
+        logger.info("Saved link builder @ %s", filename)
 
     @staticmethod
     def from_separation_file(file, projection, image_set, filter=None):
@@ -448,7 +448,7 @@ class FeaturesLinkBuilder:
                 component.add(f, delta)
             current_component_id = component_id
         new.reset_colors(link_sort_key=lambda link: -link.size())
-        print("Loaded link builder from sep file %s" % file)
+        logger.info("Loaded link builder from sep file %s", file)
         return new
 
     @staticmethod
@@ -512,7 +512,7 @@ class FeaturesLinkBuilder:
             component.add_relation(epoch, related_component)
         new.set_min_link_size(min_link_size)
         new.reset_colors(link_sort_key=lambda link: -link.size())
-        print("Loaded link builder from %s" % file)
+        logger.info("Loaded link builder from %s", file)
         return new
 
     def copy(self):
@@ -611,7 +611,7 @@ class MultiScaleFeaturesLinkBuilder:
 class MergedFeatureLink(FeaturesLink):
 
     def __init__(self, links, color, id):
-        print(id, links)
+        logger.debug("%s %s", id, links)
         first = links[0].link.get(links[0].start)
         FeaturesLink.__init__(self, first, color, id)
 
@@ -959,7 +959,7 @@ class ScaleMatcherMSCSC(BaseScaleMatcher):
         total_features = len(indep_item.set1()) + len(indep_item.set2())
         img2 = self.get_segment_image(indep_item.set2())[0]
         if total_features > pmax:
-            print("Warning: high total features to optimize:", str([u.get_segmentid() for u in indep_item.set1()]) + " -> " + str([u.get_segmentid() for u in indep_item.set2()]))
+            logger.debug("Warning: high total features to optimize: %s -> %s", str([u.get_segmentid() for u in indep_item.set1()]), str([u.get_segmentid() for u in indep_item.set2()]))
         # print "Optimize group:", str([u.get_segmentid() for u in indep_item.set1()]) + " -> " + str([u.get_segmentid() for u in indep_item.set2()])
         for group in self.get_combinations(indep_item):
             total_coef = 0
@@ -1009,7 +1009,7 @@ class ScaleMatcherMSCSC(BaseScaleMatcher):
         return best[0]
 
     def get_match(self, cb=None, verbose=True):
-        print("\nStart Matching at scale %s. Tolerence: %s" % (self.scale, self.get_tolerance()))
+        logger.info("Start matching at scale %s. Tolerance: %s", self.scale, self.get_tolerance())
 
         if self.config.get("ignore_features_at_border"):
             features_at_the_border1 = self.get_features_at_the_border()[0]
@@ -1063,7 +1063,7 @@ class ScaleMatcherMSCSC(BaseScaleMatcher):
         self.segments1.move_back_to_initial()
 
         if match.size() > 0:
-            print("Matching features:", match.size(), "Correlation:", total_correlation / match.size())
+            logger.debug("Matching features: %s  Correlation: %s", match.size(), total_correlation / match.size())
 
         return ScaleMatchResult(self.segments1, self.segments2, match, delta_info, self.upper_delta_info)
 
@@ -1216,7 +1216,7 @@ class ScaleMatcherMSCSC2(BaseScaleMatcher):
 
     def log(self, *msg):
         if self.debug:
-            print(", :".join([str(k) for k in msg]))
+            logger.debug(", :".join([str(k) for k in msg]))
 
     def get_delta_proba(self, segment, delta):
         r = self.config.get("mscsc2_upper_delta_bonus_range")
@@ -1236,7 +1236,7 @@ class ScaleMatcherMSCSC2(BaseScaleMatcher):
         img2 = self.get_segment_image(indep_item.set2())[0]
 
         if total_features > pmax:
-            print("Warning: high total features to optimize:", str([u.get_segmentid() for u in indep_item.set1()]) + " -> " + str([u.get_segmentid() for u in indep_item.set2()]))
+            logger.debug("Warning: high total features to optimize: %s -> %s", str([u.get_segmentid() for u in indep_item.set1()]), str([u.get_segmentid() for u in indep_item.set2()]))
 
         self.log("Optimize group:", str([u.get_segmentid() for u in indep_item.set1()]
                                         ) + " -> " + str([u.get_segmentid() for u in indep_item.set2()]))
@@ -1258,7 +1258,7 @@ class ScaleMatcherMSCSC2(BaseScaleMatcher):
                 item.set_delta(scale_delta, delta)
                 item.set_correlation(coef)
                 if self.debug and total_features <= pmax:
-                    print("  ", [u.get_segmentid() for u in item.set1()], "->", [u.get_segmentid() for u in item.set2()], coef, delta, "", end=' ')
+                    logger.debug("  %s -> %s  coef=%s delta=%s", [u.get_segmentid() for u in item.set1()], [u.get_segmentid() for u in item.set2()], coef, delta)
             total_coef += 0.5 * (total_features - total_matched_features)
             total_coef = total_coef / float(total_features)
             # diff = ssd = -1
@@ -1285,18 +1285,18 @@ class ScaleMatcherMSCSC2(BaseScaleMatcher):
                     # results.append([group, total_coef, diff, coef, proba])
                     results.append([group, total_coef])
             if self.debug and total_features <= pmax:
-                print("=> Matched: ", total_matched_features, "/", total_features, "Coef:", coef, "Diff:", diff, "Total coef:", total_coef, ssd)
+                logger.debug("=> Matched: %s / %s  Coef: %s  Diff: %s  Total coef: %s  ssd: %s", total_matched_features, total_features, coef, diff, total_coef, ssd)
         if len(results) == 0:
             return MatchingGroup()
         best = max(results, key=lambda res: res[1])
         # best = min(results, key=lambda res: res[2])
         if self.debug:
-            print("=> Result: ", ','.join([str(k) for k in list(best[0].items())]), "Correlation:", best[1])
+            logger.debug("=> Result: %s  Correlation: %s", ",".join([str(k) for k in list(best[0].items())]), best[1])
         return best[0]
 
     def get_match(self, cb=None, verbose=True):
         if verbose:
-            print("\nStart Matching at scale %s. Tolerence: %s" % (self.scale, self.get_tolerance()))
+            logger.info("Start matching at scale %s. Tolerance: %s", self.scale, self.get_tolerance())
 
         to_match1, to_match2 = self.get_features_to_match()
         to_match2_query = FeaturesQuery(to_match2, coord_modes=self.mode)
@@ -1355,10 +1355,9 @@ class ScaleMatcherMSCSC2(BaseScaleMatcher):
             ssd = ((r1.get_data() - r2.get_data()) ** 2).sum()
 
             if verbose:
-                print("Matching features: %s / %s (%s %%)" % (match.size(), to_match1.size(),
-                                                              (match.size() / float(to_match1.size()) * 100)))
+                logger.debug("Matching features: %s / %s (%.1f %%)", match.size(), to_match1.size(), match.size() / float(to_match1.size()) * 100)
             if verbose:
-                print("Correlation:", total_correlation / match.size(), "SSD:", ssd)
+                logger.debug("Correlation: %s  SSD: %s", total_correlation / match.size(), ssd)
 
         return ScaleMatchResult(self.segments1, self.segments2, match, delta_info, self.upper_delta_info)
 
@@ -1417,7 +1416,7 @@ class DeltaInfoComparator:
         xcors = []
         for info, delta_info in zip(self.infos, self.delta_infos):
             ssd, xcor = self.get_correlation_coeffs(delta_info)
-            print(info, ssd, xcor)
+            logger.debug("%s  ssd=%s  xcor=%s", info, ssd, xcor)
             ssds.append(ssd)
             xcors.append(xcor)
         ssds = self.normalise_coefs(ssds)
@@ -1500,7 +1499,7 @@ class ScaleMatcherMSCC2(BaseScaleMatcher):
 
         for minimum in nputils.find_peaks(corr, 2, threshold):
             delta = (minimum - center).astype(int)
-            print("Min:", delta, corr[minimum[0], minimum[1]], np.linalg.norm(delta), tol - 1)
+            logger.debug("Min: %s %s %s %s", delta, corr[minimum[0], minimum[1]], np.linalg.norm(delta), tol - 1)
             if np.linalg.norm(delta) <= tol - 1 and region1.check_shift(delta):
                 result.append(delta)
 
@@ -1530,7 +1529,7 @@ class ScaleMatcherMSCC2(BaseScaleMatcher):
                                     use_upper_delta=use_upper_delta, cb=cb)
 
     def minimize(self, group, delta_info, cb=None):
-        print("Minimize:", group)
+        logger.debug("Minimize: %s", group)
         set1 = set(group)
 
         group_deltas = []
@@ -1600,9 +1599,7 @@ class ScaleMatcherMSCC2(BaseScaleMatcher):
 
         ssd = (((mask * (i2) - mask * (i1))) ** 2).sum()
         # ssd = nputils.norm_xcorr_coef(mask * i1, mask * i2)
-        print("Result:", ssd, nputils.norm_xcorr_coef(i1, i2),\
-              nputils.norm_xcorr_coef(mask * i1, mask * i2), (((i2 - i1)) ** 2).sum(),\
-              (((i2 * mask - i1 * mask)) ** 2).sum())
+        logger.debug("Result: ssd=%s xcor=%s", ssd, nputils.norm_xcorr_coef(i1, i2))
         return ssd
 
     def merge_small_features(self):
@@ -1618,7 +1615,7 @@ class ScaleMatcherMSCC2(BaseScaleMatcher):
                     self.segments1.remove_feature(feature)
 
     def get_match(self, cb=None, verbose=True):
-        print("\nStart Matching at scale %s." % (self.scale))
+        logger.info("Start matching at scale %s.", self.scale)
 
         to_match1, to_match2 = self.get_features_to_match()
 
@@ -1676,7 +1673,7 @@ class ScaleMatcherMSCC2(BaseScaleMatcher):
 
             img1 = build_image(self.segments1.get_features(), new_delta_info)
             ssd = ((img2.get_data() - img1.get_data()) ** 2).sum()
-            print("Result iteration", i, ":", ssd, "(vs", current_ssd, ")\n")
+            logger.debug("Result iteration %s: %s (vs %s)", i, ssd, current_ssd)
 
             to_match1.move_back_to_initial()
 
@@ -1690,7 +1687,7 @@ class ScaleMatcherMSCC2(BaseScaleMatcher):
         for segment in delta_info.get_features(DeltaInformation.DELTA_MATCH):
             delta = delta_info.get_delta(segment)
             segment2 = self.segments2.get_overlapping_segment(segment, delta=delta, min_ratio=0.4)
-            print("Match:", segment, segment2, delta)
+            logger.debug("Match: %s %s %s", segment, segment2, delta)
             if segment2 is not None:
                 match.add_feature_match(segment, segment2)
             # else:
@@ -1932,7 +1929,7 @@ class ScaleMatcherMSCC(BaseScaleMatcher):
         return corr_with - corr_without
 
     def get_match(self, cb=None, verbose=True):
-        print("\nStart Matching at scale %s." % (self.scale))
+        logger.info("Start matching at scale %s.", self.scale)
 
         # self.merge_small_features()
 
@@ -2010,7 +2007,7 @@ class ScaleMatcherMSCC(BaseScaleMatcher):
         for segment in delta_info.get_features(DeltaInformation.DELTA_MATCH):
             delta = delta_info.get_delta(segment)
             segment2 = self.segments2.get_overlapping_segment(segment, delta=delta, min_ratio=0.2)
-            print("Match:", segment, segment2, delta)
+            logger.debug("Match: %s %s %s", segment, segment2, delta)
             if segment2 is not None:
                 match.add_feature_match(segment, segment2)
             else:
@@ -2339,10 +2336,10 @@ class ImageMatcher:
         return finder.execute()
 
     def execute(self, img1, bg1, img2, bg2):
-        print("Analysing image 1 ...")
+        logger.info("Analysing image 1 ...")
         res1 = self.find_features(img1, bg1)
 
-        print("Analysing image 2 ...")
+        logger.info("Analysing image 2 ...")
         res2 = self.find_features(img2, bg2)
 
         return self.get_match(res1, res2)

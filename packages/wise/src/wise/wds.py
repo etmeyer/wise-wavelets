@@ -1,4 +1,5 @@
 import jsonpickle as jp
+import logging
 import numpy as np
 from libwise import imgutils, nputils, wavelets, wtutils
 from libwise.nputils import (
@@ -546,7 +547,7 @@ class Node:
         return "Node(%s)" % self.get_id()
 
     def show(self, level):
-        print(" " * level + r"\-- %s" % self.get_id())
+        logger.debug(" " * level + r"\-- %s", self.get_id())
         for child in self.childs:
             child.show(level + 1)
 
@@ -599,9 +600,9 @@ class MultiScaleTree:
 
     def show(self):
         for node in self.root.get_childs():
-            print("\n")
+            logger.debug("")
             node.show(0)
-            print("\n")
+            logger.debug("")
 
     def add(self, obj, parent=None):
         if parent is None:
@@ -865,7 +866,7 @@ class MultiScaleImageSet(AbstractKeyList):
 
         np.savetxt(filename, l, ["%f", "%.5f", "%.5f", "%.6f", "%.6f", "%f"],
                    delimiter=' ', header=header)
-        print("Saved MultiScaleImageSet @ %s" % filename)
+        logger.info("Saved MultiScaleImageSet @ %s", filename)
 
     @staticmethod
     def from_file_full(self, projection, image_set):
@@ -902,7 +903,7 @@ class MultiScaleImageSet(AbstractKeyList):
             ms_features.extend(list(scales.values()))
             new.append(ms_features)
 
-        print("Loaded MultiScaleImageSet from %s" % file)
+        logger.info("Loaded MultiScaleImageSet from %s", file)
         return new
 
 

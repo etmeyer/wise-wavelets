@@ -193,9 +193,9 @@ def plot_delta_info(stack, delta_info, input_delta=None, plot_error=True):
         if input_delta is not None:
             residual = nputils.l2norm(np.array([deltax, deltay]).T - np.array([expectedx, expectedy]).T)
 
-            print("Chi2 X:", chi2x / dof, "RMS:", rmsx)
-            print("Chi2 Y:", chi2y / dof, "RMS:", rmsy)
-            print("Full RMS:", residual.std())
+            logger.debug("Chi2 X: %s  RMS: %s", chi2x / dof, rmsx)
+            logger.debug("Chi2 Y: %s  RMS: %s", chi2y / dof, rmsy)
+            logger.debug("Full RMS: %s", residual.std())
 
         ax[0].set_ylabel(r"$\Delta_x (px)$")
 
@@ -1019,7 +1019,7 @@ def align_image_on_cores_com(img, bg):
 
     com = ndi.center_of_mass(img_cores)
 
-    print("COM:", com)
+    logger.debug("COM: %s", com)
     return com
 
 
@@ -1078,18 +1078,18 @@ def align_image_on_center_two_sided_jet(img, bg, region_jet, region_counter, cor
 
     x, y, z = nputils.get_line_between_points(img.data, first_feature_counter.get_coord(),
                                               first_feature_jet.get_coord())
-    print(x, y, z)
+    logger.debug("%s %s %s", x, y, z)
 
     iz, = nputils.coord_min(z, fit_gaussian=True, fit_gaussian_n=3)
     izf = np.floor(iz)
     izc = np.ceil(iz)
-    print(nputils.coord_min(z, fit_gaussian=False), iz)
+    logger.debug("%s %s", nputils.coord_min(z, fit_gaussian=False), iz)
 
     coord_x = nputils.linear_fct([izf, x[izf]], [izc, x[izc]])(iz)
     coord_y = nputils.linear_fct([izf, y[izf]], [izc, y[izc]])(iz)
 
     coord = [coord_y, coord_x]
-    print(coord)
+    logger.debug("%s", coord)
 
     return coord
 
@@ -1128,7 +1128,7 @@ def align_image_on_cores_cos(img, bg):
 
     cos = ndi.center_of_mass(img_cores)
 
-    print("COS:", cos)
+    logger.debug("COS: %s", cos)
     return cos
 
 

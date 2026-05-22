@@ -210,7 +210,7 @@ class AnalysisContext:
         if self.config.data.data_dir is None:
             return os.getcwd()
         if not os.path.exists(path):
-            print("Creating %s" % path)
+            logger.info("Creating %s", path)
             os.makedirs(path)
         return path
 
@@ -359,7 +359,7 @@ class AnalysisContext:
         """
         core_offset = self.get_core_offset()
         if core_offset is not None:
-            print("Aligning:", img.get_epoch())
+            logger.info("Aligning: %s", img.get_epoch())
             core_offset.align_img(img, projection=self.get_projection(img))
 
     def build_stack_image(self, preprocess=False, nsigma=0, nsigma_connected=False):
@@ -467,7 +467,7 @@ class AnalysisContext:
         and save the result on disk using path defined in self.config.data.core_offset_filename.
         """
         if self.config.data.core_offset_fct is None:
-            print("Warning: No core offset fct defined")
+            logger.warning("No core offset fct defined")
             return
         filename = self.get_core_offset_filename()
         core_offset_pos = wiseutils.CoreOffsetPositions()
@@ -503,9 +503,9 @@ class AnalysisContext:
         """Run detection on `img` (:class:`libwise.imgutils.Image`).
         """
         if verbose:
-            print("Start detection on: %s" % img)
+            logger.info("Start detection on: %s", img)
             if filter is not None:
-                print("  with filter: %s" % filter)
+                logger.info("  with filter: %s", filter)
         self.pre_bg_process(img)
         bg = self.get_bg(img)
         detection_filter = wfeatures.MaskFilter(self.get_mask())
@@ -558,7 +558,7 @@ class AnalysisContext:
         self.files = imgutils.fast_sorted_fits(files, start_date=start_date,
                             end_date=end_date, filter_dates=filter_dates, step=step)
 
-        print("Number of files selected:", len(self.files))
+        logger.info("Number of files selected: %d", len(self.files))
 
     def match(self, find_res1, find_res2, verbose=True):
         """Run match on `find_res1` and `find_res2` (both :class:`wise.wds.SegmentedScale`)
