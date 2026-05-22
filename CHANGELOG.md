@@ -4,6 +4,59 @@ All notable changes to wise-wavelets are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-05-22
+
+Promotes `0.5.0.dev1` to a stable release. Seven additional Py3
+regressions were caught during real-data shakedown sessions (3C120 and a
+faint VLBA X-band test source) and fixed before the final `0.5.0` cut.
+This release establishes the reference point for the "compatible with
+upstream wise behaviour" line; bug-fix-only backports will land on the
+`0.5.x` maintenance branch. Active development on 1.0 (which includes
+breaking UX and CLI changes catalogued in `_wise_improvement_plan.md`
+and sequenced in `_wise_1_0_roadmap.md`) continues on `main`.
+
+### Fixed
+
+- `libwise.imgutils.fast_sorted_fits`: parse FITS 4.0 `DATE-OBS`
+  variants including the ISO-with-time form (`2018-01-25T01:23:45.6`)
+  used by VLBA correlator output. Previously crashed with
+  `'<' not supported between instances of 'datetime.datetime' and
+  'NoneType'` on the first such file because `guess_date` silently
+  returned `None`. Warn-and-skip on any remaining unparseable header
+  (timezone-suffixed forms, etc.) so one bad date no longer takes down
+  the batch. The same widened format list is applied to
+  `StackedImage.zero_header`. (#11, fixes #10.)
+- `wise.project.AnalysisContext.get_core_offset` and `.get_mask`:
+  short-circuit to `None` when `config.data.core_offset_filename` or
+  `config.data.mask_filename` is unset, instead of crashing in
+  `os.path.isfile(None)` with `TypeError: stat: path should be string,
+  bytes, os.PathLike or integer, not NoneType`. Catalogued as
+  improvement-plan item B4.
+- `wise.wds`: widen watershed-marker dtype to `int32` to avoid
+  signed-int overflow on dense detections. (#9)
+- `libwise.imgutils`: support CASA-style multi-axis FITS by squeezing
+  degenerate Stokes/frequency axes and using `WCS.celestial` for
+  projection setup. (#8)
+- `wise`: default `QT_API=pyqt5` at process start so matplotlib doesn't
+  fall back to a tk backend and emit `ImportError: Failed to import any
+  qt binding` when the Qt-backed plot windows open. (#6)
+- `wise.project.AnalysisContext.get_ref_image`: split the previous
+  catch-all `Exception` into `FileNotFoundError` (user-supplied
+  reference-image path missing) and `RuntimeError` (no files selected
+  before the call). Diagnostic messages now name the offending config
+  key. (#5)
+
+### Added
+
+- `docs/data_formats.rst`: documents the `core.dat` plain-text format
+  (PA convention east-of-north, units following
+  `data.projection_unit`, epoch matching against `img.get_epoch()`).
+  Previously implicit in the parser. (#7)
+- `.gitignore` patterns: `testing/` for local scratch FITS fixtures not
+  shipped with the repo, and `_[!_]*` for personal notes and planning
+  files prefixed with a single underscore (the pattern intentionally
+  excludes dunder names like `__init__.py`).
+
 ## [0.5.0.dev1] — 2026-05-07
 
 First-user smoke test (3C120 walkthrough on 10 epochs of
