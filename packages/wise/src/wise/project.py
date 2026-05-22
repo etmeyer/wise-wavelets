@@ -241,7 +241,7 @@ class AnalysisContext:
         defined in the file self.config.data.core_offset_filename.
         """
         filename = self.get_core_offset_filename()
-        if not os.path.isfile(filename):
+        if filename is None or not os.path.isfile(filename):
             return None
         mtime = os.path.getmtime(filename)
         if self._cache_core_offset is None or self._cache_core_offset[0] != (mtime, filename):
@@ -259,7 +259,7 @@ class AnalysisContext:
         """ Return a mask (:class:`libwise.imgutils.Image`) from self.config.data.mask_filename.
         """
         filename = self.get_mask_filename()
-        if not os.path.isfile(filename):
+        if filename is None or not os.path.isfile(filename):
             return None
         mtime = os.path.getmtime(filename)
         if self._cache_mask_filter is None or self._cache_mask_filter[0] != (mtime, filename):
