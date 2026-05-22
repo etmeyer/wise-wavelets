@@ -1,6 +1,6 @@
 [project]
 name = "wisetool"
-version = "0.5.0.dev0"
+version = "0.5.0"
 description = "Wavelet Image Segmentation and Evaluation (modernization fork)"
 authors = [{ name = "Florent Mertens", email = "flomertens@gmail.com" }]
 maintainers = [{ name = "Eileen Meyer", email = "eileen.meyer@gmail.com" }]

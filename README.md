@@ -12,6 +12,45 @@ https://etmeyer.github.io/wise-wavelets/
 
 (Note: I have not fully tested the page or the tutorial. Spot-checks seem ok.)
 
+## Release lines
+
+This repository carries two parallel lines of development. Pick the one that
+matches what you want.
+
+- **`v0.5.0` (current stable)** — first tagged release of the Python 3 fork.
+  CLI and configuration schema match upstream
+  [flomertens/wise](https://github.com/flomertens/wise); the original 3C120
+  walkthrough works as written. Detailed list of fixes in `CHANGELOG.md`.
+- **`0.5.x` branch** — long-lived maintenance line for the upstream-compatible
+  behaviour. Only bug-fix and install-breaking backports land here; everything
+  else is frozen. This is the branch to install from if you have existing
+  notebooks, configuration files, or analyses keyed to the upstream CLI and
+  don't want to migrate.
+- **`main` (wise 1.0 development)** — active development of wise 1.0. **This
+  branch breaks compatibility with the upstream CLI and configuration schema**
+  in exchange for substantial UX improvements: corrected/renamed settings
+  (`alpha_threshold` for upstream's misspelled `alpha_threashold`, etc.), a
+  `wise init` project-root concept, click-based CLI with consistent
+  `--help` / `--verbose` / `--non-interactive` flags, a rebuilt
+  Sphinx + MyST documentation site, and a new walkthrough on faint sources.
+  wise 1.0 is in development; no 1.0 tag yet.
+
+### Installing the legacy / stable line (0.5.x)
+
+The wise-wavelets fork has not yet been published to PyPI under this
+maintainer's account, so install from source:
+
+```bash
+git clone --branch 0.5.x https://github.com/etmeyer/wise-wavelets
+cd wise-wavelets
+conda env create -f environment.yml
+conda activate wise-wavelets
+```
+
+A PyPI publish for the `wisetool` and `libwise` packages from this fork is
+planned as part of the 1.0 release; the legacy line will be published
+alongside it.
+
 ## Status
 
 Ported and tested against the original 3C120 walkthrough (minus the application of precise core positions). The library imports cleanly and the existing test suite is green:
@@ -45,9 +84,14 @@ Both packages use the `src/` layout and `hatchling` as the build backend.
 - Python 3.11+
 - conda (recommended) or pip
 
-## Install (development)
+## Install (development, from `main`)
+
+For 1.0 development work — note that the CLI and configuration schema on
+`main` will not match upstream wise:
 
 ```bash
+git clone https://github.com/etmeyer/wise-wavelets
+cd wise-wavelets
 conda env create -f environment.yml
 conda activate wise-wavelets
 ```
