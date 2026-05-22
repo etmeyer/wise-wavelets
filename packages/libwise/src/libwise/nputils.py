@@ -2339,24 +2339,28 @@ class BaseConfiguration(ConfigurationsContainer):
         return self._units.get(option)
 
     def doc(self, max_level=0):
-        array = []
-        for key in self.iter_options(max_level=max_level):
-            doc = self.get_doc(key)
-            default = self.get_default(key)
-            array.append([key, doc, default])
+        return self.values(max_level=max_level)
 
-        table = format_table(array, ["Option", "Documentation", "Default"], max_col_size=40)
-
-        return "Documentation for:%s\n%s" % (self._title, table)
-
-    def values(self, max_level=0):
+    def values(self, max_level=0, display_overrides=None):
         array = []
         for key in self.iter_options(max_level=max_level):
             value = self.get(key)
-            array.append([key, value])
+            if display_overrides and key in display_overrides:
+                value_str = display_overrides[key]
+            else:
+                value_str = value
+            default = self.get_default(key)
+            unit = self._units.get(key) or ""
+            validator = self._validators.get(key)
+            if validator is not None and hasattr(validator, 'describe'):
+                range_str = validator.describe()
+            else:
+                range_str = "-"
+            doc = self.get_doc(key)
+            array.append([key, value_str, default, unit, range_str, doc])
 
-        table = format_table(array, ["Option", "Value"], max_col_size=40)
-
+        header = ["Option", "Value", "Default", "Unit", "Range", "Documentation"]
+        table = format_table(array, header, max_col_size=40)
         return "%s:\n%s" % (self._title, table)
 
     def get_title(self):
