@@ -2462,6 +2462,8 @@ def format_table(data, header=None, min_col_size=10, max_col_size=None):
                 if iws != -1 and iws > 0:
                     s, new_line[j] = s[:iws].strip(), s[iws:].strip()
             n = len(s) + 1
+            if max_col_size is not None:
+                n = min(n, max_col_size + 1)
             data[i][j] = s
             if n > col_size[j] :
                 col_size[j] = n
@@ -2473,7 +2475,10 @@ def format_table(data, header=None, min_col_size=10, max_col_size=None):
             res += "-" * (sum(col_size) + dim) + "\n"
             continue
         for i in range(dim) :
-            res += "%-*s" % (col_size[i], str(line[i])[:col_size[i]])
+            cell = str(line[i])
+            if len(cell) > col_size[i]:
+                cell = cell[:col_size[i] - 1] + "…"
+            res += "%-*s" % (col_size[i], cell)
             res += '|'
         res += "\n"
     return res
