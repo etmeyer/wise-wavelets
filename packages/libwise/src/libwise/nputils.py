@@ -1885,6 +1885,9 @@ def is_callable(obj):
     return hasattr(obj, '__call__')
 
 
+is_callable.describe = lambda: "callable"
+
+
 def is_str_number(str):
     try:
         float(str)
@@ -2239,15 +2242,25 @@ class ConfigurationsContainer:
 class BaseConfiguration(ConfigurationsContainer):
 
     def __init__(self, settings, title):
-        # settings order: key, default, doc, validator, decoder, encoder, level
+        # settings order: key, default, doc, unit, validator, decoder, encoder, level
+        # backward compat: 7-tuple (no unit) is padded with unit=None
         # class attributes need to start with "_" so that we can set
         # option using simple attribute assignment (ex: config.option = value)
         # levels: 0: show in doc(), 1: save/load to/from file, 2: not saved
+        padded = []
+        for s in settings:
+            if len(s) == 7:
+                key, default, doc, validator, decoder, encoder, lvl = s
+                padded.append((key, default, doc, None, validator, decoder, encoder, lvl))
+            else:
+                padded.append(s)
+        settings = padded
         self._title = title
-        self._keys, defaults, docs, validators, decoders, encoders, level = list(zip(*settings))
+        self._keys, defaults, docs, units, validators, decoders, encoders, level = list(zip(*settings))
         self._defaults = collections.OrderedDict(list(zip(self._keys, defaults)))
         self._values = collections.OrderedDict(list(zip(self._keys, defaults)))
         self._docs = collections.OrderedDict(list(zip(self._keys, docs)))
+        self._units = collections.OrderedDict(list(zip(self._keys, units)))
         self._validators = collections.OrderedDict(list(zip(self._keys, validators)))
         self._decoders = collections.OrderedDict(list(zip(self._keys, decoders)))
         self._encoders = collections.OrderedDict(list(zip(self._keys, encoders)))
@@ -2321,6 +2334,10 @@ class BaseConfiguration(ConfigurationsContainer):
         assert option in self._keys
         return self._docs.get(option)
 
+    def get_unit(self, option):
+        assert option in self._keys
+        return self._units.get(option)
+
     def doc(self, max_level=0):
         array = []
         for key in self.iter_options(max_level=max_level):
@@ -2353,6 +2370,9 @@ def validator_in_range(vmin, vmax, instance=(float, int, int)):
             return True
         return False
 
+    validator.describe = lambda: "%s – %s" % (vmin, vmax)
+    validator.min = vmin
+    validator.max = vmax
     return validator
 
 
@@ -2363,6 +2383,7 @@ def validator_in(list_allowed):
             return True
         return False
 
+    validator.describe = lambda: " | ".join(str(x) for x in list_allowed)
     return validator
 
 
@@ -2371,6 +2392,13 @@ def validator_is(instance):
     def validator(value):
         return isinstance(value, instance)
 
+    if instance is bool:
+        desc = "True | False"
+    elif isinstance(instance, tuple):
+        desc = " | ".join(t.__name__ for t in instance)
+    else:
+        desc = instance.__name__
+    validator.describe = lambda: desc
     return validator
 
 
@@ -2379,6 +2407,7 @@ def validator_is_class(klass):
     def validator(value):
         return issubclass(value, klass)
 
+    validator.describe = lambda: "subclass of %s" % klass.__name__
     return validator
 
 
@@ -2394,6 +2423,17 @@ def validator_list(length, instance=None):
                 return False
         return True
 
+    letters = [chr(ord('a') + i) for i in range(min(length, 26))]
+    list_str = "[%s]" % ", ".join(letters)
+    if instance is not None:
+        if isinstance(instance, tuple):
+            type_str = " | ".join(t.__name__ for t in instance)
+        else:
+            type_str = instance.__name__
+        desc = "%s (%s)" % (list_str, type_str)
+    else:
+        desc = list_str
+    validator.describe = lambda: desc
     return validator
 
 
