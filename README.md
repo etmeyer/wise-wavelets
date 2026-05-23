@@ -1,93 +1,77 @@
 # wise-wavelets
 
-A Python 3.11+ modernization fork of [flomertens/wise](https://github.com/flomertens/wise) and its companion library [flomertens/libwise](https://github.com/flomertens/libwise).
-Both upstreams target Python 2 and were last released against an earlier
-scientific-Python stack; this monorepo ports them together to numpy 2.x,
-scipy 1.16, scikit-image ≥0.22, astropy ≥6, matplotlib ≥3.9, and PyQt5.
+A Python 3 modernization of [WISE (Wavelet Image Segmentation and
+Evaluation)](https://github.com/flomertens/wise) — a tool for
+detecting and tracking features in multi-epoch radio interferometric
+maps. Built for VLBI work on AGN jets, but applicable to any sequence
+of co-registered sky maps where you want to find significant structure
+and follow it across time.
 
-## Documentation
+The original WISE and its companion library `libwise` are Python 2
+only and were last released in 2015. This fork ports both to a current
+scientific-Python stack (Python 3.11+, numpy 2.x, scipy 1.16, astropy
+≥6, scikit-image ≥0.22, matplotlib ≥3.9, PyQt5) and is under active
+maintenance; see [Credit](#credit) below.
 
-Walkthroughs and reference material are mirrored from the original at
-https://etmeyer.github.io/wise-wavelets/
+## What it does
 
-(Note: I have not fully tested the page or the tutorial. Spot-checks seem ok.)
+Given a sequence of FITS images covering the same source at different
+epochs, wise:
 
-## Release lines
+- runs a multi-scale wavelet decomposition on each image,
+- segments the per-scale wavelet planes into features (peaks, blobs)
+  above a user-specified significance threshold,
+- matches features across epochs using position, scale, and an
+  optional velocity prior,
+- and produces kinematic plots — feature trajectories on the sky,
+  separation-from-core vs. time, fit apparent velocities — either
+  directly from the command line or as artifacts you can load into a
+  notebook.
 
-This repository carries two parallel lines of development. Pick the one that
-matches what you want.
+The MOJAVE 3C 120 walkthrough is the canonical worked example.
 
-- **`v0.5.0` (current stable)** — first tagged release of the Python 3 fork.
-  CLI and configuration schema match upstream
-  [flomertens/wise](https://github.com/flomertens/wise); the original 3C120
-  walkthrough works as written. Detailed list of fixes in `CHANGELOG.md`.
-- **`0.5.x` branch** — long-lived maintenance line for the upstream-compatible
-  behaviour. Only bug-fix and install-breaking backports land here; everything
-  else is frozen. This is the branch to install from if you have existing
-  notebooks, configuration files, or analyses keyed to the upstream CLI and
-  don't want to migrate.
-- **`main` (wise 1.0 development)** — active development of wise 1.0. **This
-  branch breaks compatibility with the upstream CLI and configuration schema**
-  in exchange for substantial UX improvements: corrected/renamed settings
-  (`alpha_threshold` for upstream's misspelled `alpha_threashold`, etc.), a
-  `wise init` project-root concept, click-based CLI with consistent
-  `--help` / `--verbose` / `--non-interactive` flags, a rebuilt
-  Sphinx + MyST documentation site, and a new walkthrough on faint sources.
-  wise 1.0 is in development; no 1.0 tag yet.
-
-### Installing the legacy / stable line (0.5.x)
-
-The wise-wavelets fork has not yet been published to PyPI under this
-maintainer's account, so install from source:
+## Quick start
 
 ```bash
-git clone --branch 0.5.x https://github.com/etmeyer/wise-wavelets
+# Clone and install (conda; both packages installed editable)
+git clone https://github.com/etmeyer/wise-wavelets
 cd wise-wavelets
 conda env create -f environment.yml
 conda activate wise-wavelets
+
+# Get a feel for the CLI
+wise --help                     # list all 12 actions
+wise info my_data_*.fits        # epoch / beam / pixel-scale summary
+wise settings show              # full analysis config with defaults, units, ranges
+wise detect --dry-run map.fits  # preview detection on one file before committing
 ```
 
-A PyPI publish for the `wisetool` and `libwise` packages from this fork is
-planned as part of the 1.0 release; the legacy line will be published
-alongside it.
+A few quality-of-life notes for newcomers:
 
-## Status
+- `wise -v <cmd>` adds informational logging (e.g. resolved background
+  region, alignment epochs). `--debug` adds everything.
+- `wise settings show` flags configuration issues (e.g. no background
+  extraction method set) at the bottom of the table.
+- `wise detect --dry-run` previews per-scale peak counts at the
+  configured significance threshold *and* at a lower α=1.5 bound,
+  which makes empirical tuning easy on faint or diffuse sources where
+  the default α=4 finds nothing.
 
-Ported and tested against the original 3C120 walkthrough (minus the application of precise core positions). The library imports cleanly and the existing test suite is green:
+## Documentation
 
-- `pytest packages/libwise/tests packages/wise/tests` — **51 passed, 8 skipped**.
-  The skips are upstream tests that exercised functions which were never
-  implemented or were left as `assert False` debug stubs; each is documented
-  in `MIGRATION_NOTES.md`.
-- `wise --help` enumerates all 12 actions discovered from `wise.actions`.
-- `python -c "import libwise, wise; print(libwise.get_version(), wise.get_version())"`
-  succeeds.
-- The PyQt5 UI modules (`libwise.app.PolyRegionEditor`, `WaveletBrowser`,
-  `WaveletDenoise`, …) import cleanly. End-to-end widget instantiation against
-  real datasets is the next milestone — flagged as a smoke-test follow-up
-  rather than blocking.
+Rendered documentation site: <https://etmeyer.github.io/wise-wavelets/>
 
-## Layout
+The site mirrors the upstream wise documentation and adds notes
+specific to this fork. The original
+[flomertens/wise tutorial](https://flomertens.github.io/wise/) is also
+available; its data links are dead, but the 2012 3C 120 Stokes-I
+images it uses can still be downloaded from the
+[MOJAVE source page for 0430+052](https://www.cv.nrao.edu/MOJAVE/sourcepages/0430+052.shtml).
 
-This is a monorepo containing two installable packages:
+## Installation
 
-- `packages/libwise/` — utilities for plotting, wavelet transforms, image
-  processing, and the Qt UI. Distributed on PyPI as `libwise`.
-- `packages/wise/` — Wavelet Image Segmentation and Evaluation tool, depending
-  on `libwise`. Distributed on PyPI as `wisetool`; installs the `wise`
-  command.
-
-Both packages use the `src/` layout and `hatchling` as the build backend.
-
-## Requirements
-
-- Python 3.11+
-- conda (recommended) or pip
-
-## Install (development, from `main`)
-
-For 1.0 development work — note that the CLI and configuration schema on
-`main` will not match upstream wise:
+Conda is the recommended path — several of the dependencies install
+more reliably from conda-forge than from PyPI:
 
 ```bash
 git clone https://github.com/etmeyer/wise-wavelets
@@ -96,31 +80,60 @@ conda env create -f environment.yml
 conda activate wise-wavelets
 ```
 
-The `pip:` block in `environment.yml` installs both in-tree packages editable
-into the conda env.
+A pure-pip install also works:
 
-## Tutorial/Walkthrough
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -e packages/libwise
+pip install -e packages/wise
+pip install PyQt5   # needed for the GUI viewers
+```
 
-If you wish to try the original tutorial that accompanied wise, see
-https://flomertens.github.io/wise/
+PyPI publication for `wisetool` and `libwise` from this fork is
+planned alongside the 1.0 release.
 
+## Which version to use
 
-The data links on that page are long-dead but you can still get the 2012 (and many other) 3C120 stokes I fits images from the MOJAVE page:
+The default — cloning the repo as shown above — gives you the latest
+stable release on `main`, currently **v0.6.0** (May 2026). It is
+compatible with the original wise CLI and configuration schema, so
+existing notebooks and config files from upstream continue to work.
 
-https://www.cv.nrao.edu/MOJAVE/sourcepages/0430+052.shtml
+If you're locked to an even-earlier snapshot and prefer not to track
+the v0.6.0 improvements (added logging, unified settings table, loud
+failure modes, etc.), there's a frozen maintenance line that matches
+the upstream wise CLI exactly:
 
+```bash
+git clone --branch 0.5.x https://github.com/etmeyer/wise-wavelets
+```
+
+A future **1.0** release will introduce breaking renames (fixing the
+upstream's misspelled `alpha_threashold` → `alpha_threshold`, removing
+the `--nsigma_connected` flag in favor of `--keep_brightest_only`,
+adding a `wise init` project-root concept). Those changes are in
+progress; until 1.0 ships, `main` stays compatible with how upstream
+wise behaves and how 0.5.x users expect it to behave.
 
 ## Credit
 
-The original Python 2 codebase and design are due to Florent Mertens. This
-fork tracks the same module structure and CLI surface; see `MIGRATION_NOTES.md`
-for the full substitution log (pymorph → scikit-image, scipy submodule
-re-homing, numpy 2.x scalar aliases, matplotlib backend rename, PyQt4 → PyQt5,
-and per-test triage).
+The original Python 2 codebase and the design of the
+wavelet-segmentation + matching pipeline are due to Florent Mertens.
+This fork tracks the same module structure and CLI surface.
+`MIGRATION_NOTES.md` in the repo records the per-file substitutions
+(pymorph → scikit-image, scipy submodule re-homing, numpy 2.x scalar
+aliases, matplotlib backend rename, PyQt4 → PyQt5, and the per-test
+triage).
 
-## Issues and Bugs
+## Issues, bugs, and maintenance
 
-Please post any issues or bugs you encounter on the issues page. I have been using Claude (Opus 4.7 model) to carry out the migration to python 3 and intend to keep things working as long as it’s still useful!
+Please open an [issue](https://github.com/etmeyer/wise-wavelets/issues)
+if you hit something broken or surprising — including documentation
+gaps. Code in this fork is being written and reviewed with Claude
+(Anthropic's Opus model) doing planning and Sonnet executing under a
+plan; the migration log and the v0.6.0 work were carried out this
+way. The intent is to keep this fork working as long as it's useful
+for the community; feedback that nudges priorities is welcome.
 
 ## License
 
