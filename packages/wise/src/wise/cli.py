@@ -906,6 +906,107 @@ def select_files_cmd(
 
 
 # ---------------------------------------------------------------------------
+# show group: sky-map renderings and tabular information
+# ---------------------------------------------------------------------------
+
+@cli.group()
+def show() -> None:
+    """Sky-map renderings and tabular information."""
+
+
+@show.command("features")
+@click.argument("name")
+@click.argument("scales")
+@click.pass_context
+def show_features(ctx: click.Context, name: str, scales: str) -> None:
+    """Plot all features location on the reference image.
+
+    NAME is the saved result name; SCALES is a comma-separated list.
+    """
+    import logging as _logging
+    from libwise import nputils
+
+    _logger = _logging.getLogger(__name__)
+
+    context = actions.load(name)
+    if context is None:
+        raise click.UsageError("No results saved with name %r" % name)
+
+    try:
+        scale_list = nputils.str2floatlist(scales)
+    except Exception:
+        raise click.UsageError(
+            "Invalid scales %r. Available: %s" % (scales, context.result.get_scales())
+        )
+
+    _logger.info("Plotting features from scales %s", scale_list)
+    wise.tasks.view_all_features(context, scale_list)
+
+
+@show.command("image")
+@click.argument("files", nargs=-1, required=True)
+@click.option("--no-crop", "-n", "no_crop", is_flag=True, default=False,
+              help="Do not crop images according to data.roi_coords.")
+@click.option("--no-align", is_flag=True, default=False,
+              help="Do not align images according to data.core_offset_filename.")
+@click.option("--show-mask", "-m", is_flag=True, default=False,
+              help="Overplot the mask if it exists.")
+@click.option("--reg-file", "-r", "reg_files", multiple=True,
+              help="Region file(s) to overplot (repeatable).")
+@click.pass_context
+def show_image(
+    ctx: click.Context,
+    files: tuple[str, ...],
+    no_crop: bool,
+    no_align: bool,
+    show_mask: bool,
+    reg_files: tuple[str, ...],
+) -> None:
+    """Simple image viewer."""
+    from libwise import imgutils
+
+    preprocess = not no_crop
+    align = not no_align
+    regions = []
+    for f in reg_files:
+        try:
+            regions.append(imgutils.Region(f))
+        except Exception:
+            raise click.UsageError("Failed to read region file: %s" % f)
+
+    config = actions.get_config(False)
+    context = wise.AnalysisContext(config)
+    actions.select_files(context, list(files))
+    wise.tasks.view_all(
+        context, preprocess=preprocess, show_regions=regions,
+        show_mask=show_mask, align=align
+    )
+
+
+@show.command("info")
+@click.argument("files", nargs=-1, required=False)
+@click.option("--velocity", "-V", is_flag=True, default=False,
+              help="Report velocity resolution instead of beam/pixel info.")
+@click.pass_context
+def show_info(
+    ctx: click.Context,
+    files: tuple[str, ...],
+    velocity: bool,
+) -> None:
+    """Give information on beam, pixel scales or velocity resolution."""
+    if not files:
+        raise click.UsageError("Missing argument 'FILES...'")
+
+    config = actions.get_config(False)
+    context = wise.AnalysisContext(config)
+    actions.select_files(context, list(files))
+    if velocity:
+        wise.tasks.info_files_delta(context)
+    else:
+        wise.tasks.info_files(context)
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
