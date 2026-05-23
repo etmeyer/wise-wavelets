@@ -507,10 +507,10 @@ class FinderConfiguration(nputils.BaseConfiguration):
 
     def __init__(self):
         data = [
-            ["alpha_threashold", 3, "Significance threshold", "σ", validator_in_range(0.1, 20), float, str, 0],
-            ["alpha_detection", 4, "Detection threshold", "σ", validator_in_range(0.1, 20), float, str, 0],
-            ["min_scale", 1, "Minimum Wavelet scale", "wavelet level (int 0–10)", validator_in_range(0, 10, instance=int), int, str, 0],
-            ["max_scale", 4, "Maximum Wavelet scale", "wavelet level (int 0–10)", validator_in_range(1, 10, instance=int), int, str, 0],
+            ["alpha_threashold", 3, "Significance threshold in σ (used for watershed mask). Typically ≤ alpha_detection; lowering it widens the segmented region around each detected peak.", "σ", validator_in_range(0.1, 20), float, str, 0],
+            ["alpha_detection", 4, "Detection threshold in σ. Default 4.0 is tuned for bright, well-resolved sources; for low-SNR / diffuse jets, 1.5–2.5 is often needed. Use 'wise detect --dry-run' to tune empirically.", "σ", validator_in_range(0.1, 20), float, str, 0],
+            ["min_scale", 1, "Minimum wavelet decomposition level to include (integer, not pixels). See the 'Resulting widths' line below the finder table for the actual pixel widths.", "wavelet level (int 0–10)", validator_in_range(0, 10, instance=int), int, str, 0],
+            ["max_scale", 4, "Maximum wavelet decomposition level to include (integer, not pixels). Typical range 4–6 for VLBI maps; higher catches broader diffuse structure at the cost of more spurious detections.", "wavelet level (int 0–10)", validator_in_range(1, 10, instance=int), int, str, 0],
             ["scales_snr_filter", None, "Per scales detection threshold", None, validator_is(dict), jp.decode, jp.encode, 1],
             ["ms_dec_klass", WaveletMultiscaleDecomposition, "Multiscale decompostion class",
              None, validator_is_class(AbstractMultiScaleDecomposition), lambda s: jp.decode(str2jsonclass(s)), jp.encode, 1],
@@ -907,6 +907,20 @@ class MultiScaleImageSet(AbstractKeyList):
         return new
 
 
+def compute_scales_widths(min_scale, max_scale, wavelet):
+    """Return per-scale feature widths in pixels for the configured
+    wavelet decomposition. The widths are what detection actually
+    sees; they are derived from min_scale/max_scale plus the
+    wavelet family (b3/triangle2 use a different multiplier than
+    b1/etc).
+    """
+    if wavelet in ('b3', 'triangle2'):
+        return [max(1.5, 3 * min(1, j) * pow(2, max(0, j - 1)))
+                for j in range(min_scale, max_scale)]
+    return [max(1, 2 * min(1, j) * pow(2, max(0, j - 1)))
+            for j in range(min_scale, max_scale)]
+
+
 class AbstractMultiScaleDecomposition:
 
     reversable = False
@@ -948,10 +962,7 @@ class WaveletMultiscaleDecomposition(AbstractMultiScaleDecomposition):
         scales_noise = wtutils.wave_noise_factor(bg, wavelet_fct, max_scale, wt_dec, beam=img.get_beam())
         scales_noise = scales_noise[min_scale:]
 
-        if wavelet_fct in ['b3', 'triangle2']:
-            scales_width = [max(1.5, 3 * min(1, j) * pow(2, max(0, j - 1))) for j in range(min_scale, max_scale)]
-        else:
-            scales_width = [max(1, 2 * min(1, j) * pow(2, max(0, j - 1))) for j in range(min_scale, max_scale)]
+        scales_width = compute_scales_widths(min_scale, max_scale, wavelet_fct)
 
         return list(zip(scales, scales_noise, scales_width))
 

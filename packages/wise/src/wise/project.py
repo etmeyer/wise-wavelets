@@ -57,11 +57,11 @@ class DataConfiguration(nputils.BaseConfiguration):
         ["post_process_fct", None, "Post detection processing", None, is_callable, None, None, 2],
         ["crval", None, "CRVAL", None, validator_is(list), jp.decode, jp.encode, 1],
         ["crpix", None, "CRPIX", None, validator_is(list), jp.decode, jp.encode, 1],
-        ["projection_unit", u.mas, "Unit used for the projection", None, validator_is(u.Unit), u.Unit, str, 0],
+        ["projection_unit", u.mas, "Angular unit for sky coordinates throughout the project (default mas — appropriate for VLBI). Set to arcsec for connected-element data (e.g. JVLA). bg_coords / roi_coords are interpreted in this unit.", None, validator_is(u.Unit), u.Unit, str, 0],
         ["projection_relative", True, "Use relative projection", None, validator_is(bool), str2bool, str, 0],
         ["projection_center", "pix_ref", "Method used to get the center", None, validator_is(str), str, str, 0],
-        ["object_distance", None, "Object distance", "astropy.units.Quantity (e.g. Mpc)", validator_is(u.Quantity), quantity_decode, str, 0],
-        ["object_z", 0, "Object z", "redshift", validator_in_range(0, 5), float, str, 0],
+        ["object_distance", None, "Luminosity (or angular-diameter, in the relativistic regime) distance as an astropy.units.Quantity, e.g. 200 * u.Mpc. Takes precedence over object_z when both are set.", "astropy.units.Quantity (e.g. Mpc)", validator_is(u.Quantity), quantity_decode, str, 0],
+        ["object_z", 0, "Redshift of the target. Used with the standard cosmology to derive a luminosity distance when object_distance is unset. Required for proper-velocity reporting; object_distance takes precedence if both are set.", "redshift", validator_in_range(0, 5), float, str, 0],
         ]
 
         super().__init__(data, title="Data configuration")
@@ -437,7 +437,9 @@ class AnalysisContext:
     def get_stack_image(self, nsigma=0, nsigma_connected=False, preprocess=False):
         filename = self._resolve_optional_file("stack_image_filename")
         if filename is None:
-            raise Exception("A stack image need to be generated")
+            raise RuntimeError(
+                "No stack image found; run `wise stack <files>` first to generate one."
+            )
 
         stack_image = imgutils.StackedImage.from_file(filename)
         if nsigma > 0:
@@ -526,6 +528,10 @@ class AnalysisContext:
             logger.warning("No core offset fct defined")
             return
         filename = self.get_core_offset_filename()
+        if filename is None:
+            raise ValueError(
+                "data.core_offset_filename is not set; cannot save core offset positions."
+            )
         core_offset_pos = wiseutils.CoreOffsetPositions()
 
         for file in self.files:

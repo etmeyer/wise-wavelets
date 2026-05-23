@@ -191,6 +191,69 @@ def info_files_delta(ctx, delta_time_unit=u.day, angular_velocity_unit=u.mas / u
         click.echo("Mean Velocity resolution: %s +- %s" % (np.mean(all_velocity_c_px), np.std(all_velocity_c_px)))
 
 
+def detection_preview(ctx, file, alpha_lower=1.5):
+    """Run wavelet decomposition on a single file and return per-scale peak stats.
+
+    Returns a list of dicts with keys: scale (1-based index), width (px),
+    noise (σ per scale), n_above (peaks above alpha_detection * noise),
+    n_between (peaks above alpha_lower * noise but not above alpha_detection).
+    Callable from notebooks without side effects.
+
+    Parameters
+    ----------
+    ctx : :class:`wise.project.AnalysisContext`
+    file : str
+        Path to the FITS file to preview.
+    alpha_lower : float, optional
+        Lower significance bound (default 1.5).
+    """
+    from libwise import imgutils
+
+    img = ctx.open_file(file)
+    bg = ctx.get_bg(img)
+
+    finder_config = ctx.config.finder
+    alpha_detection = finder_config.get("alpha_detection")
+    use_iwd = finder_config.get("use_iwd")
+    exclude_border_dist = finder_config.get("exclude_border_dist")
+
+    if use_iwd:
+        ms_dec_klass = wds.InterscalesWaveletMultiscaleDecomposition
+    else:
+        ms_dec_klass = wds.WaveletMultiscaleDecomposition
+
+    dec = ms_dec_klass(img, bg, finder_config)
+    decomposed = dec.decompose()
+
+    stats = []
+    for idx, (scale, scale_noise, width) in enumerate(decomposed):
+        scale_img = imgutils.Image.from_image(img, scale.real)
+        threshold_current = alpha_detection * scale_noise
+        threshold_lower = alpha_lower * scale_noise
+
+        group_above = wfeatures.FeaturesGroup.from_img_peaks(
+            scale_img, min(width, 8), threshold_current,
+            exclude_border_dist=exclude_border_dist,
+        )
+        group_lower = wfeatures.FeaturesGroup.from_img_peaks(
+            scale_img, min(width, 8), threshold_lower,
+            exclude_border_dist=exclude_border_dist,
+        )
+
+        n_above = group_above.size()
+        n_between = max(0, group_lower.size() - n_above)
+
+        stats.append({
+            "scale": idx + 1,
+            "width": width,
+            "noise": scale_noise,
+            "n_above": n_above,
+            "n_between": n_between,
+        })
+
+    return stats
+
+
 def detection_all(ctx, filter=None):
     '''Run the Segmented wavelet decomposition on all selected files
 
