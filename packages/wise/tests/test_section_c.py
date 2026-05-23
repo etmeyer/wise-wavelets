@@ -46,6 +46,12 @@ def _gaussian_2d(shape, center, amplitude, sigma):
     return amplitude * np.exp(-((x - cx) ** 2 + (y - cy) ** 2) / (2 * sigma ** 2))
 
 
+def _init_project(tmp_path, monkeypatch):
+    """Mark ``tmp_path`` as a wise project root and chdir into it."""
+    (tmp_path / ".wise").mkdir()
+    monkeypatch.chdir(tmp_path)
+
+
 # ---------------------------------------------------------------------------
 # C1: compute_scales_widths formula extraction
 # ---------------------------------------------------------------------------
@@ -82,6 +88,7 @@ def test_c1_footer_present_in_show_finder(tmp_path):
     """wise settings show finder includes 'Resulting widths:' line."""
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
+        os.makedirs(".wise")
         result = runner.invoke(cli, ["settings", "show", "finder"])
     assert result.exit_code == 0, result.output
     assert "Resulting widths:" in result.output
@@ -91,6 +98,7 @@ def test_c1_footer_values_match_formula(tmp_path):
     """Finder footer lists the widths matching compute_scales_widths for defaults."""
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
+        os.makedirs(".wise")
         result = runner.invoke(cli, ["settings", "show", "finder"])
     assert result.exit_code == 0
     # Default config: min_scale=1, max_scale=4, wd_wavelet='b1', use_iwd=False
@@ -103,6 +111,7 @@ def test_c1_footer_present_in_show_all(tmp_path):
     """wise settings show (all sections) also shows the finder footer."""
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
+        os.makedirs(".wise")
         result = runner.invoke(cli, ["settings", "show"])
     assert result.exit_code == 0
     assert "Resulting widths:" in result.output
@@ -112,6 +121,7 @@ def test_c1_footer_iwd_mentions_both_wavelets(tmp_path):
     """When use_iwd=True, the footer mentions both wavelet names."""
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
+        os.makedirs(".wise")
         runner.invoke(cli, ["settings", "set", "finder.use_iwd=True"])
         result = runner.invoke(cli, ["settings", "show", "finder"])
     assert result.exit_code == 0
@@ -124,8 +134,9 @@ def test_c1_footer_iwd_mentions_both_wavelets(tmp_path):
 # C2: detection_preview analytics
 # ---------------------------------------------------------------------------
 
-def test_c2_detection_preview_returns_stats(tmp_path):
+def test_c2_detection_preview_returns_stats(tmp_path, monkeypatch):
     """detection_preview returns one dict per decomposed scale."""
+    _init_project(tmp_path, monkeypatch)
     shape = (64, 64)
     noise = np.random.default_rng(0).normal(0, 0.01, shape).astype(np.float32)
     # inject a bright Gaussian peak so at least one scale has detections
@@ -135,7 +146,6 @@ def test_c2_detection_preview_returns_stats(tmp_path):
     _write_fits(fits_path, data)
 
     ctx = wise.AnalysisContext()
-    ctx.config.data.data_dir = str(tmp_path)
     ctx.config.data.bg_use_ksigma_method = True
     # default min_scale=1, max_scale=4 → 3 decomposed scales
     ctx.config.finder.set("min_scale", 1)
@@ -173,6 +183,7 @@ def test_c2_dry_run_exits_zero(tmp_path):
 
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
+        os.makedirs(".wise")
         # set bg method so detection can proceed
         runner.invoke(cli, ["settings", "set", "data.bg_use_ksigma_method=True"])
         result = runner.invoke(cli, ["detect", "--dry-run", str(fits_path)])
@@ -193,6 +204,7 @@ def test_c2_dry_run_multi_file_rejected(tmp_path):
 
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
+        os.makedirs(".wise")
         result = runner.invoke(cli, ["detect", "--dry-run", str(f1), str(f2)])
 
     assert result.exit_code != 0
@@ -203,6 +215,7 @@ def test_c2_dry_run_zero_files_rejected(tmp_path):
     """wise detect --dry-run with zero files exits nonzero."""
     runner = CliRunner()
     with runner.isolated_filesystem(temp_dir=tmp_path):
+        os.makedirs(".wise")
         result = runner.invoke(cli, ["detect", "--dry-run"])
 
     assert result.exit_code != 0
@@ -212,10 +225,10 @@ def test_c2_dry_run_zero_files_rejected(tmp_path):
 # Hygiene #3: save_core_offset_pos_file ValueError
 # ---------------------------------------------------------------------------
 
-def test_hygiene3_save_core_offset_raises_valueerror_when_unset(tmp_path):
+def test_hygiene3_save_core_offset_raises_valueerror_when_unset(tmp_path, monkeypatch):
     """save_core_offset_pos_file raises ValueError when core_offset_filename is None."""
+    _init_project(tmp_path, monkeypatch)
     ctx = wise.AnalysisContext()
-    ctx.config.data.data_dir = str(tmp_path)
     ctx.config.data.core_offset_filename = None
     ctx.config.data.core_offset_fct = lambda c, img: None  # non-None so we pass the first guard
 
@@ -227,10 +240,10 @@ def test_hygiene3_save_core_offset_raises_valueerror_when_unset(tmp_path):
 # Hygiene #4: get_stack_image raises RuntimeError
 # ---------------------------------------------------------------------------
 
-def test_hygiene4_get_stack_image_raises_runtimeerror(tmp_path):
+def test_hygiene4_get_stack_image_raises_runtimeerror(tmp_path, monkeypatch):
     """get_stack_image raises RuntimeError (not bare Exception) when no file present."""
+    _init_project(tmp_path, monkeypatch)
     ctx = wise.AnalysisContext()
-    ctx.config.data.data_dir = str(tmp_path)
     # stack_image_filename default is 'full_stack_image.fits' — not present in tmp_path
 
     with pytest.raises(RuntimeError, match="wise stack"):

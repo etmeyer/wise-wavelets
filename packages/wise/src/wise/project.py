@@ -2,9 +2,11 @@ import datetime
 import glob
 import logging
 import os
+import pathlib
 import re
 
 import astropy.units as u
+import click
 import jsonpickle as jp
 import numpy as np
 from libwise import imgutils, nputils, plotutils
@@ -25,6 +27,30 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_REF_IMAGE_FILENAME = "reference_image"
 
+# Project-root marker directory. Same convention as `.git/`: the resolver
+# walks upward from cwd looking for this directory to locate the project.
+PROJECT_MARKER_DIRNAME = ".wise"
+
+
+class ProjectRootNotFound(click.UsageError):
+    """Raised when no ``.wise/`` ancestor is found from the cwd."""
+
+
+def find_project_root(start: str | None = None) -> str | None:
+    """Walk upward from ``start`` (default cwd) looking for ``.wise/``.
+
+    Returns the absolute path to the directory *containing* ``.wise/``, or
+    ``None`` if no such ancestor exists. Same semantics as ``git``'s
+    repo-root resolver — supports running ``wise`` commands from anywhere
+    inside a project tree, not just the project root.
+    """
+    p = pathlib.Path(start or os.getcwd()).resolve()
+    # Iterate over self + parents until the filesystem root.
+    for candidate in (p, *p.parents):
+        if (candidate / PROJECT_MARKER_DIRNAME).is_dir():
+            return str(candidate)
+    return None
+
 
 def quantity_decode(s):
     try:
@@ -39,7 +65,6 @@ class DataConfiguration(nputils.BaseConfiguration):
 
     def __init__(self):
         data = [
-        ["data_dir", None, "Base data directory", None, validator_is(str), str, str, 0],
         ["fits_extension", 0, "Extension index", None, validator_is(int), int, str, 0],
         ["stack_image_filename", "full_stack_image.fits", "Stack Image filename", None, nputils.validator_is(str), str, str, 2],
         ["ref_image_filename", DEFAULT_REF_IMAGE_FILENAME, "Reference image filename", None, validator_is(str), str, str, 0],
@@ -193,8 +218,6 @@ class AnalysisContext:
     Example
     --------
     >>> ctx = wise.AnalysisContext()
-    >>> ctx.config.data.data_dir = os.path.expanduser("~/project/data")
-
     >>> ctx.config.finder.min_scale = 1
     >>> ctx.config.finder.max_scale = 3
 
@@ -230,15 +253,26 @@ class AnalysisContext:
         self._cache_core_offset = None
 
     def get_data_dir(self):
-        """Return the project data directory as configured by config.data.data_dir.
-        If the directory does not exist, it will be created. """
-        path = self.config.data.data_dir
-        if self.config.data.data_dir is None:
-            return os.getcwd()
-        if not os.path.exists(path):
-            logger.info("Creating %s", path)
-            os.makedirs(path)
-        return path
+        """Return the absolute path to the project root.
+
+        Resolved by walking upward from cwd looking for ``.wise/``. Raises
+        :class:`ProjectRootNotFound` (a :class:`click.UsageError` subclass)
+        when no project root is found.
+        """
+        root = find_project_root()
+        if root is None:
+            raise ProjectRootNotFound(
+                f"no project root found in {os.getcwd()}; run "
+                f"`wise init` to create one, or cd into a directory "
+                f"with a .wise/"
+            )
+        # Defensive: ensure the .wise/ marker still exists. It should
+        # always — find_project_root only returned because it was there —
+        # but a concurrent rm would otherwise break later cache writes.
+        wise_cache = os.path.join(root, PROJECT_MARKER_DIRNAME)
+        if not os.path.exists(wise_cache):
+            os.makedirs(wise_cache)
+        return root
 
     def _resolve_optional_file(self, config_attr_name: str):
         """Return the absolute path of an optional config-named file if it
@@ -341,7 +375,7 @@ class AnalysisContext:
             if ref_name != DEFAULT_REF_IMAGE_FILENAME:
                 raise FileNotFoundError(
                     f"Reference image not found at {os.path.abspath(ref_file)!r}. "
-                    f"Check data.ref_image_filename and data.data_dir."
+                    f"Check data.ref_image_filename and the project root."
                 )
             if len(self.files) == 0:
                 raise RuntimeError(

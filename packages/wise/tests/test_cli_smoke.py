@@ -4,12 +4,15 @@ Each subcommand is invoked with --help and the test asserts exit_code == 0
 and non-empty output. No actual FITS processing happens here; the existing
 test_smoke_pipeline.py covers the detect/match orchestration.
 """
+import os
+
 import pytest
 from click.testing import CliRunner
 
 from wise.cli import cli
 
 SUBCOMMANDS = [
+    "init",
     "info",
     "stack",
     "settings",
@@ -23,6 +26,17 @@ SUBCOMMANDS = [
     "region",
     "select_files",
 ]
+
+
+@pytest.fixture
+def in_project(tmp_path, monkeypatch):
+    """Chdir into a freshly-marked wise project root.
+
+    Required for any command that walks upward looking for ``.wise/``.
+    """
+    (tmp_path / ".wise").mkdir()
+    monkeypatch.chdir(tmp_path)
+    return tmp_path
 
 
 @pytest.mark.parametrize("cmd", SUBCOMMANDS)
@@ -46,11 +60,12 @@ def test_group_help():
 
 
 def test_version():
+    import wise
     runner = CliRunner()
     result = runner.invoke(cli, ["--version"])
     assert result.exit_code == 0
     assert result.output.strip()
-    assert "0.5.0" in result.output
+    assert wise.__version__ in result.output
 
 
 def test_mutually_exclusive_verbosity_flags():
@@ -76,7 +91,7 @@ def test_non_interactive_no_files_is_clean_error():
 # PR2 tests: settings table format, A6 cwd note
 # ---------------------------------------------------------------------------
 
-def test_settings_show_six_column_table():
+def test_settings_show_six_column_table(in_project):
     """wise settings show data includes all six column headers."""
     runner = CliRunner()
     result = runner.invoke(cli, ["settings", "show", "data"])
@@ -85,7 +100,7 @@ def test_settings_show_six_column_table():
         assert col in result.output, f"Column '{col}' missing from settings show output"
 
 
-def test_settings_show_all_sections():
+def test_settings_show_all_sections(in_project):
     """wise settings show (no section) includes all three section titles."""
     runner = CliRunner()
     result = runner.invoke(cli, ["settings", "show"])
@@ -94,7 +109,7 @@ def test_settings_show_all_sections():
         assert title in result.output, f"'{title}' missing from settings show output"
 
 
-def test_settings_doc_same_as_show():
+def test_settings_doc_same_as_show(in_project):
     """wise settings doc produces the same 6-column table as wise settings show."""
     runner = CliRunner()
     # Both must succeed and include all six column headers.
@@ -107,16 +122,7 @@ def test_settings_doc_same_as_show():
             )
 
 
-def test_settings_show_data_dir_cwd_note(tmp_path, monkeypatch):
-    """When data_dir is None, the Value cell shows the cwd note."""
-    monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
-    result = runner.invoke(cli, ["settings", "show", "data"])
-    assert result.exit_code == 0, result.output
-    assert "cwd:" in result.output
-
-
-def test_settings_show_sigma_unit_in_finder():
+def test_settings_show_sigma_unit_in_finder(in_project):
     """wise settings show finder includes 'σ' for alpha fields."""
     runner = CliRunner()
     result = runner.invoke(cli, ["settings", "show", "finder"])

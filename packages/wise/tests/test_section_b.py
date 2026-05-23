@@ -58,7 +58,6 @@ def test_b1_clamp_warning_emitted(tmp_path, caplog):
     _write_fits(fits_path, data)
 
     ctx = wise.AnalysisContext()
-    ctx.config.data.data_dir = str(tmp_path)
     # bg_coords in sky coords (mas). The synthetic image is 32×32 pixels
     # at CDELT=1e-5 deg = 36 mas/pixel, CRPIX=16, so the half-width is
     # 16 * 36 = 576 mas. Set coords at ±5000 mas to guarantee clamping.
@@ -84,7 +83,6 @@ def test_b7_pixel_slice_logged_at_info(tmp_path, caplog):
     _write_fits(fits_path, data)
 
     ctx = wise.AnalysisContext()
-    ctx.config.data.data_dir = str(tmp_path)
     # Valid in-bounds coords (tiny region near the image centre)
     ctx.config.data.bg_coords = [0.01, -0.01, 0.005, -0.005]
 
@@ -192,29 +190,39 @@ def test_b3_validate_clean_when_bg_fct_set():
 # B4: _resolve_optional_file helper
 # ---------------------------------------------------------------------------
 
-def test_b4_resolve_returns_none_for_unset_attr(tmp_path):
+def _init_project(tmp_path, monkeypatch):
+    """Mark ``tmp_path`` as a wise project root and chdir into it.
+
+    Mirrors what ``wise init`` does for tests that need
+    :meth:`AnalysisContext.get_data_dir` to resolve to ``tmp_path``.
+    """
+    (tmp_path / ".wise").mkdir()
+    monkeypatch.chdir(tmp_path)
+
+
+def test_b4_resolve_returns_none_for_unset_attr(tmp_path, monkeypatch):
     """_resolve_optional_file returns None when the config attr is None."""
+    _init_project(tmp_path, monkeypatch)
     ctx = wise.AnalysisContext()
-    ctx.config.data.data_dir = str(tmp_path)
     ctx.config.data.mask_filename = None
     assert ctx._resolve_optional_file("mask_filename") is None
 
 
-def test_b4_resolve_returns_none_for_missing_file(tmp_path):
+def test_b4_resolve_returns_none_for_missing_file(tmp_path, monkeypatch):
     """_resolve_optional_file returns None when the attr is set but the file is absent."""
+    _init_project(tmp_path, monkeypatch)
     ctx = wise.AnalysisContext()
-    ctx.config.data.data_dir = str(tmp_path)
     ctx.config.data.mask_filename = "nonexistent_mask.fits"
     assert ctx._resolve_optional_file("mask_filename") is None
 
 
-def test_b4_resolve_returns_path_when_file_exists(tmp_path):
+def test_b4_resolve_returns_path_when_file_exists(tmp_path, monkeypatch):
     """_resolve_optional_file returns the absolute path when the file exists."""
+    _init_project(tmp_path, monkeypatch)
     mask_path = tmp_path / "mask.fits"
     mask_path.write_bytes(b"fake fits")
 
     ctx = wise.AnalysisContext()
-    ctx.config.data.data_dir = str(tmp_path)
     ctx.config.data.mask_filename = "mask.fits"
     resolved = ctx._resolve_optional_file("mask_filename")
     assert resolved is not None
@@ -225,9 +233,11 @@ def test_b4_resolve_returns_path_when_file_exists(tmp_path):
 # B6: select_files skips mask/ref/stack files
 # ---------------------------------------------------------------------------
 
-def test_b6_mask_file_skipped_with_warning(tmp_path, caplog):
+def test_b6_mask_file_skipped_with_warning(tmp_path, monkeypatch, caplog):
     """select_files drops the mask file from the input list and warns."""
     import logging
+
+    _init_project(tmp_path, monkeypatch)
 
     shape = (32, 32)
     data = np.ones(shape, dtype=np.float32) * 0.01
@@ -238,7 +248,6 @@ def test_b6_mask_file_skipped_with_warning(tmp_path, caplog):
     _write_fits(mask_path, data, date_obs="2026-01-01")
 
     ctx = wise.AnalysisContext()
-    ctx.config.data.data_dir = str(tmp_path)
     ctx.config.data.mask_filename = "mask.fits"
 
     with caplog.at_level(logging.WARNING, logger="wise.project"):
@@ -251,9 +260,11 @@ def test_b6_mask_file_skipped_with_warning(tmp_path, caplog):
     assert warn_msgs, "Expected WARNING about skipped mask file"
 
 
-def test_b6_science_only_no_warning(tmp_path, caplog):
+def test_b6_science_only_no_warning(tmp_path, monkeypatch, caplog):
     """select_files does not warn when no special files are in the input."""
     import logging
+
+    _init_project(tmp_path, monkeypatch)
 
     shape = (32, 32)
     data = np.ones(shape, dtype=np.float32) * 0.01
@@ -261,7 +272,6 @@ def test_b6_science_only_no_warning(tmp_path, caplog):
     _write_fits(science_path, data, date_obs="2026-01-01")
 
     ctx = wise.AnalysisContext()
-    ctx.config.data.data_dir = str(tmp_path)
 
     with caplog.at_level(logging.WARNING, logger="wise.project"):
         ctx.select_files([str(science_path)])
@@ -279,7 +289,7 @@ def test_b6_science_only_no_warning(tmp_path, caplog):
 def test_e5_fits_fixed_warning_suppressed_in_cli(tmp_path, monkeypatch):
     """wise settings show does not surface FITSFixedWarning in output."""
     from astropy.wcs import FITSFixedWarning
-    monkeypatch.chdir(tmp_path)
+    _init_project(tmp_path, monkeypatch)
     runner = CliRunner()
     # Invoke a CLI command that triggers _setup_logging — which installs the
     # warning filter — and capture all output including stderr mix-in.
@@ -294,7 +304,7 @@ def test_e5_fits_fixed_warning_suppressed_in_cli(tmp_path, monkeypatch):
 
 def test_b3_settings_show_issues_banner(tmp_path, monkeypatch):
     """wise settings show prints the ⚠ banner when no bg method is configured."""
-    monkeypatch.chdir(tmp_path)
+    _init_project(tmp_path, monkeypatch)
 
     # Write a wise_config with no bg method set. Use the correct section name
     # ("Data configuration") as written by AnalysisConfiguration.to_file().
