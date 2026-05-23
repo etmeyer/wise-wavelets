@@ -437,7 +437,9 @@ class AnalysisContext:
     def get_stack_image(self, nsigma=0, nsigma_connected=False, preprocess=False):
         filename = self._resolve_optional_file("stack_image_filename")
         if filename is None:
-            raise Exception("A stack image need to be generated")
+            raise RuntimeError(
+                "No stack image found; run `wise stack <files>` first to generate one."
+            )
 
         stack_image = imgutils.StackedImage.from_file(filename)
         if nsigma > 0:
@@ -526,6 +528,10 @@ class AnalysisContext:
             logger.warning("No core offset fct defined")
             return
         filename = self.get_core_offset_filename()
+        if filename is None:
+            raise ValueError(
+                "data.core_offset_filename is not set; cannot save core offset positions."
+            )
         core_offset_pos = wiseutils.CoreOffsetPositions()
 
         for file in self.files:
