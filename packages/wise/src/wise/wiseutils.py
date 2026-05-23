@@ -777,6 +777,12 @@ class CoreOffsetPositions:
         if epoch in self.cores:
             x, y = self.cores[epoch]
             img.shift([-x, -y], projection=projection)
+        else:
+            logger.warning(
+                "No core position for epoch %s in core.dat — image left "
+                "unaligned. Downstream proper motions will be noisy.",
+                epoch.strftime("%Y-%m-%d") if hasattr(epoch, "strftime") else epoch,
+            )
 
     def set(self, epoch, xy_coord):
         self.cores[epoch] = xy_coord

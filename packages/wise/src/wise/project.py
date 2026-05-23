@@ -85,6 +85,33 @@ class AnalysisConfiguration(nputils.ConfigurationsContainer):
         self.matcher = matcher.MatcherConfiguration()
         nputils.ConfigurationsContainer.__init__(self, [self.data, self.finder, self.matcher])
 
+    # Registry of (check_fn, message) pairs for validate(). Each check_fn
+    # receives the AnalysisConfiguration instance and returns True when the
+    # issue is present. PR4+ can append additional checks here.
+    _CHECKS = [
+        (
+            lambda cfg: (
+                cfg.data.bg_coords is None
+                and not cfg.data.bg_use_ksigma_method
+                and cfg.data.bg_fct is None
+            ),
+            (
+                "No background extraction method is configured. Set one of: "
+                "data.bg_coords (region), data.bg_use_ksigma_method=True (k-sigma), "
+                "or data.bg_fct (callable)."
+            ),
+        ),
+    ]
+
+    def validate(self) -> list:
+        """Return a list of human-readable configuration issue strings.
+
+        Returns an empty list when the configuration is clean. Used by
+        ``actions.get_config`` to emit warnings at load time and by
+        ``wise settings show`` to surface an issue banner.
+        """
+        return [msg for check, msg in self._CHECKS if check(self)]
+
     # def to_file(self, name, path):
     #     base = os.path.join(path, name)
     #     self.data.to_file(base + ".data.conf")
@@ -213,6 +240,19 @@ class AnalysisContext:
             os.makedirs(path)
         return path
 
+    def _resolve_optional_file(self, config_attr_name: str):
+        """Return the absolute path of an optional config-named file if it
+        exists on disk, else None. Used for filename fields whose value can
+        legitimately be None (e.g. mask_filename, core_offset_filename).
+        """
+        name = getattr(self.config.data, config_attr_name, None)
+        if name is None:
+            return None
+        path = os.path.join(self.get_data_dir(), name)
+        if not os.path.isfile(path):
+            return None
+        return path
+
     def get_projection(self, img=None):
         """ Return a :class:`libwise.imgutils.Projection` corresponding to `img` and the settings
         defined in config.data. If `img` is not set, the reference image will be used instead.
@@ -230,17 +270,16 @@ class AnalysisContext:
                                   z=self.config.data.object_z)
 
     def get_core_offset_filename(self):
-        path = self.get_data_dir()
         if self.config.data.core_offset_filename is None:
             return None
-        return os.path.join(path, self.config.data.core_offset_filename)
+        return os.path.join(self.get_data_dir(), self.config.data.core_offset_filename)
 
     def get_core_offset(self):
         """ Return a :class:`CoreOffsetPositions`  based on the core position
         defined in the file self.config.data.core_offset_filename.
         """
-        filename = self.get_core_offset_filename()
-        if filename is None or not os.path.isfile(filename):
+        filename = self._resolve_optional_file("core_offset_filename")
+        if filename is None:
             return None
         mtime = os.path.getmtime(filename)
         if self._cache_core_offset is None or self._cache_core_offset[0] != (mtime, filename):
@@ -249,16 +288,15 @@ class AnalysisContext:
         return self._cache_core_offset[1]
 
     def get_mask_filename(self):
-        path = self.get_data_dir()
         if self.config.data.mask_filename is None:
             return None
-        return os.path.join(path, self.config.data.mask_filename)
+        return os.path.join(self.get_data_dir(), self.config.data.mask_filename)
 
     def get_mask(self):
         """ Return a mask (:class:`libwise.imgutils.Image`) from self.config.data.mask_filename.
         """
-        filename = self.get_mask_filename()
-        if filename is None or not os.path.isfile(filename):
+        filename = self._resolve_optional_file("mask_filename")
+        if filename is None:
             return None
         mtime = os.path.getmtime(filename)
         if self._cache_mask_filter is None or self._cache_mask_filter[0] != (mtime, filename):
@@ -268,10 +306,9 @@ class AnalysisContext:
         return self._cache_mask_filter[1]
 
     def get_stack_image_filename(self):
-        path = self.get_data_dir()
         if self.config.data.stack_image_filename is None:
             return None
-        return os.path.join(path, self.config.data.stack_image_filename)
+        return os.path.join(self.get_data_dir(), self.config.data.stack_image_filename)
 
     def get_ref_image(self, preprocess=True):
         """Return the reference image (:class:`libwise.imgutils.Image`) of the project,
@@ -398,8 +435,8 @@ class AnalysisContext:
         return stack_img
 
     def get_stack_image(self, nsigma=0, nsigma_connected=False, preprocess=False):
-        filename = self.get_stack_image_filename()
-        if filename is None or not os.path.isfile(filename):
+        filename = self._resolve_optional_file("stack_image_filename")
+        if filename is None:
             raise Exception("A stack image need to be generated")
 
         stack_image = imgutils.StackedImage.from_file(filename)
@@ -437,8 +474,28 @@ class AnalysisContext:
             xy_p1, xy_p2 = np.round(prj.s2p([(x1, y1), (x2, y2)])).astype(int)
             ex = [0, img.data.shape[1]]
             ey = [0, img.data.shape[0]]
-            xlim1, xlim2 = sorted([nputils.clamp(xy_p1[0], *ex), nputils.clamp(xy_p2[0], *ex)])
-            ylim1, ylim2 = sorted([nputils.clamp(xy_p1[1], *ey), nputils.clamp(xy_p2[1], *ey)])
+            cx1 = nputils.clamp(xy_p1[0], *ex)
+            cx2 = nputils.clamp(xy_p2[0], *ex)
+            cy1 = nputils.clamp(xy_p1[1], *ey)
+            cy2 = nputils.clamp(xy_p2[1], *ey)
+            # B1: warn if clamping changed any coordinate
+            if cx1 != xy_p1[0] or cx2 != xy_p2[0] or cy1 != xy_p1[1] or cy2 != xy_p2[1]:
+                logger.warning(
+                    "data.bg_coords [%s,%s,%s,%s] was clamped to image extent: "
+                    "x=[%d,%d]→[%d,%d], y=[%d,%d]→[%d,%d]. "
+                    "Noise estimate may be drawn from edge pixels.",
+                    x1, y1, x2, y2,
+                    xy_p1[0], xy_p2[0], cx1, cx2,
+                    xy_p1[1], xy_p2[1], cy1, cy2,
+                )
+            xlim1, xlim2 = sorted([cx1, cx2])
+            ylim1, ylim2 = sorted([cy1, cy2])
+            # B7: always log the resolved pixel slice (visible under -v)
+            logger.info(
+                "Background region: pixels x=[%d:%d] (%d px), y=[%d:%d] (%d px)",
+                xlim1, xlim2, xlim2 - xlim1,
+                ylim1, ylim2, ylim2 - ylim1,
+            )
             return img.data[ylim1:ylim2, xlim1:xlim2].copy()
         elif self.config.data.bg_fct is not None:
             return self.config.data.bg_fct(self, img)
@@ -485,8 +542,10 @@ class AnalysisContext:
         accepting an :class:`AnalysisContext` as argument and returning a corresponding
         mask as :class:`libwise.imgutils.Image`.
         """
-        filename = self.get_mask_filename()
-        if os.path.isfile(filename):
+        if self.config.data.mask_filename is None:
+            raise ValueError("data.mask_filename is not set; cannot save mask.")
+        filename = os.path.join(self.get_data_dir(), self.config.data.mask_filename)
+        if filename and os.path.isfile(filename):
             os.remove(filename)
         mask = mask_fct(self)
         mask.data = mask.data.astype(bool).astype(float)
@@ -554,8 +613,30 @@ class AnalysisContext:
         if isinstance(files, str):
             files = glob.glob(files)
 
-        self.files = imgutils.fast_sorted_fits(files, start_date=start_date,
+        sorted_files = imgutils.fast_sorted_fits(files, start_date=start_date,
                             end_date=end_date, filter_dates=filter_dates, step=step)
+
+        # B6: filter out mask/ref/stack files that the shell glob may have included
+        _skip_map = [
+            ("mask_filename", self._resolve_optional_file("mask_filename")),
+            ("ref_image_filename", self._resolve_optional_file("ref_image_filename")),
+            ("stack_image_filename", self._resolve_optional_file("stack_image_filename")),
+        ]
+        filtered = []
+        for path in sorted_files:
+            abs_path = os.path.abspath(path)
+            skipped = False
+            for field, resolved in _skip_map:
+                if resolved is not None and os.path.abspath(resolved) == abs_path:
+                    logger.warning(
+                        "Skipping input file %s — matches data.%s; not a science image.",
+                        path, field,
+                    )
+                    skipped = True
+                    break
+            if not skipped:
+                filtered.append(path)
+        self.files = filtered
 
         logger.info("Number of files selected: %d", len(self.files))
 
