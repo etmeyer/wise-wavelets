@@ -90,7 +90,64 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `wise select_files --end-date` short option is `-e` (corrected from
   the old `-d` USAGE string, matching the original code behaviour).
 
+### Added
+
+- **`AnalysisConfiguration.validate()`** (B3): extensible registry of
+  `(check_fn, message)` pairs. Returns a list of human-readable issue
+  strings when the configuration is inconsistent. The first check flags
+  the case where no background-extraction method is configured
+  (`bg_coords`, `bg_use_ksigma_method`, and `bg_fct` are all unset).
+  PR4/later PRs can append C-section knob-consistency checks to the
+  registry without touching the method structure.
+
 ### Fixed
+
+- **`bg_coords` clamp warning** (B1): `AnalysisContext.get_bg` now emits
+  a `WARNING` when `nputils.clamp` changes any coordinate, so users can
+  see that their background region was trimmed to the image edge and the
+  noise estimate may be affected.
+
+- **Resolved background pixel slice** (B7): `get_bg` always logs the
+  resolved pixel slice at `INFO` level
+  (`Background region: pixels x=[…:…] (… px), y=[…:…] (… px)`).
+  Visible under `wise -v`; silent at the default `WARNING` level. Lets
+  users catch twisted or non-opposite-corner `bg_coords` inputs by
+  reading the log line.
+
+- **`core.dat` epoch mismatch warning** (B2):
+  `CoreOffsetPositions.align_img` previously did nothing when an
+  image's epoch was absent from `core.dat`, silently leaving the image
+  unaligned. It now emits a `WARNING` naming the missing epoch so the
+  user can diagnose noisy proper-motion results.
+
+- **Background-method validation at config-load time** (B3):
+  `actions.get_config` calls `config.validate()` after loading and
+  emits a `WARNING` for each issue. `wise settings show` and
+  `wise settings doc` append a `⚠ Configuration issues:` banner below
+  the table when issues are present. Users see the problem on every
+  `wise` invocation until they fix the config; `--quiet` suppresses.
+
+- **`_resolve_optional_file` helper** (B4): introduces
+  `AnalysisContext._resolve_optional_file(attr_name)` which returns
+  the absolute path of an optional config-named file if it exists on
+  disk, else `None`. `get_core_offset`, `get_mask`, `get_stack_image`,
+  and `select_files` route through this helper, eliminating
+  `os.path.isfile(None)` crash paths. `save_mask_file` now raises
+  `ValueError` when `data.mask_filename` is unset, and guards the
+  existing-file removal with `if filename and os.path.isfile(…)`.
+
+- **Input glob skips mask/ref/stack files** (B6):
+  `AnalysisContext.select_files` now filters out files whose absolute
+  path matches `data.mask_filename`, `data.ref_image_filename`, or
+  `data.stack_image_filename`, logging a `WARNING` for each skip. This
+  prevents `wise detect *.fits` from running detection on the mask or
+  stacked output when those files live in the same directory.
+
+- **`astropy FITSFixedWarning` suppressed** (E5): `_setup_logging` in
+  the CLI entry point adds
+  `warnings.filterwarnings("ignore", category=FITSFixedWarning)` to
+  silence the four-lines-per-file FITS-spec drift spam. Other astropy
+  warnings (`VerifyWarning`, etc.) still flow through.
 
 - **"Applying preset" banner** (E1): `RcPreset.apply()` previously
   printed `"Applying preset: display"` on every command invocation.
