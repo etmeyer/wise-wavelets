@@ -613,8 +613,30 @@ class AnalysisContext:
         if isinstance(files, str):
             files = glob.glob(files)
 
-        self.files = imgutils.fast_sorted_fits(files, start_date=start_date,
+        sorted_files = imgutils.fast_sorted_fits(files, start_date=start_date,
                             end_date=end_date, filter_dates=filter_dates, step=step)
+
+        # B6: filter out mask/ref/stack files that the shell glob may have included
+        _skip_map = [
+            ("mask_filename", self._resolve_optional_file("mask_filename")),
+            ("ref_image_filename", self._resolve_optional_file("ref_image_filename")),
+            ("stack_image_filename", self._resolve_optional_file("stack_image_filename")),
+        ]
+        filtered = []
+        for path in sorted_files:
+            abs_path = os.path.abspath(path)
+            skipped = False
+            for field, resolved in _skip_map:
+                if resolved is not None and os.path.abspath(resolved) == abs_path:
+                    logger.warning(
+                        "Skipping input file %s — matches data.%s; not a science image.",
+                        path, field,
+                    )
+                    skipped = True
+                    break
+            if not skipped:
+                filtered.append(path)
+        self.files = filtered
 
         logger.info("Number of files selected: %d", len(self.files))
 
