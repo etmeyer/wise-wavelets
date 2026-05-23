@@ -71,13 +71,18 @@ def synthetic_fits_pair(tmp_path):
     return paths
 
 
-def test_detect_then_match_completes(synthetic_fits_pair):
+def test_detect_then_match_completes(synthetic_fits_pair, tmp_path, monkeypatch):
     """detect → match runs end-to-end on a 2-epoch synthetic dataset
     without raising. Locks in the Phase 8 smoke-test fixes (cmp polyfill,
     Feature.__lt__, ImageRegion shift cast, configparser text mode,
     filter list-wrap, settings print formatting).
     """
     import wise
+
+    # Mark tmp_path as a wise project root so context.get_data_dir() resolves
+    # (called via ctx.detection → get_mask → _resolve_optional_file).
+    (tmp_path / ".wise").mkdir(exist_ok=True)
+    monkeypatch.chdir(tmp_path)
 
     ctx = wise.AnalysisContext()
     ctx.config.finder.min_scale = 2
