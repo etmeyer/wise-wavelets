@@ -85,6 +85,33 @@ class AnalysisConfiguration(nputils.ConfigurationsContainer):
         self.matcher = matcher.MatcherConfiguration()
         nputils.ConfigurationsContainer.__init__(self, [self.data, self.finder, self.matcher])
 
+    # Registry of (check_fn, message) pairs for validate(). Each check_fn
+    # receives the AnalysisConfiguration instance and returns True when the
+    # issue is present. PR4+ can append additional checks here.
+    _CHECKS = [
+        (
+            lambda cfg: (
+                cfg.data.bg_coords is None
+                and not cfg.data.bg_use_ksigma_method
+                and cfg.data.bg_fct is None
+            ),
+            (
+                "No background extraction method is configured. Set one of: "
+                "data.bg_coords (region), data.bg_use_ksigma_method=True (k-sigma), "
+                "or data.bg_fct (callable)."
+            ),
+        ),
+    ]
+
+    def validate(self) -> list:
+        """Return a list of human-readable configuration issue strings.
+
+        Returns an empty list when the configuration is clean. Used by
+        ``actions.get_config`` to emit warnings at load time and by
+        ``wise settings show`` to surface an issue banner.
+        """
+        return [msg for check, msg in self._CHECKS if check(self)]
+
     # def to_file(self, name, path):
     #     base = os.path.join(path, name)
     #     self.data.to_file(base + ".data.conf")

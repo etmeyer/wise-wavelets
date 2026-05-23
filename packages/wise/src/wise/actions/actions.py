@@ -1,4 +1,5 @@
 import glob
+import logging
 import os
 
 from libwise import imgutils
@@ -7,6 +8,8 @@ import wise
 
 CONFIG_FILE = 'wise_config'
 
+logger = logging.getLogger(__name__)
+
 
 def get_config(create_if_none=False):
     config = wise.AnalysisConfiguration()
@@ -14,6 +17,9 @@ def get_config(create_if_none=False):
         config.from_file(CONFIG_FILE)
     elif create_if_none:
         config.to_file(CONFIG_FILE)
+
+    for issue in config.validate():
+        logger.warning("Configuration issue: %s", issue)
 
     return config
 

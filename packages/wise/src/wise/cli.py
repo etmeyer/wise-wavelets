@@ -209,6 +209,14 @@ def settings(ctx: click.Context, args: tuple[str, ...]) -> None:
             return {"data_dir": "None (cwd: %s)" % os.getcwd()}
         return None
 
+    def _show_issues_banner() -> None:
+        issues = config.validate()
+        if issues:
+            click.echo()
+            click.echo("⚠ Configuration issues:")
+            for issue in issues:
+                click.echo("  • %s" % issue)
+
     if len(args) == 0 or args[0] in ("get", "show"):
         if len(args) < 2:
             click.echo(config.values(display_overrides=_data_dir_overrides()))
@@ -224,6 +232,7 @@ def settings(ctx: click.Context, args: tuple[str, ...]) -> None:
             section = _get_section(args[1])
             overrides = _data_dir_overrides() if args[1] == "data" else None
             click.echo(section.values(display_overrides=overrides))
+        _show_issues_banner()
 
     elif args[0] == "set":
         for arg in args[1:]:
@@ -265,6 +274,7 @@ def settings(ctx: click.Context, args: tuple[str, ...]) -> None:
             section = _get_section(args[1])
             overrides = _data_dir_overrides() if args[1] == "data" else None
             click.echo(section.doc(display_overrides=overrides))
+        _show_issues_banner()
 
     elif args[0] == "restore":
         import os as _os
