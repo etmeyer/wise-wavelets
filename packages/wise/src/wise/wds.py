@@ -507,10 +507,10 @@ class FinderConfiguration(nputils.BaseConfiguration):
 
     def __init__(self):
         data = [
-            ["alpha_threashold", 3, "Significance threshold", "σ", validator_in_range(0.1, 20), float, str, 0],
-            ["alpha_detection", 4, "Detection threshold", "σ", validator_in_range(0.1, 20), float, str, 0],
-            ["min_scale", 1, "Minimum Wavelet scale", "wavelet level (int 0–10)", validator_in_range(0, 10, instance=int), int, str, 0],
-            ["max_scale", 4, "Maximum Wavelet scale", "wavelet level (int 0–10)", validator_in_range(1, 10, instance=int), int, str, 0],
+            ["alpha_threashold", 3, "Significance threshold in σ (used for watershed mask). Typically ≤ alpha_detection; lowering it widens the segmented region around each detected peak.", "σ", validator_in_range(0.1, 20), float, str, 0],
+            ["alpha_detection", 4, "Detection threshold in σ. Default 4.0 is tuned for bright, well-resolved sources; for low-SNR / diffuse jets, 1.5–2.5 is often needed. Use 'wise detect --dry-run' to tune empirically.", "σ", validator_in_range(0.1, 20), float, str, 0],
+            ["min_scale", 1, "Minimum wavelet decomposition level to include (integer, not pixels). See the 'Resulting widths' line below the finder table for the actual pixel widths.", "wavelet level (int 0–10)", validator_in_range(0, 10, instance=int), int, str, 0],
+            ["max_scale", 4, "Maximum wavelet decomposition level to include (integer, not pixels). Typical range 4–6 for VLBI maps; higher catches broader diffuse structure at the cost of more spurious detections.", "wavelet level (int 0–10)", validator_in_range(1, 10, instance=int), int, str, 0],
             ["scales_snr_filter", None, "Per scales detection threshold", None, validator_is(dict), jp.decode, jp.encode, 1],
             ["ms_dec_klass", WaveletMultiscaleDecomposition, "Multiscale decompostion class",
              None, validator_is_class(AbstractMultiScaleDecomposition), lambda s: jp.decode(str2jsonclass(s)), jp.encode, 1],
