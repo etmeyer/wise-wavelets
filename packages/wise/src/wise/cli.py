@@ -5,8 +5,10 @@ import logging
 import os
 import re
 import sys
+import warnings
 
 import click
+from astropy.wcs import FITSFixedWarning
 
 import wise
 from wise.actions import actions
@@ -32,6 +34,8 @@ def _setup_logging(verbose: bool, quiet: bool, debug: bool) -> None:
         force=True,
     )
     logging.captureWarnings(True)
+    # E5: silence astropy's per-file FITS-spec drift warning
+    warnings.filterwarnings("ignore", category=FITSFixedWarning)
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
