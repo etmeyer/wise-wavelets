@@ -906,6 +906,126 @@ def select_files_cmd(
 
 
 # ---------------------------------------------------------------------------
+# plot group: kinematic charts derived from saved results
+# ---------------------------------------------------------------------------
+
+@cli.group()
+def plot() -> None:
+    """Kinematic charts derived from saved results."""
+
+
+@plot.command("features")
+@click.argument("name")
+@click.argument("scales")
+@click.option("--pa", "-p", is_flag=True, default=False,
+              help="Additionally plot positional angle vs epoch.")
+@click.pass_context
+def plot_features(ctx: click.Context, name: str, scales: str, pa: bool) -> None:
+    """Plot all features on a distance-from-core vs epoch chart.
+
+    NAME is the saved result name; SCALES is a comma-separated list.
+    """
+    import logging as _logging
+    from libwise import nputils
+
+    _logger = _logging.getLogger(__name__)
+
+    context = actions.load(name)
+    if context is None:
+        raise click.UsageError("No results saved with name %r" % name)
+
+    try:
+        scale_list = nputils.str2floatlist(scales)
+    except Exception:
+        raise click.UsageError(
+            "Invalid scales %r. Available: %s" % (scales, context.result.get_scales())
+        )
+
+    _logger.info("Plotting features from scales %s", scale_list)
+    wise.tasks.plot_all_features(context, scale_list, pa=pa)
+
+
+@plot.command("links")
+@click.argument("name")
+@click.argument("scales")
+@click.option("--min-link-size", "-m", default=2, type=float, show_default=True,
+              help="Filter out links with size < N.")
+@click.pass_context
+def plot_links(
+    ctx: click.Context, name: str, scales: str, min_link_size: float
+) -> None:
+    """Plot all component trajectories on the reference map.
+
+    NAME is the saved result name; SCALES is a comma-separated list.
+    """
+    from libwise import nputils
+
+    context = actions.load(name)
+    if context is None:
+        raise click.UsageError("No results saved with name %r" % name)
+
+    try:
+        scale_list = nputils.str2floatlist(scales)
+    except Exception:
+        raise click.UsageError(
+            "Invalid scales %r. Available: %s" % (scales, context.result.get_scales())
+        )
+
+    wise.tasks.view_links(context, scales=scale_list, min_link_size=min_link_size)
+
+
+@plot.command("sep")
+@click.argument("name")
+@click.argument("scales")
+@click.option("--pa", "-p", is_flag=True, default=False,
+              help="Additionally plot positional angle vs epoch.")
+@click.option("--fit", "-f", is_flag=True, default=False,
+              help="Fit each link with a linear function.")
+@click.option("--num", "-n", is_flag=True, default=False,
+              help="Annotate each link.")
+@click.option("--min-link-size", "-m", default=2, type=float, show_default=True,
+              help="Filter out links with size < N.")
+@click.pass_context
+def plot_sep(
+    ctx: click.Context,
+    name: str,
+    scales: str,
+    pa: bool,
+    fit: bool,
+    num: bool,
+    min_link_size: float,
+) -> None:
+    """Plot separation from core with time.
+
+    NAME is the saved result name; SCALES is a comma-separated list.
+    """
+    from libwise import nputils
+
+    context = actions.load(name)
+    if context is None:
+        raise click.UsageError("No results saved with name %r" % name)
+
+    try:
+        scale_list = nputils.str2floatlist(scales)
+    except Exception:
+        raise click.UsageError(
+            "Invalid scales %r. Available: %s" % (scales, context.result.get_scales())
+        )
+
+    fit_fct = nputils.LinearFct if fit else None
+    fit_result = wise.tasks.plot_separation_from_core(
+        context, scales=scale_list, num=num,
+        min_link_size=min_link_size, fit_fct=fit_fct, pa=pa
+    )
+    if fit and fit_result:
+        for link, fct in fit_result.items():
+            click.echo(
+                "Fit result for link %s: %.2f +- %.2f mas / year"
+                % (link.get_id(), fct.a, fct.ea)
+            )
+
+
+# ---------------------------------------------------------------------------
 # show group: sky-map renderings and tabular information
 # ---------------------------------------------------------------------------
 
