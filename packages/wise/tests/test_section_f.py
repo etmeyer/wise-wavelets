@@ -181,40 +181,50 @@ def test_project_root_not_found_is_click_usage_error():
 
 
 # ---------------------------------------------------------------------------
-# F3.4: wise info --project
+# F4.3: wise project (replaces the PR5 `wise info --project` flag)
 # ---------------------------------------------------------------------------
 
-def test_info_project_prints_root(tmp_path, monkeypatch):
-    """wise info --project prints the resolved root and exits 0."""
+def test_project_prints_root(tmp_path, monkeypatch):
+    """wise project prints the resolved root and exits 0."""
     (tmp_path / ".wise").mkdir()
     monkeypatch.chdir(tmp_path)
 
     runner = CliRunner()
-    result = runner.invoke(cli, ["info", "--project"])
+    result = runner.invoke(cli, ["project"])
     assert result.exit_code == 0, result.output
     assert str(tmp_path.resolve()) in result.output
 
 
-def test_info_project_errors_outside_project(tmp_path, monkeypatch):
-    """wise info --project errors when no project root is found."""
+def test_project_errors_outside_project(tmp_path, monkeypatch):
+    """wise project errors when no project root is found."""
     monkeypatch.chdir(tmp_path)
     runner = CliRunner()
-    result = runner.invoke(cli, ["info", "--project"])
+    result = runner.invoke(cli, ["project"])
     assert result.exit_code != 0
     assert "no project root" in result.output
 
 
-def test_info_project_walks_upward(tmp_path, monkeypatch):
-    """wise info --project from a nested cwd resolves to the parent root."""
+def test_project_walks_upward(tmp_path, monkeypatch):
+    """wise project from a nested cwd resolves to the parent root."""
     (tmp_path / ".wise").mkdir()
     nested = tmp_path / "subdir"
     nested.mkdir()
     monkeypatch.chdir(nested)
 
     runner = CliRunner()
-    result = runner.invoke(cli, ["info", "--project"])
+    result = runner.invoke(cli, ["project"])
     assert result.exit_code == 0, result.output
     assert str(tmp_path.resolve()) in result.output
+
+
+def test_info_project_flag_removed(tmp_path, monkeypatch):
+    """The old `wise info --project` flag is gone (absorbed into wise project)."""
+    (tmp_path / ".wise").mkdir()
+    monkeypatch.chdir(tmp_path)
+    runner = CliRunner()
+    result = runner.invoke(cli, ["info", "--project"])
+    assert result.exit_code != 0
+    assert "no such option" in result.output.lower()
 
 
 # ---------------------------------------------------------------------------

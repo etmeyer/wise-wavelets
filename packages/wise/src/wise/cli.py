@@ -144,6 +144,29 @@ def _ensure_gitignore_entry(directory: str, entry: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# project
+# ---------------------------------------------------------------------------
+
+@cli.command()
+@click.pass_context
+def project(ctx: click.Context) -> None:
+    """Print the resolved project root and exit.
+
+    Errors with the standard 'no project root found' UsageError when the
+    cwd has no .wise/ ancestor — the same error path as any other
+    project-requiring command.
+    """
+    root = wise.find_project_root()
+    if root is None:
+        raise wise.ProjectRootNotFound(
+            f"no project root found in {os.getcwd()}; run "
+            f"`wise init` to create one, or cd into a directory "
+            f"with a .wise/"
+        )
+    click.echo(root)
+
+
+# ---------------------------------------------------------------------------
 # info
 # ---------------------------------------------------------------------------
 
@@ -151,27 +174,13 @@ def _ensure_gitignore_entry(directory: str, entry: str) -> None:
 @click.argument("files", nargs=-1, required=False)
 @click.option("--velocity", "-V", is_flag=True, default=False,
               help="Report velocity resolution instead of beam/pixel info.")
-@click.option("--project", "show_project", is_flag=True, default=False,
-              help="Print the resolved project root and exit.")
 @click.pass_context
 def info(
     ctx: click.Context,
     files: tuple[str, ...],
     velocity: bool,
-    show_project: bool,
 ) -> None:
     """Give information on beam, pixel scales or velocity resolution."""
-    if show_project:
-        root = wise.find_project_root()
-        if root is None:
-            raise wise.ProjectRootNotFound(
-                f"no project root found in {os.getcwd()}; run "
-                f"`wise init` to create one, or cd into a directory "
-                f"with a .wise/"
-            )
-        click.echo(root)
-        return
-
     if not files:
         raise click.UsageError("Missing argument 'FILES...'")
 
