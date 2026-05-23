@@ -159,6 +159,76 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `wise settings doc` is deprecated; it now produces the same output
   as `wise settings show`. It will be removed in wise 1.0.
 
+### Added
+
+- **Per-scale pixel-width footer under `wise settings show finder`** (C1):
+  After the finder table, a `Resulting widths: […] px  (wavelet=…, use_iwd=…)`
+  line now shows the actual pixel feature widths that wavelet detection will
+  see at each decomposition level. Computed from `min_scale`, `max_scale`, and
+  the configured wavelet family (b3/triangle2 use a 1.5× larger multiplier than
+  b1/etc). Also appears in `wise settings show` (all sections), positioned
+  immediately after the finder table. When `use_iwd=True`, both wavelet names
+  are shown (e.g. `wavelet=b1+b3, use_iwd=True`). The underlying helper is
+  `wise.wds.compute_scales_widths(min_scale, max_scale, wavelet)` — callable
+  from notebooks.
+
+- **`wise detect --dry-run`** (C2): Previews detection on a single input
+  file without running segmentation, saving, or the view-scales loop. Prints
+  a per-scale table of `Scale (level) | Width (px) | σ_noise | Above
+  α=<current> (current) | Between α=1.5 and α=<current>` to help users tune
+  `finder.alpha_detection` empirically. Requires exactly one input file;
+  raises `UsageError` ("--dry-run requires exactly one input file; got N")
+  if zero or more than one is passed. The analytics are factored into
+  `wise.tasks.detection_preview(ctx, file, alpha_lower=1.5)`, which returns
+  a list of per-scale stat dicts and is callable from notebooks.
+
+### Changed
+
+- **Per-knob doc-string guidance for 7 config knobs** (C2): The
+  `Documentation` column in `wise settings show` now carries actionable
+  guidance for:
+  - `finder.alpha_threashold` — explains its role in the watershed mask and
+    the relationship to `alpha_detection`.
+  - `finder.alpha_detection` — names the default-vs-diffuse-source trade-off
+    and points to `wise detect --dry-run` for empirical tuning.
+  - `finder.min_scale` and `finder.max_scale` — clarify that values are
+    wavelet *levels*, not pixels, and point to the new `Resulting widths`
+    footer for the pixel equivalents.
+  - `data.projection_unit` — explains the VLBI default and when to switch
+    to `arcsec` for connected-element data.
+  - `data.object_z` — describes its cosmology role and the precedence rule
+    with `object_distance`.
+  - `data.object_distance` — describes the expected Quantity format and its
+    precedence over `object_z`.
+
+### Fixed
+
+- **`save_core_offset_pos_file` None guard**: when
+  `data.core_offset_filename` is `None`, the method now raises
+  `ValueError("data.core_offset_filename is not set; cannot save core
+  offset positions.")` before attempting the write. Parallels the
+  `save_mask_file` guard from PR3.
+
+- **`get_stack_image` error message**: upgraded the bare `Exception("A
+  stack image need to be generated")` to
+  `RuntimeError("No stack image found; run \`wise stack <files>\` first to
+  generate one.")`. Exception class matches the PR3 pattern (`RuntimeError`);
+  message tells the user exactly what to do.
+
+- **Stale shim comments in `wise_detect`, `wise_info`, `wise_match`,
+  `wise_stack`**: the `"; the wise_<name>.main() shim below is dead code"`
+  clause was left in the module-level comments in PR1 but the shims were
+  removed. Comments now read simply: `# CLI entry point migrated to
+  wise.cli (click). This module is kept for importability.`
+
+### Removed
+
+- **`packages/wise/scripts/wise`**: orphan Python 2 dispatch script using
+  bare `print` statements (syntactically broken since the Py3 port).
+  The working CLI entry point is `wise.cli:main` registered via
+  `[project.scripts]` in `pyproject.toml`; this file had no effect on
+  installs.
+
 ## [0.5.0] — 2026-05-22
 
 Promotes `0.5.0.dev1` to a stable release. Seven additional Py3
