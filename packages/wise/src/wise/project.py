@@ -437,8 +437,28 @@ class AnalysisContext:
             xy_p1, xy_p2 = np.round(prj.s2p([(x1, y1), (x2, y2)])).astype(int)
             ex = [0, img.data.shape[1]]
             ey = [0, img.data.shape[0]]
-            xlim1, xlim2 = sorted([nputils.clamp(xy_p1[0], *ex), nputils.clamp(xy_p2[0], *ex)])
-            ylim1, ylim2 = sorted([nputils.clamp(xy_p1[1], *ey), nputils.clamp(xy_p2[1], *ey)])
+            cx1 = nputils.clamp(xy_p1[0], *ex)
+            cx2 = nputils.clamp(xy_p2[0], *ex)
+            cy1 = nputils.clamp(xy_p1[1], *ey)
+            cy2 = nputils.clamp(xy_p2[1], *ey)
+            # B1: warn if clamping changed any coordinate
+            if cx1 != xy_p1[0] or cx2 != xy_p2[0] or cy1 != xy_p1[1] or cy2 != xy_p2[1]:
+                logger.warning(
+                    "data.bg_coords [%s,%s,%s,%s] was clamped to image extent: "
+                    "x=[%d,%d]→[%d,%d], y=[%d,%d]→[%d,%d]. "
+                    "Noise estimate may be drawn from edge pixels.",
+                    x1, y1, x2, y2,
+                    xy_p1[0], xy_p2[0], cx1, cx2,
+                    xy_p1[1], xy_p2[1], cy1, cy2,
+                )
+            xlim1, xlim2 = sorted([cx1, cx2])
+            ylim1, ylim2 = sorted([cy1, cy2])
+            # B7: always log the resolved pixel slice (visible under -v)
+            logger.info(
+                "Background region: pixels x=[%d:%d] (%d px), y=[%d:%d] (%d px)",
+                xlim1, xlim2, xlim2 - xlim1,
+                ylim1, ylim2, ylim2 - ylim1,
+            )
             return img.data[ylim1:ylim2, xlim1:xlim2].copy()
         elif self.config.data.bg_fct is not None:
             return self.config.data.bg_fct(self, img)
