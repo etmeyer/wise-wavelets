@@ -83,16 +83,98 @@ def cli(
 
 
 # ---------------------------------------------------------------------------
+# init
+# ---------------------------------------------------------------------------
+
+@cli.command()
+@click.argument("directory", type=click.Path(file_okay=False), default=".")
+@click.pass_context
+def init(ctx: click.Context, directory: str) -> None:
+    """Initialize a wise project in DIRECTORY (default: cwd).
+
+    Creates DIRECTORY/.wise/ (the project-root marker, also used for
+    caches and result bundles) and, if absent, DIRECTORY/wise_config
+    seeded with the default AnalysisConfiguration. Refuses to
+    re-initialize an existing .wise/.
+    """
+    abspath = os.path.abspath(directory)
+    os.makedirs(abspath, exist_ok=True)
+    marker = os.path.join(abspath, ".wise")
+    try:
+        os.makedirs(marker, exist_ok=False)
+    except FileExistsError:
+        raise click.UsageError(
+            f"{directory}/.wise already exists; this looks like an existing "
+            f"wise project. Refusing to re-initialize."
+        )
+
+    config_path = os.path.join(abspath, actions.CONFIG_FILE)
+    if os.path.exists(config_path):
+        summary = "(found existing wise_config; added .wise/)"
+    else:
+        wise.AnalysisConfiguration().to_file(config_path)
+        summary = "(created wise_config + .wise/)"
+
+    _ensure_gitignore_entry(abspath, ".wise/")
+
+    click.echo(f"Initialized wise project at {abspath}")
+    click.echo(summary)
+
+
+def _ensure_gitignore_entry(directory: str, entry: str) -> None:
+    """Append ``entry`` to ``<directory>/.gitignore`` if not already listed.
+
+    Creates the file if missing. Idempotent — re-runs do not duplicate the
+    entry. Preserves the existing trailing-newline convention (or lack
+    thereof) of the file.
+    """
+    gi_path = os.path.join(directory, ".gitignore")
+    if os.path.exists(gi_path):
+        with open(gi_path) as fh:
+            content = fh.read()
+        existing = {line.strip() for line in content.splitlines() if line.strip()}
+        if entry in existing:
+            return
+        prefix = "" if content.endswith("\n") or content == "" else "\n"
+        with open(gi_path, "a") as fh:
+            fh.write(f"{prefix}{entry}\n")
+    else:
+        with open(gi_path, "w") as fh:
+            fh.write(f"{entry}\n")
+
+
+# ---------------------------------------------------------------------------
 # info
 # ---------------------------------------------------------------------------
 
 @cli.command()
-@click.argument("files", nargs=-1, required=True)
+@click.argument("files", nargs=-1, required=False)
 @click.option("--velocity", "-V", is_flag=True, default=False,
               help="Report velocity resolution instead of beam/pixel info.")
+@click.option("--project", "show_project", is_flag=True, default=False,
+              help="Print the resolved project root and exit.")
 @click.pass_context
-def info(ctx: click.Context, files: tuple[str, ...], velocity: bool) -> None:
+def info(
+    ctx: click.Context,
+    files: tuple[str, ...],
+    velocity: bool,
+    show_project: bool,
+) -> None:
     """Give information on beam, pixel scales or velocity resolution."""
+    if show_project:
+        root = wise.find_project_root()
+        if root is None:
+            raise wise.ProjectRootNotFound(
+                f"no project root found in {os.getcwd()}; run "
+                f"`wise init` to create one, or cd into a directory "
+                f"with a .wise/"
+            )
+        click.echo(root)
+        return
+
+    if not files:
+        raise click.UsageError("Missing argument 'FILES...'")
+
     config = actions.get_config(False)
     context = wise.AnalysisContext(config)
     actions.select_files(context, list(files))
@@ -157,6 +239,13 @@ def settings(ctx: click.Context, args: tuple[str, ...]) -> None:
     from libwise import imgutils, uiutils
 
     non_interactive = ctx.obj.get("non_interactive", False)
+
+    if wise.find_project_root() is None:
+        raise wise.ProjectRootNotFound(
+            f"no project root found in {os.getcwd()}; run "
+            f"`wise init` to create one, or cd into a directory "
+            f"with a .wise/"
+        )
 
     config = actions.get_config(True)
     args = list(args)
@@ -224,12 +313,6 @@ def settings(ctx: click.Context, args: tuple[str, ...]) -> None:
         click.echo("Setting delta_range_filter to: %s" % range_filter)
         config.matcher.delta_range_filter = range_filter
 
-    def _data_dir_overrides():
-        """Return display_overrides for the data section's data_dir cwd note."""
-        if config.data.data_dir is None:
-            return {"data_dir": "None (cwd: %s)" % os.getcwd()}
-        return None
-
     def _show_issues_banner() -> None:
         issues = config.validate()
         if issues:
@@ -238,10 +321,20 @@ def settings(ctx: click.Context, args: tuple[str, ...]) -> None:
             for issue in issues:
                 click.echo("  • %s" % issue)
 
+    def _show_project_root_header() -> None:
+        try:
+            root = ctx.obj.get("project_root") or wise.find_project_root()
+        except Exception:
+            return
+        if root is not None:
+            click.echo(f"Project root: {root}")
+            click.echo()
+
     if len(args) == 0 or args[0] in ("get", "show"):
+        _show_project_root_header()
         if len(args) < 2:
             parts = [
-                config.data.values(display_overrides=_data_dir_overrides()),
+                config.data.values(),
                 config.finder.values(),
                 _finder_widths_footer(config),
                 config.matcher.values(),
@@ -251,14 +344,10 @@ def settings(ctx: click.Context, args: tuple[str, ...]) -> None:
             section_name, option = args[1].split(".", 2)
             section = _get_section(section_name)
             _check_option(section, option)
-            if section_name == "data" and option == "data_dir" and config.data.data_dir is None:
-                click.echo("%s: None (cwd: %s)" % (args[1], os.getcwd()))
-            else:
-                click.echo("%s: %s" % (args[1], section.get(option, encode=True)))
+            click.echo("%s: %s" % (args[1], section.get(option, encode=True)))
         else:
             section = _get_section(args[1])
-            overrides = _data_dir_overrides() if args[1] == "data" else None
-            click.echo(section.values(display_overrides=overrides))
+            click.echo(section.values())
             if args[1] == "finder":
                 click.echo(_finder_widths_footer(config))
         _show_issues_banner()
@@ -280,7 +369,7 @@ def settings(ctx: click.Context, args: tuple[str, ...]) -> None:
             click.echo("Setting %s to %s" % (full_option, value))
             section.set(option, value, decode=True)
         if len(args[1:]) > 0:
-            config.to_file(actions.CONFIG_FILE)
+            config.to_file(actions.get_config_path())
             click.echo("Configuration saved")
 
     elif args[0] == "doc":
@@ -292,17 +381,15 @@ def settings(ctx: click.Context, args: tuple[str, ...]) -> None:
             stacklevel=2,
         )
         if len(args) == 1:
-            click.echo(config.doc(display_overrides=_data_dir_overrides()))
+            click.echo(config.doc())
         elif "." in args[1]:
             section_name, option = args[1].split(".", 2)
             section = _get_section(section_name)
             _check_option(section, option)
-            overrides = _data_dir_overrides() if section_name == "data" else None
-            click.echo(section.doc(display_overrides=overrides))
+            click.echo(section.doc())
         else:
             section = _get_section(args[1])
-            overrides = _data_dir_overrides() if args[1] == "data" else None
-            click.echo(section.doc(display_overrides=overrides))
+            click.echo(section.doc())
         _show_issues_banner()
 
     elif args[0] == "restore":
@@ -311,7 +398,7 @@ def settings(ctx: click.Context, args: tuple[str, ...]) -> None:
             raise click.UsageError("An existing CONFIG_FILE is required")
         try:
             config.from_file(args[1])
-            config.to_file(actions.CONFIG_FILE)
+            config.to_file(actions.get_config_path())
         except Exception:
             raise click.UsageError(
                 "Restoring configuration from %s failed" % args[1]
