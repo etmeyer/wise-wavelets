@@ -240,6 +240,19 @@ class AnalysisContext:
             os.makedirs(path)
         return path
 
+    def _resolve_optional_file(self, config_attr_name: str):
+        """Return the absolute path of an optional config-named file if it
+        exists on disk, else None. Used for filename fields whose value can
+        legitimately be None (e.g. mask_filename, core_offset_filename).
+        """
+        name = getattr(self.config.data, config_attr_name, None)
+        if name is None:
+            return None
+        path = os.path.join(self.get_data_dir(), name)
+        if not os.path.isfile(path):
+            return None
+        return path
+
     def get_projection(self, img=None):
         """ Return a :class:`libwise.imgutils.Projection` corresponding to `img` and the settings
         defined in config.data. If `img` is not set, the reference image will be used instead.
@@ -257,17 +270,16 @@ class AnalysisContext:
                                   z=self.config.data.object_z)
 
     def get_core_offset_filename(self):
-        path = self.get_data_dir()
         if self.config.data.core_offset_filename is None:
             return None
-        return os.path.join(path, self.config.data.core_offset_filename)
+        return os.path.join(self.get_data_dir(), self.config.data.core_offset_filename)
 
     def get_core_offset(self):
         """ Return a :class:`CoreOffsetPositions`  based on the core position
         defined in the file self.config.data.core_offset_filename.
         """
-        filename = self.get_core_offset_filename()
-        if filename is None or not os.path.isfile(filename):
+        filename = self._resolve_optional_file("core_offset_filename")
+        if filename is None:
             return None
         mtime = os.path.getmtime(filename)
         if self._cache_core_offset is None or self._cache_core_offset[0] != (mtime, filename):
@@ -276,16 +288,15 @@ class AnalysisContext:
         return self._cache_core_offset[1]
 
     def get_mask_filename(self):
-        path = self.get_data_dir()
         if self.config.data.mask_filename is None:
             return None
-        return os.path.join(path, self.config.data.mask_filename)
+        return os.path.join(self.get_data_dir(), self.config.data.mask_filename)
 
     def get_mask(self):
         """ Return a mask (:class:`libwise.imgutils.Image`) from self.config.data.mask_filename.
         """
-        filename = self.get_mask_filename()
-        if filename is None or not os.path.isfile(filename):
+        filename = self._resolve_optional_file("mask_filename")
+        if filename is None:
             return None
         mtime = os.path.getmtime(filename)
         if self._cache_mask_filter is None or self._cache_mask_filter[0] != (mtime, filename):
@@ -295,10 +306,9 @@ class AnalysisContext:
         return self._cache_mask_filter[1]
 
     def get_stack_image_filename(self):
-        path = self.get_data_dir()
         if self.config.data.stack_image_filename is None:
             return None
-        return os.path.join(path, self.config.data.stack_image_filename)
+        return os.path.join(self.get_data_dir(), self.config.data.stack_image_filename)
 
     def get_ref_image(self, preprocess=True):
         """Return the reference image (:class:`libwise.imgutils.Image`) of the project,
@@ -425,8 +435,8 @@ class AnalysisContext:
         return stack_img
 
     def get_stack_image(self, nsigma=0, nsigma_connected=False, preprocess=False):
-        filename = self.get_stack_image_filename()
-        if filename is None or not os.path.isfile(filename):
+        filename = self._resolve_optional_file("stack_image_filename")
+        if filename is None:
             raise Exception("A stack image need to be generated")
 
         stack_image = imgutils.StackedImage.from_file(filename)
@@ -532,8 +542,10 @@ class AnalysisContext:
         accepting an :class:`AnalysisContext` as argument and returning a corresponding
         mask as :class:`libwise.imgutils.Image`.
         """
-        filename = self.get_mask_filename()
-        if os.path.isfile(filename):
+        if self.config.data.mask_filename is None:
+            raise ValueError("data.mask_filename is not set; cannot save mask.")
+        filename = os.path.join(self.get_data_dir(), self.config.data.mask_filename)
+        if filename and os.path.isfile(filename):
             os.remove(filename)
         mask = mask_fct(self)
         mask.data = mask.data.astype(bool).astype(float)
