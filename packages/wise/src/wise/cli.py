@@ -513,7 +513,8 @@ def detect(
                 )
             name = click.prompt("Name", default="result")
         wise.tasks.save(context, name)
-        saved_path = os.path.abspath(os.path.join(context.get_data_dir(), name))
+        saved_path = os.path.abspath(
+            os.path.join(context.get_data_dir(), name + ".wiseproj"))
         click.echo("Saved to %s/" % saved_path)
 
 
@@ -599,7 +600,8 @@ def match(
                 )
             name = click.prompt("Name", default="result")
         wise.tasks.save(context, name)
-        saved_path = os.path.abspath(os.path.join(context.get_data_dir(), name))
+        saved_path = os.path.abspath(
+            os.path.join(context.get_data_dir(), name + ".wiseproj"))
         click.echo("Saved to %s/" % saved_path)
 
 
