@@ -1404,8 +1404,8 @@ def _test_load_3c120_config():
 
     ctx = project.AnalysisContext()
 
-    # data configuration
-    ctx.config.data.data_dir = os.path.join(BASE_DIR, "run001")
+    # data configuration. To use this helper, `wise init` the run001/
+    # directory under BASE_DIR and invoke this script with that as cwd.
     ctx.config.data.object_z = 0.033
 
     def get_bg(ctx, img):
