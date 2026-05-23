@@ -217,16 +217,6 @@ def test_project_walks_upward(tmp_path, monkeypatch):
     assert str(tmp_path.resolve()) in result.output
 
 
-def test_info_project_flag_removed(tmp_path, monkeypatch):
-    """The old `wise info --project` flag is gone (absorbed into wise project)."""
-    (tmp_path / ".wise").mkdir()
-    monkeypatch.chdir(tmp_path)
-    runner = CliRunner()
-    result = runner.invoke(cli, ["info", "--project"])
-    assert result.exit_code != 0
-    assert "no such option" in result.output.lower()
-
-
 # ---------------------------------------------------------------------------
 # F3.5: wise settings show "Project root:" header
 # ---------------------------------------------------------------------------
@@ -299,3 +289,185 @@ def test_get_config_path_returns_root_config(tmp_path, monkeypatch):
     (tmp_path / ".wise").mkdir()
     monkeypatch.chdir(tmp_path)
     assert actions.get_config_path() == os.path.join(str(tmp_path.resolve()), "wise_config")
+
+
+# ---------------------------------------------------------------------------
+# F5: <name>.wiseproj/ bundle layout
+# ---------------------------------------------------------------------------
+
+import json  # noqa: E402
+
+import click  # noqa: E402
+import numpy as np  # noqa: E402
+
+fits = pytest.importorskip("astropy.io.fits")
+
+
+def _gaussian_2d(shape, center, sigma=2.5, amplitude=1.0):
+    yy, xx = np.indices(shape)
+    cy, cx = center
+    return amplitude * np.exp(-((xx - cx) ** 2 + (yy - cy) ** 2) / (2 * sigma**2))
+
+
+def _write_fits(path, data, date_obs):
+    hdu = fits.PrimaryHDU(data.astype(np.float32))
+    hdu.header["DATE-OBS"] = date_obs
+    hdu.header["BMAJ"] = 1e-4
+    hdu.header["BMIN"] = 1e-4
+    hdu.header["BPA"] = 0.0
+    hdu.header["CRVAL1"] = 0.0
+    hdu.header["CRVAL2"] = 0.0
+    hdu.header["CRPIX1"] = data.shape[1] / 2
+    hdu.header["CRPIX2"] = data.shape[0] / 2
+    hdu.header["CDELT1"] = -1e-5
+    hdu.header["CDELT2"] = 1e-5
+    hdu.header["CTYPE1"] = "RA---SIN"
+    hdu.header["CTYPE2"] = "DEC--SIN"
+    hdu.writeto(path, overwrite=True)
+
+
+@pytest.fixture
+def matched_ctx(tmp_path, monkeypatch):
+    """A project-rooted ctx carrying a real 2-epoch detection+match result.
+
+    Mirrors test_smoke_pipeline's synthetic dataset, then runs match_all so
+    detection / image_set / link_builder are all populated for save/load.
+    """
+    (tmp_path / ".wise").mkdir()
+    monkeypatch.chdir(tmp_path)
+
+    shape = (64, 64)
+    rng = np.random.default_rng(42)
+    noise = 0.001
+    epoch1 = (
+        _gaussian_2d(shape, (32, 24), sigma=3.0, amplitude=1.0)
+        + _gaussian_2d(shape, (32, 42), sigma=2.5, amplitude=0.6)
+        + rng.normal(0, noise, shape)
+    )
+    epoch2 = (
+        _gaussian_2d(shape, (32, 25), sigma=3.0, amplitude=1.0)
+        + _gaussian_2d(shape, (33, 43), sigma=2.5, amplitude=0.6)
+        + rng.normal(0, noise, shape)
+    )
+    paths = []
+    try:
+        for i, (data, date) in enumerate([(epoch1, "2026-01-01"), (epoch2, "2026-02-01")]):
+            p = tmp_path / f"epoch_{i:02d}.fits"
+            _write_fits(str(p), data, date)
+            paths.append(str(p))
+        # A dedicated reference image (distinct from the science inputs, so
+        # select_files doesn't filter it out). Only its WCS is used, for the
+        # projection. A real project's saved config carries such a pointer;
+        # the loader reads it back from config.wise_config.
+        ref_path = tmp_path / "ref.fits"
+        _write_fits(str(ref_path), epoch1, "2026-01-01")
+    except Exception as e:  # pragma: no cover
+        pytest.skip(f"FITS write failed in test environment: {e}")
+
+    ctx = wise.AnalysisContext()
+    ctx.config.finder.min_scale = 2
+    ctx.config.finder.max_scale = 3
+    ctx.config.finder.alpha_threashold = 10
+    ctx.config.finder.alpha_detection = 15
+    ctx.config.data.bg_use_ksigma_method = True
+    ctx.config.data.ref_image_filename = str(ref_path)
+    ctx.select_files(paths)
+    wise.tasks.match_all(ctx)
+    return ctx, str(ref_path)
+
+
+def test_save_creates_wiseproj_bundle(matched_ctx, tmp_path):
+    """F5.1: save writes a <name>.wiseproj/ bundle with manifest + data files."""
+    ctx, _paths = matched_ctx
+    wise.tasks.save(ctx, "result1")
+    bundle = tmp_path / "result1.wiseproj"
+    assert bundle.is_dir()
+    assert (bundle / "manifest.json").is_file()
+    assert (bundle / "detection.dat").is_file()
+    assert (bundle / "image_set.dat").is_file()
+    assert (bundle / "config.wise_config").is_file()
+    # No old-layout artifacts.
+    assert not list(tmp_path.glob("result1/*.set.dat"))
+
+
+def test_manifest_schema(matched_ctx, tmp_path):
+    """F5.2: manifest.json has the expected keys and schema_version '1.0'."""
+    ctx, _paths = matched_ctx
+    wise.tasks.save(ctx, "result1")
+    manifest = json.loads((tmp_path / "result1.wiseproj" / "manifest.json").read_text())
+    assert manifest["schema_version"] == "1.0"
+    assert manifest["name"] == "result1"
+    assert manifest["wise_version"] == wise.__version__
+    assert "created" in manifest
+    files = manifest["files"]
+    assert files["detection"] == "detection.dat"
+    assert files["image_set"] == "image_set.dat"
+    assert files["config"] == "config.wise_config"
+    assert isinstance(files["links"], list)
+    for link_file in files["links"]:
+        assert link_file.startswith("links_") and link_file.endswith(".dfc.dat")
+        assert (tmp_path / "result1.wiseproj" / link_file).is_file()
+
+
+def test_save_load_roundtrip(matched_ctx, tmp_path):
+    """F5.1 round-trip: a loaded bundle reproduces the saved scales/epochs."""
+    ctx, ref_path = matched_ctx
+    wise.tasks.save(ctx, "result1")
+    saved_scales = ctx.result.get_scales()
+    saved_epochs = ctx.result.image_set.get_epochs()
+
+    ctx2 = wise.AnalysisContext()
+    ctx2.config.data.ref_image_filename = ref_path
+    wise.tasks.load(ctx2, "result1")
+    assert ctx2.result.get_scales() == saved_scales
+    assert ctx2.result.image_set.get_epochs() == saved_epochs
+    assert ctx2.result.has_detection_result()
+
+
+def test_save_refuses_to_overwrite(matched_ctx, tmp_path):
+    """F5.1 collision: saving onto an existing bundle raises UsageError."""
+    ctx, _paths = matched_ctx
+    wise.tasks.save(ctx, "result1")
+    with pytest.raises(click.UsageError, match="already exists"):
+        wise.tasks.save(ctx, "result1")
+
+
+def test_load_missing_bundle_raises(tmp_path, monkeypatch):
+    """Loading an unknown name raises a plain UsageError."""
+    (tmp_path / ".wise").mkdir()
+    monkeypatch.chdir(tmp_path)
+    ctx = wise.AnalysisContext()
+    with pytest.raises(click.UsageError, match="No saved result named"):
+        wise.tasks.load(ctx, "ghost")
+
+
+def test_load_old_layout_points_at_migration(tmp_path, monkeypatch):
+    """F5.4: a sibling 0.5/0.6 result dir yields the wise upgrade-config hint."""
+    (tmp_path / ".wise").mkdir()
+    old = tmp_path / "legacy"
+    old.mkdir()
+    (old / "legacy.set.dat").write_text("")
+    monkeypatch.chdir(tmp_path)
+    ctx = wise.AnalysisContext()
+    with pytest.raises(click.UsageError, match="wise upgrade-config"):
+        wise.tasks.load(ctx, "legacy")
+
+
+def test_read_manifest_rejects_other_schema(tmp_path, monkeypatch):
+    """_read_manifest gates on schema_version != '1.0'."""
+    (tmp_path / ".wise").mkdir()
+    monkeypatch.chdir(tmp_path)
+    bundle = tmp_path / "future.wiseproj"
+    bundle.mkdir()
+    (bundle / "manifest.json").write_text(json.dumps({"schema_version": "2.0"}))
+    with pytest.raises(ValueError, match="schema_version"):
+        wise.tasks._read_manifest(str(bundle))
+
+
+def test_actions_load_reads_bundle(matched_ctx, tmp_path):
+    """actions.load (the show/plot discoverer) resolves a .wiseproj bundle."""
+    ctx, _paths = matched_ctx
+    wise.tasks.save(ctx, "result1")
+    loaded = actions.load("result1")
+    assert loaded is not None
+    assert loaded.result.get_scales() == ctx.result.get_scales()

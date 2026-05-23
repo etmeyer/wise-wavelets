@@ -524,13 +524,15 @@ def load(ctx, name, projection=None, merge_with_previous=False, min_link_size=2)
     .. _tags: task_general
     '''
 
-    if projection is None:
-        ref_img = ctx.get_ref_image()
-        projection = ctx.get_projection(ref_img)
-
+    # Resolve the bundle before touching the (possibly expensive / failing)
+    # reference-image projection, so a missing bundle reports cleanly.
     bundle_dir = _bundle_path(ctx.get_data_dir(), name)
     if not os.path.isdir(bundle_dir):
         _raise_no_bundle(ctx.get_data_dir(), name)
+
+    if projection is None:
+        ref_img = ctx.get_ref_image()
+        projection = ctx.get_projection(ref_img)
 
     manifest = _read_manifest(bundle_dir)
     files = manifest["files"]
