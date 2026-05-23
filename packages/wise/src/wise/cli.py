@@ -336,6 +336,10 @@ def settings(ctx: click.Context, args: tuple[str, ...]) -> None:
               help="Whether to save the result (skips save prompt).")
 @click.option("--view-scales", default=None,
               help="Comma-separated scales to view after detection (skips view loop).")
+@click.option("--dry-run", is_flag=True, default=False,
+              help="Preview detection on a single file: print per-scale peak counts "
+                   "at the configured threshold vs at α=1.5, without running "
+                   "segmentation or saving anything.")
 @click.pass_context
 def detect(
     ctx: click.Context,
@@ -343,6 +347,7 @@ def detect(
     name: str | None,
     save: bool | None,
     view_scales: str | None,
+    dry_run: bool,
 ) -> None:
     """Run the Segmented wavelet decomposition."""
     import logging as _logging
@@ -351,6 +356,39 @@ def detect(
 
     config = actions.get_config(True)
     context = wise.AnalysisContext(config)
+
+    if dry_run:
+        if len(files) != 1:
+            raise click.UsageError(
+                "--dry-run requires exactly one input file; got %d" % len(files)
+            )
+        file = files[0]
+        alpha_detection = config.finder.get("alpha_detection")
+        click.echo(
+            "Detection preview for %s (α_detection = %s):"
+            % (os.path.basename(file), alpha_detection)
+        )
+        stats = wise.tasks.detection_preview(context, file)
+        header = [
+            "Scale (level)",
+            "Width (px)",
+            "σ_noise",
+            "Above α=%s (current)" % alpha_detection,
+            "Between α=1.5 and α=%s" % alpha_detection,
+        ]
+        from libwise import nputils as _nputils
+        rows = [
+            [s["scale"], s["width"], "%.4g" % s["noise"], s["n_above"], s["n_between"]]
+            for s in stats
+        ]
+        click.echo(_nputils.format_table(rows, header))
+        click.echo(
+            "Tip: if 'Above α=...' is mostly 0 but 'Between' is nonzero, your "
+            "alpha_detection may be too strict for this source. Try "
+            "`wise settings set finder.alpha_detection=2.0` and re-run dry-run."
+        )
+        return
+
     actions.select_files(context, list(files))
 
     if len(context.files) == 0:
