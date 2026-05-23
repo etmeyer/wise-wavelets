@@ -46,3 +46,11 @@ testing/
 # Personal notes / briefings / scratch files prefixed with a single underscore.
 # Pattern intentionally excludes dunder names (__init__.py, __pycache__, etc).
 _[!_]*
+
+# wise project artifacts (created in any directory by `wise init` / `wise settings`)
+wise_config
+.wise/
+
+# Claude Code workspace artifacts
+.claude/
+memory/
