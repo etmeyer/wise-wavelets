@@ -506,13 +506,13 @@ def save(ctx, name, coord_mode='com', measured_delta=True):
 
 
 def load(ctx, name, projection=None, merge_with_previous=False, min_link_size=2):
-    '''Load result from files
+    '''Load result from a ``<name>.wiseproj`` bundle
 
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
     name : str
-        Prefix name of the saved files
+        Name of the saved result bundle
     projection : :class:`libwise.imgutils.Projection`, optional
         If not provided, default Projection will be used
     merge_with_previous : bool, optional
@@ -528,22 +528,24 @@ def load(ctx, name, projection=None, merge_with_previous=False, min_link_size=2)
         ref_img = ctx.get_ref_image()
         projection = ctx.get_projection(ref_img)
 
-    path = os.path.join(ctx.get_data_dir(), name)
-    if not os.path.isdir(path):
-        logger.warning("No results saved with name %s", name)
-        return
+    bundle_dir = _bundle_path(ctx.get_data_dir(), name)
+    if not os.path.isdir(bundle_dir):
+        _raise_no_bundle(ctx.get_data_dir(), name)
 
-    img_set_file = os.path.join(path, "%s.set.dat" % name)
-    ms_detec_file = os.path.join(path, "%s.ms.dat" % name)
-    link_builder_name = os.path.join(path, name)
+    manifest = _read_manifest(bundle_dir)
+    files = manifest["files"]
+
+    img_set_file = os.path.join(bundle_dir, files["image_set"])
+    ms_detec_file = os.path.join(bundle_dir, files["detection"])
 
     image_set = imgutils.ImageSet.from_file(img_set_file, projection)
 
     detection = matcher.MultiScaleImageSet.from_file(ms_detec_file, projection,
                                     image_set)
 
-    link_builder = matcher.MultiScaleFeaturesLinkBuilder.from_file(link_builder_name,
-                                    projection, image_set, min_link_size=min_link_size)
+    link_builder = matcher.MultiScaleFeaturesLinkBuilder.from_file(
+        os.path.join(bundle_dir, _LINKS_PREFIX), projection, image_set,
+        min_link_size=min_link_size, suffix=matcher.FeaturesLinkBuilder.TYPE)
     ms_match_results = link_builder.get_ms_match_results()
 
     if merge_with_previous and ctx.result is not None:
@@ -1186,23 +1188,30 @@ def list_saved_results(ctx):
     .. _tags: task_general
     '''
     ref_img = ctx.get_ref_image()
-    projection = ctx.get_projection(stack_img)
+    projection = ctx.get_projection(ref_img)
 
-    ext = '.set.dat'
     data = []
     header = ["Name", "Number of epochs", "First epoch", "Last epoch", "Kinematic", "Scales"]
-    for file in glob.glob(os.path.join(ctx.get_data_dir(), '*', '*' + ext)):
-        name = os.path.basename(os.path.dirname(file))
-        if not os.path.basename(file) == name + ext:
+    for bundle_dir in sorted(glob.glob(os.path.join(ctx.get_data_dir(), '*' + BUNDLE_SUFFIX))):
+        if not os.path.isdir(bundle_dir):
             continue
-        img_set = imgutils.ImageSet.from_file(file, projection)
+        try:
+            manifest = _read_manifest(bundle_dir)
+        except (FileNotFoundError, ValueError):
+            # Skip incomplete (no manifest) or unsupported-schema bundles.
+            continue
+        files = manifest["files"]
+        name = manifest.get("name") or os.path.basename(bundle_dir)[:-len(BUNDLE_SUFFIX)]
+        img_set = imgutils.ImageSet.from_file(os.path.join(bundle_dir, files["image_set"]),
+                                              projection)
         epochs = img_set.get_epochs()
         if isinstance(epochs[0], datetime.datetime):
             epochs = [epoch.strftime("%Y-%m-%d") for epoch in epochs]
         n = len(epochs)
         first, last = epochs[0], epochs[-1]
-        link_builder_files = glob.glob(os.path.join(os.path.dirname(file), '*.ms.dfc.dat'))
-        scales = [f.rsplit('_')[-1].split('.')[0] for f in link_builder_files]
+        suffix = matcher.FeaturesLinkBuilder.TYPE
+        scales = [os.path.basename(f).split('_')[-1].split(suffix)[0]
+                  for f in files.get("links", [])]
 
         data.append([name, n, first, last, bool(len(scales)), ", ".join(scales)])
 
