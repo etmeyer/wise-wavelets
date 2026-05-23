@@ -4,6 +4,56 @@ All notable changes to wise-wavelets are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+First PR of the wise 1.0 plan's Phase 2 ("the clean break"). Introduces
+the project-root concept that subsequent PRs (PR6 result-name matching,
+PR7 subcommand regrouping + `.wiseproj/` bundle layout, PR8
+`wise upgrade-config`) all depend on.
+
+### Added
+
+- **`wise init [DIRECTORY]`** (F3.2): seeds a new wise project. Creates
+  `DIRECTORY/.wise/` (the project-root marker, also used for caches and
+  result bundles), writes a default `DIRECTORY/wise_config` if none
+  exists, and appends `.wise/` to `DIRECTORY/.gitignore` (creating one
+  if missing). Refuses to re-initialize an existing project. Default
+  `DIRECTORY` is the current directory.
+
+- **`wise.find_project_root([start])`** (F3.1): resolver that walks
+  upward from `start` (default cwd) looking for `.wise/`, returning the
+  absolute path to the containing directory, or `None`. Same semantics
+  as `git`'s repo-root resolver — `wise` commands now work from
+  anywhere inside a project tree.
+
+- **`wise info --project`** (F3.4): prints the resolved project root
+  and exits. Skips the file-iteration path entirely; `files` argument
+  is optional when `--project` is set.
+
+- **"Project root: \<abs-path\>" header** (F3.5) in `wise settings
+  show` output, above the section tables. Replaces the PR2 A6 interim
+  "None (cwd: ...)" override.
+
+### Removed (BREAKING)
+
+- **`data.data_dir` from `DataConfiguration`** (F3.3). The project
+  root, resolved by walking upward from cwd for a `.wise/` directory,
+  is now the sole source of truth for "where is this project's data."
+  `AnalysisContext.get_data_dir()` no longer falls back to
+  `os.getcwd()`; it raises `wise.ProjectRootNotFound` (a
+  `click.UsageError` subclass) when no project root is found.
+  **Migration:** run `wise init` in the directory that previously held
+  your `wise_config`. The full upgrade path for 0.5/0.6 projects
+  (including key renames and result-directory migration) lands in PR8
+  as `wise upgrade-config`.
+
+- **A2 interim `display_overrides` hook** on
+  `wise settings show` / `doc` (`_data_dir_overrides` in `cli.py`).
+  Superseded by the new "Project root:" header now that `data_dir` is
+  gone. The `display_overrides=` kwarg on
+  `BaseConfiguration.values()` is retained — F6 in PR10 will reuse it
+  for the docs-site reference page.
+
 ## [0.6.0] — 2026-05-23
 
 The "everything got nicer; nothing got harder" release. Phase 1 of the
