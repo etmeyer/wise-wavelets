@@ -586,21 +586,32 @@ class MultiScaleFeaturesLinkBuilder:
 
         return MultiScaleMatchResultSet(nputils.get_values_sorted_by_keys(all_ms))
 
-    def to_file(self, filename, projection, coord_mode='com', measured_delta=True):
+    def to_file(self, filename, projection, coord_mode='com', measured_delta=True, suffix=None):
+        '''Write one per-scale link file ``<filename>_<scale><suffix>``.
+
+        ``suffix`` defaults to :attr:`MultiScaleFeaturesLinkBuilder.TYPE`
+        (``.ms.dfc.dat``). The 1.0 ``.wiseproj`` bundle writer passes
+        :attr:`FeaturesLinkBuilder.TYPE` (``.dfc.dat``) with a ``links``
+        prefix to produce ``links_<scale>.dfc.dat``.
+        '''
+        if suffix is None:
+            suffix = MultiScaleFeaturesLinkBuilder.TYPE
         for link_builder in self.get_all():
             if link_builder.size() > 0:
                 scale = link_builder.get_scale()
                 scale_filename = '%s_%s' % (filename, str(scale))
-                link_builder.to_file(scale_filename, projection, suffix=MultiScaleFeaturesLinkBuilder.TYPE,
+                link_builder.to_file(scale_filename, projection, suffix=suffix,
                                      coord_mode=coord_mode, measured_delta=measured_delta)
 
     @staticmethod
-    def from_file(filename, projection, image_set, min_link_size=2):
+    def from_file(filename, projection, image_set, min_link_size=2, suffix=None):
+        if suffix is None:
+            suffix = MultiScaleFeaturesLinkBuilder.TYPE
         new = MultiScaleFeaturesLinkBuilder()
-        regex = '%s_[0-9]+%s' % (os.path.basename(filename), MultiScaleFeaturesLinkBuilder.TYPE)
-        for file in glob.glob(filename + '_*' + MultiScaleFeaturesLinkBuilder.TYPE):
+        regex = '%s_[0-9.]+%s' % (re.escape(os.path.basename(filename)), re.escape(suffix))
+        for file in glob.glob(filename + '_*' + suffix):
             if re.match(regex, os.path.basename(file)):
-                scale = float(file.split('_')[-1].split(MultiScaleFeaturesLinkBuilder.TYPE)[0])
+                scale = float(file.split('_')[-1].split(suffix)[0])
                 link_builder = FeaturesLinkBuilder.from_file(file, projection, image_set,
                                                              suffix='', min_link_size=min_link_size)
                 link_builder.set_scale(scale)

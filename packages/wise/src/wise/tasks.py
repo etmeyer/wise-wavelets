@@ -1,6 +1,7 @@
 import datetime
 import glob
 import inspect
+import json
 import logging
 import os
 import re
@@ -369,14 +370,105 @@ def bootstrap_matching(ctx, n=100, filter=None, cb_post_match=None):
     logger.info("Match ratio stat: %s", nputils.stat(all_match_ratio))
 
 
+# ---------------------------------------------------------------------------
+# .wiseproj bundle layout (F5)
+# ---------------------------------------------------------------------------
+
+# Bump and gate the loader on this when the on-disk layout changes.
+SCHEMA_VERSION = "1.0"
+
+# Constituent file names inside a bundle. Generic — the bundle directory's
+# `.wiseproj` suffix carries the result name, so files need no prefix.
+BUNDLE_SUFFIX = ".wiseproj"
+_DETECTION_FILE = "detection.dat"
+_IMAGE_SET_FILE = "image_set.dat"
+_CONFIG_FILE = "config.wise_config"
+_LINKS_PREFIX = "links"
+
+
+def _bundle_path(data_dir, name):
+    """Return the absolute path to ``<data_dir>/<name>.wiseproj``."""
+    return os.path.join(data_dir, name + BUNDLE_SUFFIX)
+
+
+def _link_scale_filename(scale):
+    """File name (no prefix dir) for the per-scale link file in a bundle."""
+    return "%s_%s%s" % (_LINKS_PREFIX, str(scale), matcher.FeaturesLinkBuilder.TYPE)
+
+
+def _write_manifest(bundle_dir, name, link_scales):
+    """Write ``manifest.json`` enumerating the bundle's contents.
+
+    Written last by :func:`save` so a bundle missing its manifest is
+    detectable as incomplete. ``link_scales`` is the list of scales that
+    actually have a per-scale link file in the bundle.
+    """
+    import wise  # local import: wise.__version__ is defined after tasks imports
+
+    manifest = {
+        "schema_version": SCHEMA_VERSION,
+        "name": name,
+        "wise_version": wise.__version__,
+        "created": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "files": {
+            "detection": _DETECTION_FILE,
+            "image_set": _IMAGE_SET_FILE,
+            "config": _CONFIG_FILE,
+            "links": [_link_scale_filename(scale) for scale in link_scales],
+        },
+    }
+    with open(os.path.join(bundle_dir, "manifest.json"), "w") as fh:
+        json.dump(manifest, fh, indent=2)
+
+
+def _read_manifest(bundle_dir):
+    """Read and version-check ``manifest.json`` from a bundle directory.
+
+    Raises :class:`ValueError` if ``schema_version`` is not the one this
+    wise reads — there is no forward/backward layout compat in 1.0.
+    """
+    manifest_path = os.path.join(bundle_dir, "manifest.json")
+    with open(manifest_path) as fh:
+        manifest = json.load(fh)
+    version = manifest.get("schema_version")
+    if version != SCHEMA_VERSION:
+        raise ValueError(
+            "Unsupported .wiseproj schema_version %r in %s; this wise reads "
+            "schema_version %r only." % (version, manifest_path, SCHEMA_VERSION)
+        )
+    return manifest
+
+
+def _raise_no_bundle(data_dir, name):
+    """Raise a UsageError for a missing ``<name>.wiseproj`` bundle.
+
+    Enriches the message when a sibling 0.5/0.6 result directory
+    (``<name>/<name>.set.dat``) is found, pointing at the migration tool.
+    """
+    old_path = os.path.join(data_dir, name)
+    if os.path.isdir(old_path) and any(
+        f.endswith(".set.dat") for f in os.listdir(old_path)
+    ):
+        raise click.UsageError(
+            "%r is in the 0.5/0.6 result layout (<name>/<name>.set.dat); "
+            "1.0 reads <name>.wiseproj/ bundles only. Run `wise upgrade-config` "
+            "to migrate." % name
+        )
+    raise click.UsageError("No saved result named %r." % name)
+
+
 def save(ctx, name, coord_mode='com', measured_delta=True):
-    '''Save current result to disk
+    '''Save current result to a ``<name>.wiseproj`` bundle
+
+    Writes the detection, image set, config and per-scale link files into
+    ``<project_root>/<name>.wiseproj/`` then writes ``manifest.json`` last.
+    Refuses to overwrite an existing bundle — saved results are valuable.
 
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
     name : str
-        Prefix name for the save files
+        Name of the result bundle (the ``.wiseproj`` directory stem)
     coord_mode : str, optional
     measured_delta : bool, optional
 
@@ -390,24 +482,37 @@ def save(ctx, name, coord_mode='com', measured_delta=True):
     ref_img = ctx.get_ref_image()
     projection = ctx.get_projection(ref_img)
 
-    path = os.path.join(ctx.get_data_dir(), name)
-    if not os.path.exists(path):
-        os.mkdir(path)
-    ctx.result.detection.to_file(os.path.join(path, "%s.ms.dat" % name), projection, coord_mode=coord_mode)
-    ctx.result.link_builder.to_file(os.path.join(path, name), projection,
-                               coord_mode=coord_mode, measured_delta=measured_delta)
-    ctx.result.image_set.to_file(os.path.join(path, "%s.set.dat" % name), projection)
-    ctx.result.config.to_file(os.path.join(path, "%s.conf" % name))
+    bundle_dir = _bundle_path(ctx.get_data_dir(), name)
+    if os.path.exists(bundle_dir):
+        raise click.UsageError(
+            "%s.wiseproj/ already exists; pick a different name or delete the "
+            "existing bundle to overwrite." % name
+        )
+    os.makedirs(bundle_dir)
+
+    ctx.result.detection.to_file(os.path.join(bundle_dir, _DETECTION_FILE),
+                                 projection, coord_mode=coord_mode)
+    ctx.result.link_builder.to_file(
+        os.path.join(bundle_dir, _LINKS_PREFIX), projection,
+        coord_mode=coord_mode, measured_delta=measured_delta,
+        suffix=matcher.FeaturesLinkBuilder.TYPE,
+    )
+    ctx.result.image_set.to_file(os.path.join(bundle_dir, _IMAGE_SET_FILE), projection)
+    ctx.result.config.to_file(os.path.join(bundle_dir, _CONFIG_FILE))
+
+    link_scales = [lb.get_scale() for lb in ctx.result.link_builder.get_all()
+                   if lb.size() > 0]
+    _write_manifest(bundle_dir, name, link_scales)
 
 
 def load(ctx, name, projection=None, merge_with_previous=False, min_link_size=2):
-    '''Load result from files
+    '''Load result from a ``<name>.wiseproj`` bundle
 
     Parameters
     ----------
     ctx : :class:`wise.project.AnalysisContext`
     name : str
-        Prefix name of the saved files
+        Name of the saved result bundle
     projection : :class:`libwise.imgutils.Projection`, optional
         If not provided, default Projection will be used
     merge_with_previous : bool, optional
@@ -419,26 +524,30 @@ def load(ctx, name, projection=None, merge_with_previous=False, min_link_size=2)
     .. _tags: task_general
     '''
 
+    # Resolve the bundle before touching the (possibly expensive / failing)
+    # reference-image projection, so a missing bundle reports cleanly.
+    bundle_dir = _bundle_path(ctx.get_data_dir(), name)
+    if not os.path.isdir(bundle_dir):
+        _raise_no_bundle(ctx.get_data_dir(), name)
+
     if projection is None:
         ref_img = ctx.get_ref_image()
         projection = ctx.get_projection(ref_img)
 
-    path = os.path.join(ctx.get_data_dir(), name)
-    if not os.path.isdir(path):
-        logger.warning("No results saved with name %s", name)
-        return
+    manifest = _read_manifest(bundle_dir)
+    files = manifest["files"]
 
-    img_set_file = os.path.join(path, "%s.set.dat" % name)
-    ms_detec_file = os.path.join(path, "%s.ms.dat" % name)
-    link_builder_name = os.path.join(path, name)
+    img_set_file = os.path.join(bundle_dir, files["image_set"])
+    ms_detec_file = os.path.join(bundle_dir, files["detection"])
 
     image_set = imgutils.ImageSet.from_file(img_set_file, projection)
 
     detection = matcher.MultiScaleImageSet.from_file(ms_detec_file, projection,
                                     image_set)
 
-    link_builder = matcher.MultiScaleFeaturesLinkBuilder.from_file(link_builder_name,
-                                    projection, image_set, min_link_size=min_link_size)
+    link_builder = matcher.MultiScaleFeaturesLinkBuilder.from_file(
+        os.path.join(bundle_dir, _LINKS_PREFIX), projection, image_set,
+        min_link_size=min_link_size, suffix=matcher.FeaturesLinkBuilder.TYPE)
     ms_match_results = link_builder.get_ms_match_results()
 
     if merge_with_previous and ctx.result is not None:
@@ -1081,23 +1190,30 @@ def list_saved_results(ctx):
     .. _tags: task_general
     '''
     ref_img = ctx.get_ref_image()
-    projection = ctx.get_projection(stack_img)
+    projection = ctx.get_projection(ref_img)
 
-    ext = '.set.dat'
     data = []
     header = ["Name", "Number of epochs", "First epoch", "Last epoch", "Kinematic", "Scales"]
-    for file in glob.glob(os.path.join(ctx.get_data_dir(), '*', '*' + ext)):
-        name = os.path.basename(os.path.dirname(file))
-        if not os.path.basename(file) == name + ext:
+    for bundle_dir in sorted(glob.glob(os.path.join(ctx.get_data_dir(), '*' + BUNDLE_SUFFIX))):
+        if not os.path.isdir(bundle_dir):
             continue
-        img_set = imgutils.ImageSet.from_file(file, projection)
+        try:
+            manifest = _read_manifest(bundle_dir)
+        except (FileNotFoundError, ValueError):
+            # Skip incomplete (no manifest) or unsupported-schema bundles.
+            continue
+        files = manifest["files"]
+        name = manifest.get("name") or os.path.basename(bundle_dir)[:-len(BUNDLE_SUFFIX)]
+        img_set = imgutils.ImageSet.from_file(os.path.join(bundle_dir, files["image_set"]),
+                                              projection)
         epochs = img_set.get_epochs()
         if isinstance(epochs[0], datetime.datetime):
             epochs = [epoch.strftime("%Y-%m-%d") for epoch in epochs]
         n = len(epochs)
         first, last = epochs[0], epochs[-1]
-        link_builder_files = glob.glob(os.path.join(os.path.dirname(file), '*.ms.dfc.dat'))
-        scales = [f.rsplit('_')[-1].split('.')[0] for f in link_builder_files]
+        suffix = matcher.FeaturesLinkBuilder.TYPE
+        scales = [os.path.basename(f).split('_')[-1].split(suffix)[0]
+                  for f in files.get("links", [])]
 
         data.append([name, n, first, last, bool(len(scales)), ", ".join(scales)])
 

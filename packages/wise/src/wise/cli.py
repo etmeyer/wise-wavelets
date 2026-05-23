@@ -144,44 +144,26 @@ def _ensure_gitignore_entry(directory: str, entry: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# info
+# project
 # ---------------------------------------------------------------------------
 
 @cli.command()
-@click.argument("files", nargs=-1, required=False)
-@click.option("--velocity", "-V", is_flag=True, default=False,
-              help="Report velocity resolution instead of beam/pixel info.")
-@click.option("--project", "show_project", is_flag=True, default=False,
-              help="Print the resolved project root and exit.")
 @click.pass_context
-def info(
-    ctx: click.Context,
-    files: tuple[str, ...],
-    velocity: bool,
-    show_project: bool,
-) -> None:
-    """Give information on beam, pixel scales or velocity resolution."""
-    if show_project:
-        root = wise.find_project_root()
-        if root is None:
-            raise wise.ProjectRootNotFound(
-                f"no project root found in {os.getcwd()}; run "
-                f"`wise init` to create one, or cd into a directory "
-                f"with a .wise/"
-            )
-        click.echo(root)
-        return
+def project(ctx: click.Context) -> None:
+    """Print the resolved project root and exit.
 
-    if not files:
-        raise click.UsageError("Missing argument 'FILES...'")
-
-    config = actions.get_config(False)
-    context = wise.AnalysisContext(config)
-    actions.select_files(context, list(files))
-    if velocity:
-        wise.tasks.info_files_delta(context)
-    else:
-        wise.tasks.info_files(context)
+    Errors with the standard 'no project root found' UsageError when the
+    cwd has no .wise/ ancestor — the same error path as any other
+    project-requiring command.
+    """
+    root = wise.find_project_root()
+    if root is None:
+        raise wise.ProjectRootNotFound(
+            f"no project root found in {os.getcwd()}; run "
+            f"`wise init` to create one, or cd into a directory "
+            f"with a .wise/"
+        )
+    click.echo(root)
 
 
 # ---------------------------------------------------------------------------
@@ -531,7 +513,8 @@ def detect(
                 )
             name = click.prompt("Name", default="result")
         wise.tasks.save(context, name)
-        saved_path = os.path.abspath(os.path.join(context.get_data_dir(), name))
+        saved_path = os.path.abspath(
+            os.path.join(context.get_data_dir(), name + ".wiseproj"))
         click.echo("Saved to %s/" % saved_path)
 
 
@@ -617,208 +600,9 @@ def match(
                 )
             name = click.prompt("Name", default="result")
         wise.tasks.save(context, name)
-        saved_path = os.path.abspath(os.path.join(context.get_data_dir(), name))
+        saved_path = os.path.abspath(
+            os.path.join(context.get_data_dir(), name + ".wiseproj"))
         click.echo("Saved to %s/" % saved_path)
-
-
-# ---------------------------------------------------------------------------
-# view
-# ---------------------------------------------------------------------------
-
-@cli.command()
-@click.argument("files", nargs=-1, required=True)
-@click.option("--no-crop", "-n", "no_crop", is_flag=True, default=False,
-              help="Do not crop images according to data.roi_coords.")
-@click.option("--no-align", is_flag=True, default=False,
-              help="Do not align images according to data.core_offset_filename.")
-@click.option("--show-mask", "-m", is_flag=True, default=False,
-              help="Overplot the mask if it exists.")
-@click.option("--reg-file", "-r", "reg_files", multiple=True,
-              help="Region file(s) to overplot (repeatable).")
-@click.pass_context
-def view(
-    ctx: click.Context,
-    files: tuple[str, ...],
-    no_crop: bool,
-    no_align: bool,
-    show_mask: bool,
-    reg_files: tuple[str, ...],
-) -> None:
-    """Simple image viewer."""
-    from libwise import imgutils
-
-    preprocess = not no_crop
-    align = not no_align
-    regions = []
-    for f in reg_files:
-        try:
-            regions.append(imgutils.Region(f))
-        except Exception:
-            raise click.UsageError("Failed to read region file: %s" % f)
-
-    config = actions.get_config(False)
-    context = wise.AnalysisContext(config)
-    actions.select_files(context, list(files))
-    wise.tasks.view_all(
-        context, preprocess=preprocess, show_regions=regions,
-        show_mask=show_mask, align=align
-    )
-
-
-# ---------------------------------------------------------------------------
-# view_features
-# ---------------------------------------------------------------------------
-
-@cli.command("view_features")
-@click.argument("name")
-@click.argument("scales")
-@click.pass_context
-def view_features(ctx: click.Context, name: str, scales: str) -> None:
-    """Plot all features location on the reference image.
-
-    NAME is the saved result name; SCALES is a comma-separated list.
-    """
-    import logging as _logging
-    from libwise import nputils
-
-    _logger = _logging.getLogger(__name__)
-
-    context = actions.load(name)
-    if context is None:
-        raise click.UsageError("No results saved with name %r" % name)
-
-    try:
-        scale_list = nputils.str2floatlist(scales)
-    except Exception:
-        raise click.UsageError(
-            "Invalid scales %r. Available: %s" % (scales, context.result.get_scales())
-        )
-
-    _logger.info("Plotting features from scales %s", scale_list)
-    wise.tasks.view_all_features(context, scale_list)
-
-
-# ---------------------------------------------------------------------------
-# view_links
-# ---------------------------------------------------------------------------
-
-@cli.command("view_links")
-@click.argument("name")
-@click.argument("scales")
-@click.option("--min-link-size", "-m", default=2, type=float, show_default=True,
-              help="Filter out links with size < N.")
-@click.pass_context
-def view_links(
-    ctx: click.Context, name: str, scales: str, min_link_size: float
-) -> None:
-    """Plot all component trajectories on the reference map.
-
-    NAME is the saved result name; SCALES is a comma-separated list.
-    """
-    from libwise import nputils
-
-    context = actions.load(name)
-    if context is None:
-        raise click.UsageError("No results saved with name %r" % name)
-
-    try:
-        scale_list = nputils.str2floatlist(scales)
-    except Exception:
-        raise click.UsageError(
-            "Invalid scales %r. Available: %s" % (scales, context.result.get_scales())
-        )
-
-    wise.tasks.view_links(context, scales=scale_list, min_link_size=min_link_size)
-
-
-# ---------------------------------------------------------------------------
-# plot_features
-# ---------------------------------------------------------------------------
-
-@cli.command("plot_features")
-@click.argument("name")
-@click.argument("scales")
-@click.option("--pa", "-p", is_flag=True, default=False,
-              help="Additionally plot positional angle vs epoch.")
-@click.pass_context
-def plot_features(ctx: click.Context, name: str, scales: str, pa: bool) -> None:
-    """Plot all features on a distance-from-core vs epoch chart.
-
-    NAME is the saved result name; SCALES is a comma-separated list.
-    """
-    import logging as _logging
-    from libwise import nputils
-
-    _logger = _logging.getLogger(__name__)
-
-    context = actions.load(name)
-    if context is None:
-        raise click.UsageError("No results saved with name %r" % name)
-
-    try:
-        scale_list = nputils.str2floatlist(scales)
-    except Exception:
-        raise click.UsageError(
-            "Invalid scales %r. Available: %s" % (scales, context.result.get_scales())
-        )
-
-    _logger.info("Plotting features from scales %s", scale_list)
-    wise.tasks.plot_all_features(context, scale_list, pa=pa)
-
-
-# ---------------------------------------------------------------------------
-# plot_sep_from_core
-# ---------------------------------------------------------------------------
-
-@cli.command("plot_sep_from_core")
-@click.argument("name")
-@click.argument("scales")
-@click.option("--pa", "-p", is_flag=True, default=False,
-              help="Additionally plot positional angle vs epoch.")
-@click.option("--fit", "-f", is_flag=True, default=False,
-              help="Fit each link with a linear function.")
-@click.option("--num", "-n", is_flag=True, default=False,
-              help="Annotate each link.")
-@click.option("--min-link-size", "-m", default=2, type=float, show_default=True,
-              help="Filter out links with size < N.")
-@click.pass_context
-def plot_sep_from_core(
-    ctx: click.Context,
-    name: str,
-    scales: str,
-    pa: bool,
-    fit: bool,
-    num: bool,
-    min_link_size: float,
-) -> None:
-    """Plot separation from core with time.
-
-    NAME is the saved result name; SCALES is a comma-separated list.
-    """
-    from libwise import nputils
-
-    context = actions.load(name)
-    if context is None:
-        raise click.UsageError("No results saved with name %r" % name)
-
-    try:
-        scale_list = nputils.str2floatlist(scales)
-    except Exception:
-        raise click.UsageError(
-            "Invalid scales %r. Available: %s" % (scales, context.result.get_scales())
-        )
-
-    fit_fct = nputils.LinearFct if fit else None
-    fit_result = wise.tasks.plot_separation_from_core(
-        context, scales=scale_list, num=num,
-        min_link_size=min_link_size, fit_fct=fit_fct, pa=pa
-    )
-    if fit and fit_result:
-        for link, fct in fit_result.items():
-            click.echo(
-                "Fit result for link %s: %.2f +- %.2f mas / year"
-                % (link.get_id(), fct.a, fct.ea)
-            )
 
 
 # ---------------------------------------------------------------------------
@@ -894,6 +678,227 @@ def select_files_cmd(
     click.echo("Outputting %s files in '%s'" % (len(result_files), output))
     with open(output, "w") as fh:
         fh.write("\n".join(result_files) + "\n")
+
+
+# ---------------------------------------------------------------------------
+# plot group: kinematic charts derived from saved results
+# ---------------------------------------------------------------------------
+
+@cli.group()
+def plot() -> None:
+    """Kinematic charts derived from saved results."""
+
+
+@plot.command("features")
+@click.argument("name")
+@click.argument("scales")
+@click.option("--pa", "-p", is_flag=True, default=False,
+              help="Additionally plot positional angle vs epoch.")
+@click.pass_context
+def plot_features(ctx: click.Context, name: str, scales: str, pa: bool) -> None:
+    """Plot all features on a distance-from-core vs epoch chart.
+
+    NAME is the saved result name; SCALES is a comma-separated list.
+    """
+    import logging as _logging
+    from libwise import nputils
+
+    _logger = _logging.getLogger(__name__)
+
+    context = actions.load(name)
+    if context is None:
+        raise click.UsageError("No results saved with name %r" % name)
+
+    try:
+        scale_list = nputils.str2floatlist(scales)
+    except Exception:
+        raise click.UsageError(
+            "Invalid scales %r. Available: %s" % (scales, context.result.get_scales())
+        )
+
+    _logger.info("Plotting features from scales %s", scale_list)
+    wise.tasks.plot_all_features(context, scale_list, pa=pa)
+
+
+@plot.command("links")
+@click.argument("name")
+@click.argument("scales")
+@click.option("--min-link-size", "-m", default=2, type=float, show_default=True,
+              help="Filter out links with size < N.")
+@click.pass_context
+def plot_links(
+    ctx: click.Context, name: str, scales: str, min_link_size: float
+) -> None:
+    """Plot all component trajectories on the reference map.
+
+    NAME is the saved result name; SCALES is a comma-separated list.
+    """
+    from libwise import nputils
+
+    context = actions.load(name)
+    if context is None:
+        raise click.UsageError("No results saved with name %r" % name)
+
+    try:
+        scale_list = nputils.str2floatlist(scales)
+    except Exception:
+        raise click.UsageError(
+            "Invalid scales %r. Available: %s" % (scales, context.result.get_scales())
+        )
+
+    wise.tasks.view_links(context, scales=scale_list, min_link_size=min_link_size)
+
+
+@plot.command("sep")
+@click.argument("name")
+@click.argument("scales")
+@click.option("--pa", "-p", is_flag=True, default=False,
+              help="Additionally plot positional angle vs epoch.")
+@click.option("--fit", "-f", is_flag=True, default=False,
+              help="Fit each link with a linear function.")
+@click.option("--num", "-n", is_flag=True, default=False,
+              help="Annotate each link.")
+@click.option("--min-link-size", "-m", default=2, type=float, show_default=True,
+              help="Filter out links with size < N.")
+@click.pass_context
+def plot_sep(
+    ctx: click.Context,
+    name: str,
+    scales: str,
+    pa: bool,
+    fit: bool,
+    num: bool,
+    min_link_size: float,
+) -> None:
+    """Plot separation from core with time.
+
+    NAME is the saved result name; SCALES is a comma-separated list.
+    """
+    from libwise import nputils
+
+    context = actions.load(name)
+    if context is None:
+        raise click.UsageError("No results saved with name %r" % name)
+
+    try:
+        scale_list = nputils.str2floatlist(scales)
+    except Exception:
+        raise click.UsageError(
+            "Invalid scales %r. Available: %s" % (scales, context.result.get_scales())
+        )
+
+    fit_fct = nputils.LinearFct if fit else None
+    fit_result = wise.tasks.plot_separation_from_core(
+        context, scales=scale_list, num=num,
+        min_link_size=min_link_size, fit_fct=fit_fct, pa=pa
+    )
+    if fit and fit_result:
+        for link, fct in fit_result.items():
+            click.echo(
+                "Fit result for link %s: %.2f +- %.2f mas / year"
+                % (link.get_id(), fct.a, fct.ea)
+            )
+
+
+# ---------------------------------------------------------------------------
+# show group: sky-map renderings and tabular information
+# ---------------------------------------------------------------------------
+
+@cli.group()
+def show() -> None:
+    """Sky-map renderings and tabular information."""
+
+
+@show.command("features")
+@click.argument("name")
+@click.argument("scales")
+@click.pass_context
+def show_features(ctx: click.Context, name: str, scales: str) -> None:
+    """Plot all features location on the reference image.
+
+    NAME is the saved result name; SCALES is a comma-separated list.
+    """
+    import logging as _logging
+    from libwise import nputils
+
+    _logger = _logging.getLogger(__name__)
+
+    context = actions.load(name)
+    if context is None:
+        raise click.UsageError("No results saved with name %r" % name)
+
+    try:
+        scale_list = nputils.str2floatlist(scales)
+    except Exception:
+        raise click.UsageError(
+            "Invalid scales %r. Available: %s" % (scales, context.result.get_scales())
+        )
+
+    _logger.info("Plotting features from scales %s", scale_list)
+    wise.tasks.view_all_features(context, scale_list)
+
+
+@show.command("image")
+@click.argument("files", nargs=-1, required=True)
+@click.option("--no-crop", "-n", "no_crop", is_flag=True, default=False,
+              help="Do not crop images according to data.roi_coords.")
+@click.option("--no-align", is_flag=True, default=False,
+              help="Do not align images according to data.core_offset_filename.")
+@click.option("--show-mask", "-m", is_flag=True, default=False,
+              help="Overplot the mask if it exists.")
+@click.option("--reg-file", "-r", "reg_files", multiple=True,
+              help="Region file(s) to overplot (repeatable).")
+@click.pass_context
+def show_image(
+    ctx: click.Context,
+    files: tuple[str, ...],
+    no_crop: bool,
+    no_align: bool,
+    show_mask: bool,
+    reg_files: tuple[str, ...],
+) -> None:
+    """Simple image viewer."""
+    from libwise import imgutils
+
+    preprocess = not no_crop
+    align = not no_align
+    regions = []
+    for f in reg_files:
+        try:
+            regions.append(imgutils.Region(f))
+        except Exception:
+            raise click.UsageError("Failed to read region file: %s" % f)
+
+    config = actions.get_config(False)
+    context = wise.AnalysisContext(config)
+    actions.select_files(context, list(files))
+    wise.tasks.view_all(
+        context, preprocess=preprocess, show_regions=regions,
+        show_mask=show_mask, align=align
+    )
+
+
+@show.command("info")
+@click.argument("files", nargs=-1, required=False)
+@click.option("--velocity", "-V", is_flag=True, default=False,
+              help="Report velocity resolution instead of beam/pixel info.")
+@click.pass_context
+def show_info(
+    ctx: click.Context,
+    files: tuple[str, ...],
+    velocity: bool,
+) -> None:
+    """Give information on beam, pixel scales or velocity resolution."""
+    if not files:
+        raise click.UsageError("Missing argument 'FILES...'")
+
+    config = actions.get_config(False)
+    context = wise.AnalysisContext(config)
+    actions.select_files(context, list(files))
+    if velocity:
+        wise.tasks.info_files_delta(context)
+    else:
+        wise.tasks.info_files(context)
 
 
 # ---------------------------------------------------------------------------

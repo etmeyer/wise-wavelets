@@ -13,18 +13,25 @@ from wise.cli import cli
 
 SUBCOMMANDS = [
     "init",
-    "info",
+    "project",
     "stack",
     "settings",
     "detect",
     "match",
+    "region",
+    "select_files",
+    "plot",
+    "show",
+]
+
+# Commands removed in PR7 (F4.4) — now grouped under plot/show.
+REMOVED_COMMANDS = [
+    "info",
     "view",
     "view_features",
     "view_links",
     "plot_features",
     "plot_sep_from_core",
-    "region",
-    "select_files",
 ]
 
 
@@ -70,9 +77,77 @@ def test_version():
 
 def test_mutually_exclusive_verbosity_flags():
     runner = CliRunner()
-    result = runner.invoke(cli, ["-v", "--quiet", "info", "--help"])
+    result = runner.invoke(cli, ["-v", "--quiet", "settings", "--help"])
     assert result.exit_code != 0
     assert "mutually exclusive" in result.output.lower()
+
+
+# ---------------------------------------------------------------------------
+# F4: subcommand regrouping into plot/show groups
+# ---------------------------------------------------------------------------
+
+PLOT_SUBCOMMANDS = ["features", "links", "sep"]
+SHOW_SUBCOMMANDS = ["features", "image", "info"]
+
+
+@pytest.mark.parametrize("sub", PLOT_SUBCOMMANDS)
+def test_plot_group_lists_and_help(sub):
+    """wise plot --help lists the 3 subcommands; each has its own help."""
+    runner = CliRunner()
+    group = runner.invoke(cli, ["plot", "--help"])
+    assert group.exit_code == 0, group.output
+    assert sub in group.output
+    sub_help = runner.invoke(cli, ["plot", sub, "--help"])
+    assert sub_help.exit_code == 0, sub_help.output
+    assert sub_help.output.strip()
+
+
+@pytest.mark.parametrize("sub", SHOW_SUBCOMMANDS)
+def test_show_group_lists_and_help(sub):
+    """wise show --help lists the 3 subcommands; each has its own help."""
+    runner = CliRunner()
+    group = runner.invoke(cli, ["show", "--help"])
+    assert group.exit_code == 0, group.output
+    assert sub in group.output
+    sub_help = runner.invoke(cli, ["show", sub, "--help"])
+    assert sub_help.exit_code == 0, sub_help.output
+    assert sub_help.output.strip()
+
+
+def test_plot_features_help_matches_old_plot_features_options():
+    """wise plot features keeps the old plot_features option surface (--pa)."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["plot", "features", "--help"])
+    assert result.exit_code == 0, result.output
+    assert "--pa" in result.output
+
+
+def test_plot_sep_help_keeps_all_options():
+    """wise plot sep keeps every old plot_sep_from_core option."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["plot", "sep", "--help"])
+    assert result.exit_code == 0, result.output
+    for opt in ("--pa", "--fit", "--num", "--min-link-size"):
+        assert opt in result.output, f"{opt} missing from plot sep --help"
+
+
+@pytest.mark.parametrize("cmd", REMOVED_COMMANDS)
+def test_removed_top_level_command_errors(cmd):
+    """F4.4: the old top-level commands no longer exist (clean break)."""
+    runner = CliRunner()
+    result = runner.invoke(cli, [cmd, "x", "y"])
+    assert result.exit_code != 0
+    assert "no such command" in result.output.lower()
+
+
+def test_removed_commands_absent_from_group_help():
+    """None of the removed commands appear in the top-level command list."""
+    runner = CliRunner()
+    result = runner.invoke(cli, ["--help"])
+    assert result.exit_code == 0
+    # Match on the command-list line shape to avoid matching e.g. 'view' in prose.
+    for cmd in REMOVED_COMMANDS:
+        assert f"  {cmd} " not in result.output, f"removed '{cmd}' still in --help"
 
 
 def test_non_interactive_no_files_is_clean_error():

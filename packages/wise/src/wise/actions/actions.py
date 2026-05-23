@@ -1,4 +1,3 @@
-import glob
 import logging
 import os
 
@@ -55,7 +54,6 @@ def select_files(ctx, args):
 
 def load(name):
     config = get_config(False)
-    ext = '.set.dat'
 
     root = wise.find_project_root()
     if root is None:
@@ -65,16 +63,13 @@ def load(name):
             f"with a .wise/"
         )
 
-    all_results_set = glob.glob(os.path.join(root, '*', '*' + ext))
-    all_results_dirs = list(map(os.path.dirname, all_results_set))
-    all_results_names = list(map(os.path.basename, all_results_dirs))
+    bundle_path = wise.tasks._bundle_path(root, name)
+    if not os.path.isdir(bundle_path):
+        # Raises a UsageError, enriched if an old-format result dir is present.
+        wise.tasks._raise_no_bundle(root, name)
 
-    if name not in all_results_names:
-        return None
-
-    idx = all_results_names.index(name)
-
-    config_file = os.path.join(all_results_dirs[idx], '%s.config' % name)
+    manifest = wise.tasks._read_manifest(bundle_path)
+    config_file = os.path.join(bundle_path, manifest["files"]["config"])
     config.from_file(config_file)
 
     ctx = wise.AnalysisContext(config)

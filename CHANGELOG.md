@@ -6,10 +6,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
-First PR of the wise 1.0 plan's Phase 2 ("the clean break"). Introduces
-the project-root concept that subsequent PRs (PR6 result-name matching,
-PR7 subcommand regrouping + `.wiseproj/` bundle layout, PR8
-`wise upgrade-config`) all depend on.
+Phase 2 of the wise 1.0 plan ("the clean break"), in progress. PR5
+introduced the project-root concept; PR7 builds on it with the
+`wise plot` / `wise show` subcommand regrouping and the `.wiseproj/`
+result bundle layout. The remaining clean-break PRs (PR6 result-name
+matching + key renames, PR8 `wise upgrade-config`) depend on what
+landed here.
 
 ### Added
 
@@ -26,15 +28,66 @@ PR7 subcommand regrouping + `.wiseproj/` bundle layout, PR8
   as `git`'s repo-root resolver — `wise` commands now work from
   anywhere inside a project tree.
 
-- **`wise info --project`** (F3.4): prints the resolved project root
-  and exits. Skips the file-iteration path entirely; `files` argument
-  is optional when `--project` is set.
+- **`wise project`** (F4.3): prints the resolved project root and exits,
+  raising the standard `ProjectRootNotFound` UsageError outside a
+  project. Replaces PR5's interim `wise info --project` flag.
 
 - **"Project root: \<abs-path\>" header** (F3.5) in `wise settings
   show` output, above the section tables. Replaces the PR2 A6 interim
   "None (cwd: ...)" override.
 
+- **`wise plot` group** (F4.1): `wise plot features NAME SCALES`
+  (kinematic distance-from-core vs. epoch), `wise plot links NAME
+  SCALES` (feature trajectories on the reference map), `wise plot sep
+  NAME SCALES` (separation-from-core vs. time). Options and arguments
+  are unchanged from the old top-level commands.
+
+- **`wise show` group** (F4.2): `wise show features NAME SCALES`
+  (feature locations on the reference image), `wise show image FILES`
+  (simple image viewer), `wise show info FILES` (beam/pixel/epoch
+  table). Options and arguments unchanged.
+
+- **`<name>.wiseproj/` result bundles** (F5): saved results are now a
+  single directory with generic file names — `manifest.json`,
+  `detection.dat`, `image_set.dat`, `config.wise_config`, and one
+  `links_<scale>.dfc.dat` per scale that has links. `manifest.json`
+  carries `schema_version` ("1.0"), the result name, the writing
+  `wise_version`, an ISO-8601 `created` timestamp, and a `files` map
+  the loader uses to locate the data files. The manifest is written
+  last, so a bundle missing it is detectably incomplete. Saving onto an
+  existing bundle raises a UsageError rather than overwriting.
+
+### Changed (BREAKING)
+
+- **CLI surface regrouped** (F4): the chart/render/table commands moved
+  under the `wise plot` and `wise show` groups (see Added). The old
+  top-level spellings are removed (see Removed). Update scripts:
+  `wise plot_features` → `wise plot features`, `wise view_links` →
+  `wise plot links`, `wise plot_sep_from_core` → `wise plot sep`,
+  `wise view_features` → `wise show features`, `wise view` →
+  `wise show image`, `wise info` → `wise show info`.
+
+- **Saved-result layout** (F5): `wise` 1.0 reads and writes only the
+  `<name>.wiseproj/` bundle layout; the 0.5/0.6
+  `<name>/<name>.set.dat` layout is no longer read or written.
+  Loading a name that still exists in the old layout raises a
+  UsageError pointing at `wise upgrade-config` (coming in PR8). To keep
+  using old result directories in the meantime, install
+  `wisetool==0.6.*`. The migration tool itself lands in PR8.
+
 ### Removed (BREAKING)
+
+- **`wise info --project` flag** (F4.3): absorbed into the new
+  `wise project` command (see Added). `wise info` itself is removed in
+  favor of `wise show info`.
+
+- **Old top-level CLI commands** (F4.4): `wise plot_features`,
+  `wise plot_sep_from_core`, `wise view`, `wise view_features`,
+  `wise view_links`, and `wise info`. No migration stubs — click's
+  "no such command" error is the feedback path. The replacements live
+  under the `wise plot` / `wise show` groups (see Changed). The six
+  matching PR1 importable-but-empty `actions/wise_*.py` shim modules
+  are removed as well.
 
 - **`data.data_dir` from `DataConfiguration`** (F3.3). The project
   root, resolved by walking upward from cwd for a `.wise/` directory,
