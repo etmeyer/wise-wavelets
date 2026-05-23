@@ -4,7 +4,21 @@ All notable changes to wise-wavelets are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.0] — 2026-05-23
+
+The "everything got nicer; nothing got harder" release. Phase 1 of the
+wise 1.0 plan, sequenced in `_wise_1_0_roadmap.md` (PRs #16, #17, #18,
+#19). Migrates the CLI to `click`, replaces `print()` status output
+with structured logging, unifies the settings table, makes silent
+failures loud, and adds per-knob doc-string guidance plus a
+`wise detect --dry-run` preview for empirical α-threshold tuning. **No
+breaking changes** — 0.5.0 configs and saved result directories
+continue to work as-is. The 1.0 breaking changes (the
+`--nsigma_connected` rename, the `alpha_threashold` typo fix,
+subcommand regrouping, the project-root resolver, the new result
+directory layout) are deferred to v1.0.0; users who need to stay on
+the pre-click CLI can pin `wisetool==0.5.*` or track the `0.5.x`
+maintenance branch.
 
 ### Added
 
@@ -32,28 +46,25 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `logging.getLogger(__name__)`. User-facing data output (`wise info`
   tables, `wise settings show` output) uses `click.echo()`.
   `logging.captureWarnings(True)` is wired at group startup, routing
-  library warnings through the same handler (groundwork for the
-  astropy `FITSFixedWarning` silencer in PR3/E5).
+  library warnings through the same handler.
 
 - **CliRunner smoke tests** (F7 baseline): `packages/wise/tests/
-  test_cli_smoke.py` — 16 tests covering `--help` on every subcommand,
-  `--version`, verbosity mutual-exclusion, and a non-interactive
-  no-files clean-exit check.
+  test_cli_smoke.py` — covers `--help` on every subcommand,
+  `--version`, verbosity mutual-exclusion, a non-interactive no-files
+  clean-exit check, and the unified settings table format from PR2.
 
 - **Unified settings table** (A1): `wise settings show` now renders a
   single 6-column table — `Option | Value | Default | Unit | Range |
-  Documentation` — for every configuration section. The separate
-  `wise settings doc` command is deprecated and now produces identical
-  output; it will be removed in wise 1.0.
+  Documentation` — for every configuration section.
 
 - **Unit metadata** (A1): `DataConfiguration`, `FinderConfiguration`,
-  and `MatcherConfiguration` carry a new `unit` field on every settings
-  tuple. Notable values: `bg_coords` / `roi_coords` → `"mas (=
-  data.projection_unit)"`, `alpha_threashold` / `alpha_detection` →
-  `"σ"`, `min_scale` / `max_scale` → `"wavelet level (int 0–10)"`,
-  `object_z` → `"redshift"`. Callers that subclass `BaseConfiguration`
-  with 7-element tuples continue to work (the missing `unit` is padded
-  with `None` at init time).
+  and `MatcherConfiguration` carry a new `unit` field on every
+  settings tuple. Notable values: `bg_coords` / `roi_coords` → `"mas
+  (= data.projection_unit)"`, `alpha_threashold` / `alpha_detection`
+  → `"σ"`, `min_scale` / `max_scale` → `"wavelet level (int 0–10)"`,
+  `object_z` → `"redshift"`. Callers that subclass
+  `BaseConfiguration` with 7-element tuples continue to work (the
+  missing `unit` is padded with `None` at init time).
 
 - **Validator range descriptions** (A1): Every validator factory
   (`validator_in_range`, `validator_in`, `validator_is`,
@@ -64,7 +75,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **`wise settings show data.data_dir` cwd note** (A6 interim): When
   `data.data_dir` is `None`, the Value cell now reads `"None (cwd:
   <abs-path>)"` instead of bare `None`, making the cwd fallback
-  explicit. Full project-root resolution is deferred to PR5 (Phase 2).
+  explicit. Full project-root resolution is deferred to v1.0.0.
 
 - **Projection-unit headers in `wise info`** (E3): The "Pixel scale"
   and "Beam" columns in the `wise info` table now include the
@@ -73,13 +84,43 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   automatically.
 
 - **Save-path echo in `wise detect` / `wise match`** (E4): After
-  saving a result, both commands now print `"Saved to <abs-path>/"` so
-  users know exactly where the output landed.
+  saving a result, both commands now print `"Saved to <abs-path>/"`
+  so users know exactly where the output landed.
 
 - **Truncation indicator in `format_table`** (E2): When a cell value
   has no whitespace within `max_col_size` (e.g. a jsonpickle-encoded
   callable), it is now truncated to the column width and the final
   character is replaced with `…` instead of being silently cut.
+
+- **`AnalysisConfiguration.validate()`** (B3): extensible registry of
+  `(check_fn, message)` pairs on `_CHECKS`. Returns a list of
+  human-readable issue strings when the configuration is inconsistent.
+  The first check flags the case where no background-extraction method
+  is configured (`bg_coords`, `bg_use_ksigma_method`, and `bg_fct` are
+  all unset). Future PRs can append checks without touching the
+  method structure.
+
+- **Per-scale pixel-width footer under `wise settings show finder`** (C1):
+  After the finder table, a `Resulting widths: […] px  (wavelet=…,
+  use_iwd=…)` line shows the actual pixel feature widths that wavelet
+  detection will see at each decomposition level. Computed from
+  `min_scale`, `max_scale`, and the configured wavelet family
+  (b3/triangle2 use a 1.5× larger multiplier than b1/etc). Also
+  appears in `wise settings show` (all sections), positioned
+  immediately after the finder table. When `use_iwd=True`, both
+  wavelet names are shown (e.g. `wavelet=b1+b3, use_iwd=True`). The
+  underlying helper is `wise.wds.compute_scales_widths(min_scale,
+  max_scale, wavelet)` — callable from notebooks.
+
+- **`wise detect --dry-run`** (C2): Previews detection on a single
+  input file without running segmentation, saving, or the view-scales
+  loop. Prints a per-scale table of `Scale (level) | Width (px) |
+  σ_noise | Above α=<current> (current) | Between α=1.5 and
+  α=<current>` to help users tune `finder.alpha_detection`
+  empirically. Requires exactly one input file. Analytics are
+  factored into `wise.tasks.detection_preview(ctx, file,
+  alpha_lower=1.5)`, which returns a list of per-scale stat dicts
+  and is callable from notebooks.
 
 ### Changed
 
@@ -87,147 +128,115 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `wise.actions.wise_*` module. The libwise standalone scripts
   (`wt-denoise`, `wt2d`, `fits-crop`) and `wise/contrib/` modules
   still use it; it is not deleted.
+
 - `wise select_files --end-date` short option is `-e` (corrected from
   the old `-d` USAGE string, matching the original code behaviour).
 
-### Added
-
-- **`AnalysisConfiguration.validate()`** (B3): extensible registry of
-  `(check_fn, message)` pairs. Returns a list of human-readable issue
-  strings when the configuration is inconsistent. The first check flags
-  the case where no background-extraction method is configured
-  (`bg_coords`, `bg_use_ksigma_method`, and `bg_fct` are all unset).
-  PR4/later PRs can append C-section knob-consistency checks to the
-  registry without touching the method structure.
+- **Per-knob doc-string guidance for 7 config knobs** (C2): The
+  `Documentation` column in `wise settings show` now carries
+  actionable guidance for:
+  - `finder.alpha_threashold` — explains its role in the watershed
+    mask and the relationship to `alpha_detection`.
+  - `finder.alpha_detection` — names the default-vs-diffuse-source
+    trade-off and points to `wise detect --dry-run` for empirical
+    tuning.
+  - `finder.min_scale` and `finder.max_scale` — clarify that values
+    are wavelet *levels*, not pixels, and point to the new
+    `Resulting widths` footer for the pixel equivalents.
+  - `data.projection_unit` — explains the VLBI default and when to
+    switch to `arcsec` for connected-element data.
+  - `data.object_z` — describes its cosmology role and the
+    precedence rule with `object_distance`.
+  - `data.object_distance` — describes the expected Quantity format
+    and its precedence over `object_z`.
 
 ### Fixed
 
-- **`bg_coords` clamp warning** (B1): `AnalysisContext.get_bg` now emits
-  a `WARNING` when `nputils.clamp` changes any coordinate, so users can
-  see that their background region was trimmed to the image edge and the
-  noise estimate may be affected.
+- **`bg_coords` clamp warning** (B1): `AnalysisContext.get_bg` now
+  emits a `WARNING` when `nputils.clamp` changes any coordinate, so
+  users can see that their background region was trimmed to the image
+  edge and the noise estimate may be affected.
 
 - **Resolved background pixel slice** (B7): `get_bg` always logs the
-  resolved pixel slice at `INFO` level
-  (`Background region: pixels x=[…:…] (… px), y=[…:…] (… px)`).
-  Visible under `wise -v`; silent at the default `WARNING` level. Lets
-  users catch twisted or non-opposite-corner `bg_coords` inputs by
-  reading the log line.
+  resolved pixel slice at `INFO` level (`Background region: pixels
+  x=[…:…] (… px), y=[…:…] (… px)`). Visible under `wise -v`; silent
+  at the default `WARNING` level. Lets users catch twisted or
+  non-opposite-corner `bg_coords` inputs.
 
 - **`core.dat` epoch mismatch warning** (B2):
   `CoreOffsetPositions.align_img` previously did nothing when an
-  image's epoch was absent from `core.dat`, silently leaving the image
-  unaligned. It now emits a `WARNING` naming the missing epoch so the
-  user can diagnose noisy proper-motion results.
+  image's epoch was absent from `core.dat`, silently leaving the
+  image unaligned. It now emits a `WARNING` naming the missing
+  epoch so the user can diagnose noisy proper-motion results.
 
 - **Background-method validation at config-load time** (B3):
   `actions.get_config` calls `config.validate()` after loading and
   emits a `WARNING` for each issue. `wise settings show` and
-  `wise settings doc` append a `⚠ Configuration issues:` banner below
-  the table when issues are present. Users see the problem on every
-  `wise` invocation until they fix the config; `--quiet` suppresses.
+  `wise settings doc` append a `⚠ Configuration issues:` banner
+  below the table when issues are present. Users see the problem
+  on every `wise` invocation until they fix the config; `--quiet`
+  suppresses.
 
 - **`_resolve_optional_file` helper** (B4): introduces
   `AnalysisContext._resolve_optional_file(attr_name)` which returns
-  the absolute path of an optional config-named file if it exists on
-  disk, else `None`. `get_core_offset`, `get_mask`, `get_stack_image`,
-  and `select_files` route through this helper, eliminating
-  `os.path.isfile(None)` crash paths. `save_mask_file` now raises
-  `ValueError` when `data.mask_filename` is unset, and guards the
-  existing-file removal with `if filename and os.path.isfile(…)`.
+  the absolute path of an optional config-named file if it exists
+  on disk, else `None`. `get_core_offset`, `get_mask`,
+  `get_stack_image`, and `select_files` route through this helper,
+  eliminating `os.path.isfile(None)` crash paths. `save_mask_file`
+  now raises `ValueError` when `data.mask_filename` is unset, and
+  guards the existing-file removal with `if filename and
+  os.path.isfile(…)`.
 
 - **Input glob skips mask/ref/stack files** (B6):
-  `AnalysisContext.select_files` now filters out files whose absolute
-  path matches `data.mask_filename`, `data.ref_image_filename`, or
-  `data.stack_image_filename`, logging a `WARNING` for each skip. This
-  prevents `wise detect *.fits` from running detection on the mask or
-  stacked output when those files live in the same directory.
+  `AnalysisContext.select_files` now filters out files whose
+  absolute path matches `data.mask_filename`,
+  `data.ref_image_filename`, or `data.stack_image_filename`,
+  logging a `WARNING` for each skip. This prevents `wise detect
+  *.fits` from running detection on the mask or stacked output
+  when those files live in the same directory.
 
-- **`astropy FITSFixedWarning` suppressed** (E5): `_setup_logging` in
-  the CLI entry point adds
-  `warnings.filterwarnings("ignore", category=FITSFixedWarning)` to
-  silence the four-lines-per-file FITS-spec drift spam. Other astropy
-  warnings (`VerifyWarning`, etc.) still flow through.
+- **`astropy FITSFixedWarning` suppressed** (E5): `_setup_logging`
+  in the CLI entry point adds
+  `warnings.filterwarnings("ignore", category=FITSFixedWarning)`
+  to silence the four-lines-per-file FITS-spec drift spam. Other
+  astropy warnings (`VerifyWarning`, etc.) still flow through.
 
 - **"Applying preset" banner** (E1): `RcPreset.apply()` previously
-  printed `"Applying preset: display"` on every command invocation.
-  This is now routed through `logger.debug()` and only appears under
-  `wise --debug`.
-
-### Deprecated
-
-- `wise settings doc` is deprecated; it now produces the same output
-  as `wise settings show`. It will be removed in wise 1.0.
-
-### Added
-
-- **Per-scale pixel-width footer under `wise settings show finder`** (C1):
-  After the finder table, a `Resulting widths: […] px  (wavelet=…, use_iwd=…)`
-  line now shows the actual pixel feature widths that wavelet detection will
-  see at each decomposition level. Computed from `min_scale`, `max_scale`, and
-  the configured wavelet family (b3/triangle2 use a 1.5× larger multiplier than
-  b1/etc). Also appears in `wise settings show` (all sections), positioned
-  immediately after the finder table. When `use_iwd=True`, both wavelet names
-  are shown (e.g. `wavelet=b1+b3, use_iwd=True`). The underlying helper is
-  `wise.wds.compute_scales_widths(min_scale, max_scale, wavelet)` — callable
-  from notebooks.
-
-- **`wise detect --dry-run`** (C2): Previews detection on a single input
-  file without running segmentation, saving, or the view-scales loop. Prints
-  a per-scale table of `Scale (level) | Width (px) | σ_noise | Above
-  α=<current> (current) | Between α=1.5 and α=<current>` to help users tune
-  `finder.alpha_detection` empirically. Requires exactly one input file;
-  raises `UsageError` ("--dry-run requires exactly one input file; got N")
-  if zero or more than one is passed. The analytics are factored into
-  `wise.tasks.detection_preview(ctx, file, alpha_lower=1.5)`, which returns
-  a list of per-scale stat dicts and is callable from notebooks.
-
-### Changed
-
-- **Per-knob doc-string guidance for 7 config knobs** (C2): The
-  `Documentation` column in `wise settings show` now carries actionable
-  guidance for:
-  - `finder.alpha_threashold` — explains its role in the watershed mask and
-    the relationship to `alpha_detection`.
-  - `finder.alpha_detection` — names the default-vs-diffuse-source trade-off
-    and points to `wise detect --dry-run` for empirical tuning.
-  - `finder.min_scale` and `finder.max_scale` — clarify that values are
-    wavelet *levels*, not pixels, and point to the new `Resulting widths`
-    footer for the pixel equivalents.
-  - `data.projection_unit` — explains the VLBI default and when to switch
-    to `arcsec` for connected-element data.
-  - `data.object_z` — describes its cosmology role and the precedence rule
-    with `object_distance`.
-  - `data.object_distance` — describes the expected Quantity format and its
-    precedence over `object_z`.
-
-### Fixed
+  printed `"Applying preset: display"` on every command
+  invocation. This is now routed through `logger.debug()` and only
+  appears under `wise --debug`.
 
 - **`save_core_offset_pos_file` None guard**: when
   `data.core_offset_filename` is `None`, the method now raises
-  `ValueError("data.core_offset_filename is not set; cannot save core
-  offset positions.")` before attempting the write. Parallels the
-  `save_mask_file` guard from PR3.
+  `ValueError("data.core_offset_filename is not set; cannot save
+  core offset positions.")` before attempting the write. Parallels
+  the `save_mask_file` guard.
 
-- **`get_stack_image` error message**: upgraded the bare `Exception("A
-  stack image need to be generated")` to
-  `RuntimeError("No stack image found; run \`wise stack <files>\` first to
-  generate one.")`. Exception class matches the PR3 pattern (`RuntimeError`);
-  message tells the user exactly what to do.
+- **`get_stack_image` error message**: upgraded the bare
+  `Exception("A stack image need to be generated")` to
+  `RuntimeError("No stack image found; run` `wise stack <files>`
+  `first to generate one.")`. Exception class matches the
+  silent→loud pattern; message tells the user exactly what to do.
 
 - **Stale shim comments in `wise_detect`, `wise_info`, `wise_match`,
-  `wise_stack`**: the `"; the wise_<name>.main() shim below is dead code"`
-  clause was left in the module-level comments in PR1 but the shims were
-  removed. Comments now read simply: `# CLI entry point migrated to
-  wise.cli (click). This module is kept for importability.`
+  `wise_stack`**: the `"; the wise_<name>.main() shim below is dead
+  code"` clause was left in the module-level comments after the
+  click migration but the shims were removed. Comments now read
+  simply: `# CLI entry point migrated to wise.cli (click). This
+  module is kept for importability.`
+
+### Deprecated
+
+- `wise settings doc` is deprecated; it now produces the same
+  output as `wise settings show`. It will be removed in wise 1.0.
 
 ### Removed
 
-- **`packages/wise/scripts/wise`**: orphan Python 2 dispatch script using
-  bare `print` statements (syntactically broken since the Py3 port).
-  The working CLI entry point is `wise.cli:main` registered via
-  `[project.scripts]` in `pyproject.toml`; this file had no effect on
-  installs.
+- **`packages/wise/scripts/wise`**: orphan Python 2 dispatch script
+  using bare `print` statements (syntactically broken since the Py3
+  port). The working CLI entry point is `wise.cli:main` registered
+  via `[project.scripts]` in `pyproject.toml`; this file had no
+  effect on installs.
 
 ## [0.5.0] — 2026-05-22
 
