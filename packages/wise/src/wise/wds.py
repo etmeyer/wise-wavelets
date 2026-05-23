@@ -907,6 +907,20 @@ class MultiScaleImageSet(AbstractKeyList):
         return new
 
 
+def compute_scales_widths(min_scale, max_scale, wavelet):
+    """Return per-scale feature widths in pixels for the configured
+    wavelet decomposition. The widths are what detection actually
+    sees; they are derived from min_scale/max_scale plus the
+    wavelet family (b3/triangle2 use a different multiplier than
+    b1/etc).
+    """
+    if wavelet in ('b3', 'triangle2'):
+        return [max(1.5, 3 * min(1, j) * pow(2, max(0, j - 1)))
+                for j in range(min_scale, max_scale)]
+    return [max(1, 2 * min(1, j) * pow(2, max(0, j - 1)))
+            for j in range(min_scale, max_scale)]
+
+
 class AbstractMultiScaleDecomposition:
 
     reversable = False
@@ -948,10 +962,7 @@ class WaveletMultiscaleDecomposition(AbstractMultiScaleDecomposition):
         scales_noise = wtutils.wave_noise_factor(bg, wavelet_fct, max_scale, wt_dec, beam=img.get_beam())
         scales_noise = scales_noise[min_scale:]
 
-        if wavelet_fct in ['b3', 'triangle2']:
-            scales_width = [max(1.5, 3 * min(1, j) * pow(2, max(0, j - 1))) for j in range(min_scale, max_scale)]
-        else:
-            scales_width = [max(1, 2 * min(1, j) * pow(2, max(0, j - 1))) for j in range(min_scale, max_scale)]
+        scales_width = compute_scales_widths(min_scale, max_scale, wavelet_fct)
 
         return list(zip(scales, scales_noise, scales_width))
 
