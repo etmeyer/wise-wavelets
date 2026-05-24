@@ -2239,7 +2239,27 @@ class ConfigurationsContainer:
 
 
 
+class OptionRenamedError(Exception):
+    """Raised by BaseConfiguration accessors when an old (renamed) option key
+    is encountered. Carries .old_name and .new_name for the caller to
+    format a user-facing migration message.
+
+    Kept click-free on purpose: libwise stays free of CLI dependencies, so the
+    wise layer catches this and re-raises it as a click.UsageError.
+    """
+
+    def __init__(self, old_name, new_name):
+        self.old_name = old_name
+        self.new_name = new_name
+        super().__init__("option %r was renamed to %r" % (old_name, new_name))
+
+
 class BaseConfiguration(ConfigurationsContainer):
+
+    # Subclasses populate this with {old_key: new_key} to turn an access of a
+    # renamed option into an OptionRenamedError (instead of a bare
+    # AssertionError), so the CLI can print a clear migration hint.
+    _RENAMED_OPTIONS: dict = {}
 
     def __init__(self, settings, title):
         # settings order: key, default, doc, unit, validator, decoder, encoder, level
@@ -2285,8 +2305,20 @@ class BaseConfiguration(ConfigurationsContainer):
     def __str__(self):
         return list(self.values())
 
+    def _check_option(self, option):
+        """Validate that ``option`` is a known key.
+
+        Raises :class:`OptionRenamedError` if the key was renamed (so the CLI
+        can print a migration hint), else preserves the historical
+        :class:`AssertionError` for unknown options.
+        """
+        if option not in self._keys:
+            if option in self._RENAMED_OPTIONS:
+                raise OptionRenamedError(option, self._RENAMED_OPTIONS[option])
+            raise AssertionError(option)
+
     def get(self, option, encode=False):
-        assert option in self._keys
+        self._check_option(option)
         value = self._values.get(option)
         if encode and value is not None:
             return self._encoders.get(option, str)(value)
@@ -2301,7 +2333,7 @@ class BaseConfiguration(ConfigurationsContainer):
                 yield key
 
     def set(self, option, value, validate=True, decode=False):
-        assert option in self._keys
+        self._check_option(option)
         decoders = self._decoders.get(option)
         validator = self._validators.get(option)
         if decode:
@@ -2319,11 +2351,11 @@ class BaseConfiguration(ConfigurationsContainer):
             yield (key, self.get(key, encode=encode))
 
     def get_default(self, option):
-        assert option in self._keys
+        self._check_option(option)
         return self._defaults.get(option)
 
     def reset(self, option):
-        assert option in self._keys
+        self._check_option(option)
         self.set(option, self.get_default(option))
 
     def reset_all(self):
@@ -2331,11 +2363,11 @@ class BaseConfiguration(ConfigurationsContainer):
             self.reset(key)
 
     def get_doc(self, option):
-        assert option in self._keys
+        self._check_option(option)
         return self._docs.get(option)
 
     def get_unit(self, option):
-        assert option in self._keys
+        self._check_option(option)
         return self._units.get(option)
 
     def doc(self, max_level=0, display_overrides=None):
