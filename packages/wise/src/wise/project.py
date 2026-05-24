@@ -52,6 +52,23 @@ def find_project_root(start: str | None = None) -> str | None:
     return None
 
 
+def require_project_root(start=None):
+    """Return the project root or raise :class:`ProjectRootNotFound`.
+
+    Thin wrapper around :func:`find_project_root` that centralizes the
+    "no project root found" UsageError message used by every wise command
+    that needs a project.
+    """
+    root = find_project_root(start=start)
+    if root is None:
+        raise ProjectRootNotFound(
+            f"no project root found in {os.getcwd()}; run "
+            f"`wise init` to create one, or cd into a directory "
+            f"with a .wise/"
+        )
+    return root
+
+
 def quantity_decode(s):
     try:
         value, unit = re.match(r'(\d+\.*\d*)\s*([a-zA-Z]+)', s).group(1,2)
@@ -287,13 +304,7 @@ class AnalysisContext:
         :class:`ProjectRootNotFound` (a :class:`click.UsageError` subclass)
         when no project root is found.
         """
-        root = find_project_root()
-        if root is None:
-            raise ProjectRootNotFound(
-                f"no project root found in {os.getcwd()}; run "
-                f"`wise init` to create one, or cd into a directory "
-                f"with a .wise/"
-            )
+        root = require_project_root()
         # Defensive: ensure the .wise/ marker still exists. It should
         # always — find_project_root only returned because it was there —
         # but a concurrent rm would otherwise break later cache writes.

@@ -17,14 +17,7 @@ def get_config_path():
 
     Raises :class:`wise.ProjectRootNotFound` when no project root is resolved.
     """
-    root = wise.find_project_root()
-    if root is None:
-        raise wise.ProjectRootNotFound(
-            f"no project root found in {os.getcwd()}; run "
-            f"`wise init` to create one, or cd into a directory "
-            f"with a .wise/"
-        )
-    return os.path.join(root, CONFIG_FILE)
+    return os.path.join(wise.require_project_root(), CONFIG_FILE)
 
 
 def get_config(create_if_none=False):
@@ -64,13 +57,7 @@ def select_files(ctx, args):
 def load(name):
     config = get_config(False)
 
-    root = wise.find_project_root()
-    if root is None:
-        raise wise.ProjectRootNotFound(
-            f"no project root found in {os.getcwd()}; run "
-            f"`wise init` to create one, or cd into a directory "
-            f"with a .wise/"
-        )
+    root = wise.require_project_root()
 
     bundle_path = wise.tasks._bundle_path(root, name)
     if not os.path.isdir(bundle_path):

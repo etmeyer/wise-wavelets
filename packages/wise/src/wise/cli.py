@@ -157,14 +157,7 @@ def project(ctx: click.Context) -> None:
     cwd has no .wise/ ancestor — the same error path as any other
     project-requiring command.
     """
-    root = wise.find_project_root()
-    if root is None:
-        raise wise.ProjectRootNotFound(
-            f"no project root found in {os.getcwd()}; run "
-            f"`wise init` to create one, or cd into a directory "
-            f"with a .wise/"
-        )
-    click.echo(root)
+    click.echo(wise.require_project_root())
 
 
 # ---------------------------------------------------------------------------
@@ -242,12 +235,7 @@ def settings(ctx: click.Context, args: tuple[str, ...]) -> None:
 
     non_interactive = ctx.obj.get("non_interactive", False)
 
-    if wise.find_project_root() is None:
-        raise wise.ProjectRootNotFound(
-            f"no project root found in {os.getcwd()}; run "
-            f"`wise init` to create one, or cd into a directory "
-            f"with a .wise/"
-        )
+    wise.require_project_root()
 
     config = actions.get_config(True)
     args = list(args)
