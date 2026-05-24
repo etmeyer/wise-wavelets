@@ -367,7 +367,7 @@ def matched_ctx(tmp_path, monkeypatch):
     ctx = wise.AnalysisContext()
     ctx.config.finder.min_scale = 2
     ctx.config.finder.max_scale = 3
-    ctx.config.finder.alpha_threashold = 10
+    ctx.config.finder.alpha_threshold = 10
     ctx.config.finder.alpha_detection = 15
     ctx.config.data.bg_use_ksigma_method = True
     ctx.config.data.ref_image_filename = str(ref_path)

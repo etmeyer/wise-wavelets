@@ -1,7 +1,9 @@
 import logging
 import os
 
+import click
 from libwise import imgutils
+from libwise.nputils import OptionRenamedError
 
 import wise
 
@@ -34,7 +36,14 @@ def get_config(create_if_none=False):
         return config
     config_path = os.path.join(root, CONFIG_FILE)
     if os.path.exists(config_path):
-        config.from_file(config_path)
+        try:
+            config.from_file(config_path)
+        except OptionRenamedError as e:
+            raise click.UsageError(
+                "`%s` was renamed to `%s` in wise 1.0. "
+                "Run `wise upgrade-config` to migrate your saved wise_config."
+                % (e.old_name, e.new_name)
+            )
     elif create_if_none:
         config.to_file(config_path)
 

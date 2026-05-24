@@ -505,9 +505,14 @@ class DatedFeaturesGroupScale(AbstractScale, DatedFeaturesGroup):
 
 class FinderConfiguration(nputils.BaseConfiguration):
 
+    # C3: the historical key was misspelled "alpha_threashold". Accessing the
+    # old spelling raises OptionRenamedError so the CLI can print a migration
+    # hint (see actions.get_config).
+    _RENAMED_OPTIONS = {"alpha_threashold": "alpha_threshold"}
+
     def __init__(self):
         data = [
-            ["alpha_threashold", 3, "Significance threshold in σ (used for watershed mask). Typically ≤ alpha_detection; lowering it widens the segmented region around each detected peak.", "σ", validator_in_range(0.1, 20), float, str, 0],
+            ["alpha_threshold", 3, "Significance threshold in σ (used for watershed mask). Typically ≤ alpha_detection; lowering it widens the segmented region around each detected peak.", "σ", validator_in_range(0.1, 20), float, str, 0],
             ["alpha_detection", 4, "Detection threshold in σ. Default 4.0 is tuned for bright, well-resolved sources; for low-SNR / diffuse jets, 1.5–2.5 is often needed. Use 'wise detect --dry-run' to tune empirically.", "σ", validator_in_range(0.1, 20), float, str, 0],
             ["min_scale", 1, "Minimum wavelet decomposition level to include (integer, not pixels). See the 'Resulting widths' line below the finder table for the actual pixel widths.", "wavelet level (int 0–10)", validator_in_range(0, 10, instance=int), int, str, 0],
             ["max_scale", 4, "Maximum wavelet decomposition level to include (integer, not pixels). Typical range 4–6 for VLBI maps; higher catches broader diffuse structure at the cost of more spurious detections.", "wavelet level (int 0–10)", validator_in_range(1, 10, instance=int), int, str, 0],
@@ -1066,7 +1071,7 @@ class FeaturesFinder:
 
     def execute(self):
         alpha_detection = self.config.get("alpha_detection")
-        alpha_threashold = self.config.get("alpha_threashold")
+        alpha_threshold = self.config.get("alpha_threshold")
         ms_dec_klass = self.config.get("ms_dec_klass")
 
         if self.config.get("use_iwd"):
@@ -1078,7 +1083,7 @@ class FeaturesFinder:
         result = MultiScaleImage(self.img, self.background, approx=dec.approx)
         for scale, scale_noise, width in decomposed:
             detection = alpha_detection * scale_noise
-            threshold = alpha_threashold * scale_noise
+            threshold = alpha_threshold * scale_noise
             scale_img = imgutils.Image.from_image(self.img, scale.real)
 
             if self.segment:
@@ -1111,11 +1116,11 @@ class FeaturesFinder:
 
         return result
 
-    def direct_detection(self, width=2, alpha_detection=None, alpha_threashold=None):
+    def direct_detection(self, width=2, alpha_detection=None, alpha_threshold=None):
         if alpha_detection is None:
             alpha_detection = self.config.get("alpha_detection")
-        if alpha_threashold is None:
-            alpha_threashold = self.config.get("alpha_threashold")
+        if alpha_threshold is None:
+            alpha_threshold = self.config.get("alpha_threshold")
 
         if isinstance(self.background, np.ndarray):
             rms_noise = self.background.std()
@@ -1123,7 +1128,7 @@ class FeaturesFinder:
             rms_noise = self.background
 
         detection = alpha_detection * rms_noise
-        threshold = alpha_threashold * rms_noise
+        threshold = alpha_threshold * rms_noise
 
         features = FeaturesGroup.from_img_peaks(self.img, width, detection, feature_filter=self.filter)
         if self.segment:

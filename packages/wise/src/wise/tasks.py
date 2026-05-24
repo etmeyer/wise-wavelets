@@ -1558,7 +1558,7 @@ def _test_load_3c120_config():
     # finder configuration
     ctx.config.finder.min_scale = 1
     ctx.config.finder.max_scale = 4
-    ctx.config.finder.alpha_threashold = 3
+    ctx.config.finder.alpha_threshold = 3
     ctx.config.finder.exclude_noise = False
     ctx.config.finder.ms_dec_klass = wds.WaveletMultiscaleDecomposition
 
