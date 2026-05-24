@@ -80,6 +80,7 @@ def cli(
     _setup_logging(verbose, quiet, debug)
     ctx.ensure_object(dict)
     ctx.obj["non_interactive"] = non_interactive
+    ctx.obj["quiet"] = quiet
 
 
 # ---------------------------------------------------------------------------
@@ -522,7 +523,9 @@ def detect(
             raise click.UsageError(
                 "--save or --no-save is required in non-interactive mode"
             )
-        save = click.confirm("Save the result?")
+        save = click.confirm(
+            "Save detection for plotting only? (1.0 bundles cannot be re-matched.)"
+        )
 
     if save:
         if name is None:
@@ -563,6 +566,20 @@ def match(
 
     _logger = _logging.getLogger(__name__)
     non_interactive = ctx.obj.get("non_interactive", False)
+
+    # A2: `wise match` re-runs detection before matching. The .wiseproj bundle
+    # only persists feature centroids, so a saved detection cannot be re-matched
+    # in 1.0. Always inform the user (click.echo, not logger.info — suppressible
+    # via --quiet but on by default).
+    if not ctx.obj.get("quiet", False):
+        click.echo(
+            "Note: 'wise match' re-runs detection with the current finder.* "
+            "settings before matching. The .wiseproj bundle layout in this "
+            "release saves feature centroids only; re-matching a saved "
+            "detection isn't supported in 1.0 (planned for a future release). "
+            "If you want matching with different finder settings, change "
+            "finder.* in wise_config and re-run `wise match`."
+        )
 
     config = actions.get_config(True)
     context = wise.AnalysisContext(config)
@@ -609,7 +626,7 @@ def match(
             raise click.UsageError(
                 "--save or --no-save is required in non-interactive mode"
             )
-        save = click.confirm("Save the result?")
+        save = click.confirm("Save matched result?")
 
     if save:
         if name is None:
