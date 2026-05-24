@@ -60,6 +60,34 @@ def quantity_decode(s):
     return float(value) * u.Unit(unit)
 
 
+def decode_scale_dict(s):
+    """Decoder for dicts whose keys are wavelet scales (int or float).
+
+    Accepts both Python-literal form (``{4: 4.0, 6: 4.0}``) and JSON
+    form (``{"4": 4.0, "6": 4.0}``), normalizing keys to int when the
+    string is a pure integer, else float. Used for finder.scales_snr_filter
+    (C4) and matcher.min_scale_tolerance (C5), whose downstream lookup is by
+    numeric scale and so silently missed string keys.
+    """
+    import ast
+
+    try:
+        d = ast.literal_eval(s)
+    except (ValueError, SyntaxError):
+        d = jp.decode(s)
+    if not isinstance(d, dict):
+        return d
+    out = {}
+    for k, v in d.items():
+        if isinstance(k, str):
+            try:
+                k = int(k) if "." not in k else float(k)
+            except ValueError:
+                pass
+        out[k] = v
+    return out
+
+
 class DataConfiguration(nputils.BaseConfiguration):
     """Data configuration object."""
 
