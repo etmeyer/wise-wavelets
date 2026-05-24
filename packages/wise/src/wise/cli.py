@@ -170,21 +170,40 @@ def project(ctx: click.Context) -> None:
 # stack
 # ---------------------------------------------------------------------------
 
+def _renamed_nsigma_connected(ctx, param, value):
+    """Migration callback for the removed ``--nsigma_connected`` flag (A4).
+
+    Hidden option: when the old flag is passed, error with a clear rename
+    message instead of click's generic "no such option".
+    """
+    if value:
+        raise click.UsageError(
+            "--nsigma_connected was renamed to --keep_brightest_only in "
+            "wise 1.0. Update your scripts. If you have saved CLI configs "
+            "or shell aliases, run `wise upgrade-config`."
+        )
+    # value=False means the flag wasn't passed; nothing to do.
+
+
 @cli.command()
 @click.argument("files", nargs=-1, required=True)
 @click.option("--output", "-o", default="stack_img.fits", show_default=True,
               help="Output file name.")
 @click.option("--nsigma", "-n", default=0.0, type=float, show_default=True,
               help="Clip background below NSIGMA level.")
-@click.option("--nsigma_connected", "-c", is_flag=True, default=False,
-              help="Keep only the brightest isolated structure.")
+@click.option("--nsigma_connected", is_flag=True, hidden=True,
+              callback=_renamed_nsigma_connected, expose_value=False)
+@click.option("--keep_brightest_only", "-c", is_flag=True, default=False,
+              help="Discard everything except the brightest connected blob "
+                   "(default behaviour is the union of all pixels above σ). "
+                   "Renamed from --nsigma_connected in 1.0.")
 @click.pass_context
 def stack(
     ctx: click.Context,
     files: tuple[str, ...],
     output: str,
     nsigma: float,
-    nsigma_connected: bool,
+    keep_brightest_only: bool,
 ) -> None:
     """Stack images."""
     import logging as _logging
@@ -193,7 +212,7 @@ def stack(
     context = wise.AnalysisContext(config)
     actions.select_files(context, list(files))
     stack_img = context.build_stack_image(
-        preprocess=False, nsigma=nsigma, nsigma_connected=nsigma_connected
+        preprocess=False, nsigma=nsigma, keep_brightest_only=keep_brightest_only
     )
     stack_img.save(output)
     _logger.info("Stacked images saved to %s", output)

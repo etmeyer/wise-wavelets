@@ -432,7 +432,7 @@ class AnalysisContext:
             logger.info("Aligning: %s", img.get_epoch())
             core_offset.align_img(img, projection=self.get_projection(img))
 
-    def build_stack_image(self, preprocess=False, nsigma=0, nsigma_connected=False):
+    def build_stack_image(self, preprocess=False, nsigma=0, keep_brightest_only=False):
         """Create a stacked image (:class:`libwise.imgutils.StackedImage` of all
            the project images, aligning them if necessary.
 
@@ -442,8 +442,9 @@ class AnalysisContext:
             If True, the images are pre processed .
         nsigma : int, optional
             Clip bg below nsigma level
-        nsigma_connected : bool, optional
-            If True, keep only the brightest connected structure
+        keep_brightest_only : bool, optional
+            If True, keep only the brightest connected structure (renamed from
+            ``nsigma_connected`` in 1.0)
         """
         stack_builder = imgutils.StackedImageBuilder()
         stack_bg_builder = imgutils.StackedImageBuilder()
@@ -462,13 +463,13 @@ class AnalysisContext:
 
         if nsigma > 0:
             stack_img.data[stack_img.data < nsigma * stack_bg.data.std()] = 0
-            if nsigma_connected:
+            if keep_brightest_only:
                 segments = wds.SegmentedImages(stack_img)
                 segments.connected_structure()
                 stack_img.data = segments.sorted_list()[-1].get_segment_image()
         return stack_img
 
-    def get_stack_image(self, nsigma=0, nsigma_connected=False, preprocess=False):
+    def get_stack_image(self, nsigma=0, keep_brightest_only=False, preprocess=False):
         filename = self._resolve_optional_file("stack_image_filename")
         if filename is None:
             raise RuntimeError(
@@ -482,7 +483,7 @@ class AnalysisContext:
             self.pre_process(stack_image)
         if nsigma > 0:
             stack_image.data[stack_image.data < nsigma * bg.std()] = 0
-            if nsigma_connected:
+            if keep_brightest_only:
                 segments = wds.SegmentedImages(stack_image)
                 segments.connected_structure()
                 stack_image.data = segments.sorted_list()[-1].get_segment_image()
