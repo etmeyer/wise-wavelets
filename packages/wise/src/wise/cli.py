@@ -190,7 +190,7 @@ def _renamed_nsigma_connected(ctx, param, value):
 @click.option("--keep_brightest_only", "-c", is_flag=True, default=False,
               help="Discard everything except the brightest connected blob "
                    "(default behaviour is the union of all pixels above σ). "
-                   "Renamed from --nsigma_connected in 1.0.")
+                   "Renamed in 1.0.")
 @click.pass_context
 def stack(
     ctx: click.Context,
