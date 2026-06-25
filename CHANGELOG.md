@@ -12,9 +12,9 @@ introduced the project-root concept; PR7 built on it with the
 result bundle layout. PR6 lands the breaking key/flag renames
 (`--keep_brightest_only`, `alpha_threshold`), lenient int-keyed dict
 config parsing, and the documented A2 fallback (the `wise match`
-load-and-rematch primary fix is deferred — see Known limitations). The
-remaining clean-break PR (PR8 `wise upgrade-config`) depends on what
-landed here.
+load-and-rematch primary fix is deferred — see Known limitations). PR8
+adds `wise upgrade-config`, the migration tool that moves 0.5/0.6
+projects onto the 1.0 layout — the last clean-break PR before v1.0.0.
 
 ### Added
 
@@ -78,6 +78,20 @@ landed here.
   a bare `AssertionError`. Unknown (non-renamed) options still raise
   `AssertionError`. libwise stays click-free; the wise layer catches
   this and re-raises a `click.UsageError` with a migration hint.
+
+- **`wise upgrade-config [DIRECTORY]`** (PR8): one-shot migration from
+  the 0.5/0.6 layout to 1.0. Rewrites `wise_config` (renames
+  `alpha_threashold` → `alpha_threshold`, drops the removed `data_dir`,
+  leaves everything else untouched), converts each
+  `<name>/<name>.set.dat` result directory into a `<name>.wiseproj/`
+  bundle with the 1.0 file names and a fresh `manifest.json`, creates
+  the `.wise/` project marker, and appends `.wise/` to an existing
+  `.gitignore`. Idempotent — re-running is a no-op — and `--dry-run`
+  previews every change without writing. Both 0.6.0 link-file spellings
+  (`<name>_<scale>.dfc.dat` and the `.ms.dfc.dat` that 0.6.0 actually
+  wrote) are recognized. The migrator is a self-contained, stdlib-only
+  module (`wise.upgrade`) so it can later be backported to a 0.6.x
+  forward-migration shim.
 
 ### Changed (BREAKING)
 

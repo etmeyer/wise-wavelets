@@ -161,6 +161,45 @@ def project(ctx: click.Context) -> None:
 
 
 # ---------------------------------------------------------------------------
+# upgrade-config
+# ---------------------------------------------------------------------------
+
+@cli.command("upgrade-config")
+@click.argument("directory", type=click.Path(file_okay=False), default=".")
+@click.option("--dry-run", is_flag=True, default=False,
+              help="Print what would change without writing anything.")
+@click.pass_context
+def upgrade_config(ctx: click.Context, directory: str, dry_run: bool) -> None:
+    """Migrate a 0.5/0.6 wise project to the 1.0 layout.
+
+    Rewrites wise_config (key renames, removed-key sweep) and converts
+    old <name>/<name>.set.dat result directories into <name>.wiseproj/
+    bundles. Idempotent — re-running is a no-op. Use --dry-run to
+    preview without writing.
+
+    Recommended: commit (or back up) the project directory before
+    running. Migration moves files in place.
+    """
+    from wise import upgrade
+    report = upgrade.upgrade_project(directory, dry_run=dry_run)
+    for line in report.actions:
+        click.echo(line)
+    click.echo()
+    if dry_run:
+        click.echo(
+            f"Dry run: would update {report.configs_renamed} config "
+            f"keys and migrate {report.results_migrated} result "
+            f"directories ({report.results_skipped} skipped)."
+        )
+    else:
+        click.echo(
+            f"Migrated {report.configs_renamed} config keys and "
+            f"{report.results_migrated} result directories "
+            f"({report.results_skipped} skipped)."
+        )
+
+
+# ---------------------------------------------------------------------------
 # stack
 # ---------------------------------------------------------------------------
 
