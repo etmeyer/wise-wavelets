@@ -1,7 +1,9 @@
 import logging
 import os
 
+import click
 from libwise import imgutils
+from libwise.nputils import OptionRenamedError
 
 import wise
 
@@ -15,14 +17,7 @@ def get_config_path():
 
     Raises :class:`wise.ProjectRootNotFound` when no project root is resolved.
     """
-    root = wise.find_project_root()
-    if root is None:
-        raise wise.ProjectRootNotFound(
-            f"no project root found in {os.getcwd()}; run "
-            f"`wise init` to create one, or cd into a directory "
-            f"with a .wise/"
-        )
-    return os.path.join(root, CONFIG_FILE)
+    return os.path.join(wise.require_project_root(), CONFIG_FILE)
 
 
 def get_config(create_if_none=False):
@@ -34,7 +29,14 @@ def get_config(create_if_none=False):
         return config
     config_path = os.path.join(root, CONFIG_FILE)
     if os.path.exists(config_path):
-        config.from_file(config_path)
+        try:
+            config.from_file(config_path)
+        except OptionRenamedError as e:
+            raise click.UsageError(
+                "`%s` was renamed to `%s` in wise 1.0. "
+                "Run `wise upgrade-config` to migrate your saved wise_config."
+                % (e.old_name, e.new_name)
+            )
     elif create_if_none:
         config.to_file(config_path)
 
@@ -55,13 +57,7 @@ def select_files(ctx, args):
 def load(name):
     config = get_config(False)
 
-    root = wise.find_project_root()
-    if root is None:
-        raise wise.ProjectRootNotFound(
-            f"no project root found in {os.getcwd()}; run "
-            f"`wise init` to create one, or cd into a directory "
-            f"with a .wise/"
-        )
+    root = wise.require_project_root()
 
     bundle_path = wise.tasks._bundle_path(root, name)
     if not os.path.isdir(bundle_path):

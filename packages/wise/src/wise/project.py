@@ -52,12 +52,57 @@ def find_project_root(start: str | None = None) -> str | None:
     return None
 
 
+def require_project_root(start=None):
+    """Return the project root or raise :class:`ProjectRootNotFound`.
+
+    Thin wrapper around :func:`find_project_root` that centralizes the
+    "no project root found" UsageError message used by every wise command
+    that needs a project.
+    """
+    root = find_project_root(start=start)
+    if root is None:
+        raise ProjectRootNotFound(
+            f"no project root found in {os.getcwd()}; run "
+            f"`wise init` to create one, or cd into a directory "
+            f"with a .wise/"
+        )
+    return root
+
+
 def quantity_decode(s):
     try:
         value, unit = re.match(r'(\d+\.*\d*)\s*([a-zA-Z]+)', s).group(1,2)
     except:
         raise ValueError("Quantity '%s' is not in the right format." % s)
     return float(value) * u.Unit(unit)
+
+
+def decode_scale_dict(s):
+    """Decoder for dicts whose keys are wavelet scales (int or float).
+
+    Accepts both Python-literal form (``{4: 4.0, 6: 4.0}``) and JSON
+    form (``{"4": 4.0, "6": 4.0}``), normalizing keys to int when the
+    string is a pure integer, else float. Used for finder.scales_snr_filter
+    (C4) and matcher.min_scale_tolerance (C5), whose downstream lookup is by
+    numeric scale and so silently missed string keys.
+    """
+    import ast
+
+    try:
+        d = ast.literal_eval(s)
+    except (ValueError, SyntaxError):
+        d = jp.decode(s)
+    if not isinstance(d, dict):
+        return d
+    out = {}
+    for k, v in d.items():
+        if isinstance(k, str):
+            try:
+                k = int(k) if "." not in k else float(k)
+            except ValueError:
+                pass
+        out[k] = v
+    return out
 
 
 class DataConfiguration(nputils.BaseConfiguration):
@@ -259,13 +304,7 @@ class AnalysisContext:
         :class:`ProjectRootNotFound` (a :class:`click.UsageError` subclass)
         when no project root is found.
         """
-        root = find_project_root()
-        if root is None:
-            raise ProjectRootNotFound(
-                f"no project root found in {os.getcwd()}; run "
-                f"`wise init` to create one, or cd into a directory "
-                f"with a .wise/"
-            )
+        root = require_project_root()
         # Defensive: ensure the .wise/ marker still exists. It should
         # always — find_project_root only returned because it was there —
         # but a concurrent rm would otherwise break later cache writes.
@@ -432,7 +471,7 @@ class AnalysisContext:
             logger.info("Aligning: %s", img.get_epoch())
             core_offset.align_img(img, projection=self.get_projection(img))
 
-    def build_stack_image(self, preprocess=False, nsigma=0, nsigma_connected=False):
+    def build_stack_image(self, preprocess=False, nsigma=0, keep_brightest_only=False):
         """Create a stacked image (:class:`libwise.imgutils.StackedImage` of all
            the project images, aligning them if necessary.
 
@@ -442,8 +481,9 @@ class AnalysisContext:
             If True, the images are pre processed .
         nsigma : int, optional
             Clip bg below nsigma level
-        nsigma_connected : bool, optional
-            If True, keep only the brightest connected structure
+        keep_brightest_only : bool, optional
+            If True, keep only the brightest connected structure (renamed from
+            ``nsigma_connected`` in 1.0)
         """
         stack_builder = imgutils.StackedImageBuilder()
         stack_bg_builder = imgutils.StackedImageBuilder()
@@ -462,13 +502,13 @@ class AnalysisContext:
 
         if nsigma > 0:
             stack_img.data[stack_img.data < nsigma * stack_bg.data.std()] = 0
-            if nsigma_connected:
+            if keep_brightest_only:
                 segments = wds.SegmentedImages(stack_img)
                 segments.connected_structure()
                 stack_img.data = segments.sorted_list()[-1].get_segment_image()
         return stack_img
 
-    def get_stack_image(self, nsigma=0, nsigma_connected=False, preprocess=False):
+    def get_stack_image(self, nsigma=0, keep_brightest_only=False, preprocess=False):
         filename = self._resolve_optional_file("stack_image_filename")
         if filename is None:
             raise RuntimeError(
@@ -482,7 +522,7 @@ class AnalysisContext:
             self.pre_process(stack_image)
         if nsigma > 0:
             stack_image.data[stack_image.data < nsigma * bg.std()] = 0
-            if nsigma_connected:
+            if keep_brightest_only:
                 segments = wds.SegmentedImages(stack_image)
                 segments.connected_structure()
                 stack_image.data = segments.sorted_list()[-1].get_segment_image()

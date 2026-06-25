@@ -7,10 +7,13 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 Phase 2 of the wise 1.0 plan ("the clean break"), in progress. PR5
-introduced the project-root concept; PR7 builds on it with the
+introduced the project-root concept; PR7 built on it with the
 `wise plot` / `wise show` subcommand regrouping and the `.wiseproj/`
-result bundle layout. The remaining clean-break PRs (PR6 result-name
-matching + key renames, PR8 `wise upgrade-config`) depend on what
+result bundle layout. PR6 lands the breaking key/flag renames
+(`--keep_brightest_only`, `alpha_threshold`), lenient int-keyed dict
+config parsing, and the documented A2 fallback (the `wise match`
+load-and-rematch primary fix is deferred — see Known limitations). The
+remaining clean-break PR (PR8 `wise upgrade-config`) depends on what
 landed here.
 
 ### Added
@@ -57,7 +60,42 @@ landed here.
   last, so a bundle missing it is detectably incomplete. Saving onto an
   existing bundle raises a UsageError rather than overwriting.
 
+- **`wise.project.decode_scale_dict`** (C4, C5): a lenient decoder for
+  config dicts keyed by wavelet scale. Accepts both Python-literal form
+  (`{4: 4.0}`, int/float keys) and JSON form (`{"4": 4.0}`, string
+  keys), normalizing keys to `int` for pure integers and `float`
+  otherwise. Wired into `finder.scales_snr_filter` and
+  `matcher.min_scale_tolerance`, whose downstream lookup is by numeric
+  scale and so silently missed the JSON string keys users were forced
+  to write. The encoder stays `jp.encode` (portable string-keyed JSON);
+  only the decode path is lenient, and the encode→decode round-trip
+  yields an equal int-keyed dict.
+
+- **`libwise.nputils.OptionRenamedError`** + `BaseConfiguration`
+  `_RENAMED_OPTIONS` hook: a subclass populates `_RENAMED_OPTIONS =
+  {old_key: new_key}` so that accessing a renamed option raises
+  `OptionRenamedError` (carrying `.old_name` / `.new_name`) instead of
+  a bare `AssertionError`. Unknown (non-renamed) options still raise
+  `AssertionError`. libwise stays click-free; the wise layer catches
+  this and re-raises a `click.UsageError` with a migration hint.
+
 ### Changed (BREAKING)
+
+- **`--nsigma_connected` → `--keep_brightest_only`** (A4): the `wise
+  stack` flag is renamed; the misleading old name read as "keep all
+  connected blobs above σ" but meant "keep only the brightest blob".
+  The `-c` short option is preserved. Passing the old flag errors with
+  a clear rename message (a hidden migration callback, not click's
+  generic "no such option"). The Python API renames to match:
+  `AnalysisContext.build_stack_image` / `get_stack_image` and the
+  `set_stack_image_as_ref` / `set_mask_from_stack_img` / `view_stack`
+  task helpers now take `keep_brightest_only`.
+
+- **`alpha_threashold` → `alpha_threshold`** (C3): the misspelled
+  finder config key is fixed. Loading a `wise_config` that still uses
+  the old spelling raises a `click.UsageError` naming both keys and
+  pointing at `wise upgrade-config` (coming in PR8). No alias — clean
+  break.
 
 - **CLI surface regrouped** (F4): the chart/render/table commands moved
   under the `wise plot` and `wise show` groups (see Added). The old
@@ -74,6 +112,29 @@ landed here.
   UsageError pointing at `wise upgrade-config` (coming in PR8). To keep
   using old result directories in the meantime, install
   `wisetool==0.6.*`. The migration tool itself lands in PR8.
+
+### Changed
+
+- **`wise match` re-detect notice** (A2): `wise match` now prints a
+  notice on every invocation (suppressible with `--quiet`) that it
+  re-runs detection with the current `finder.*` settings before
+  matching, and that 1.0 `.wiseproj` bundles save feature centroids
+  only — so a saved detection cannot be re-matched in this release (see
+  Known limitations). The `wise detect` save prompt is reworded to
+  "Save detection for plotting only? (1.0 bundles cannot be
+  re-matched.)" and the `wise match` save prompt to "Save matched
+  result?", so the save dialog no longer implies a reusability that
+  does not exist.
+
+### Known limitations
+
+- **Saved detections cannot be re-matched** (A2): a `.wiseproj` bundle
+  persists feature centroids only, not the segment pixel data the
+  default correlation matcher needs. `wise match <name>` therefore
+  cannot load a saved detection and run only the matcher; it re-runs
+  detection from the input FITS with the current `finder.*` config.
+  The primary fix (extending the bundle to carry enough detection state
+  to re-match) is tracked for a future v1.x release.
 
 ### Removed (BREAKING)
 
@@ -106,6 +167,25 @@ landed here.
   gone. The `display_overrides=` kwarg on
   `BaseConfiguration.values()` is retained — F6 in PR10 will reuse it
   for the docs-site reference page.
+
+### Fixed
+
+- **Non-integer per-scale link files now load** (PR7 drive-by):
+  `MultiScaleFeaturesLinkBuilder.from_file` used a `[0-9]+` scale regex
+  that silently skipped per-scale link files at non-integer scales —
+  a real failure mode given PR4's wavelet-width formula produces floats
+  like 1.5 and 4.0. The pattern is now `[0-9.]+` with a properly
+  escaped suffix, so links at non-integer scales load.
+
+- **`list_saved_results` no longer crashes on call** (PR7 drive-by):
+  it referenced an undefined `stack_img` where `ref_img` was meant —
+  a `NameError` on every invocation. Fixed.
+
+- **Bundle config snapshot is found on load** (PR7 drive-by): a
+  `.conf` vs `.config` filename mismatch between the writer
+  (`tasks.save`) and the reader (`actions.load`) meant the saved config
+  snapshot could never be located. The bundle now uses a single
+  `config.wise_config` name for both.
 
 ## [0.6.0] — 2026-05-23
 

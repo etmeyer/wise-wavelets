@@ -2180,6 +2180,9 @@ def build_delta_information_scale2(segments, scale_match_result, average_tol_fac
 class MatcherConfiguration(nputils.BaseConfiguration):
 
     def __init__(self):
+        # Local import avoids a circular import: project imports matcher at
+        # module load, so matcher cannot import project at top level.
+        from .project import decode_scale_dict
         data = [
             ["use_upper_info", True, "Use Pyramidal scheme for matching", None, validator_is(bool), str2bool, str, 0],
             ["upper_info_average_tol_factor", 10, "Tolerance factor that define the number of features for average upper delta calculation",
@@ -2211,7 +2214,7 @@ class MatcherConfiguration(nputils.BaseConfiguration):
             ["no_input_no_match_scales", [], "List of scales at which no match is performed if no initial guess",
              None, validator_is(list), jp.decode, jp.encode, 1],
             ["min_scale_tolerance", {2: 4, 3: 4, 4: 6}, "Per scale tolerance in pixel", "pixels per scale",
-             validator_is(dict), jp.decode, jp.encode, 1],
+             validator_is(dict), decode_scale_dict, jp.encode, 1],
             ["find_distance_mode", "min", "Method used for distance measure", None, validator_is(str), str, str, 1],
             ["mscsc2_smooth", True, "Apply smooth on merged features before correlation",
                 None, validator_is(bool), str2bool, str, 1],

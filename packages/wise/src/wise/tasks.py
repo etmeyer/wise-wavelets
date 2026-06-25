@@ -89,7 +89,7 @@ def info_files(ctx):
         click.echo("Mean beam: Bmin: %.3f, Bmaj: %.3f, Angle:%.2f" % tuple(np.mean(data_beam, axis=0)))
 
 
-def set_stack_image_as_ref(ctx, nsigma=3, nsigma_connected=True):
+def set_stack_image_as_ref(ctx, nsigma=3, keep_brightest_only=True):
     '''Set the reference image from a stacked images
 
     Parameters
@@ -97,19 +97,20 @@ def set_stack_image_as_ref(ctx, nsigma=3, nsigma_connected=True):
     ctx : :class:`wise.project.AnalysisContext`
     nsigma : int, optional
         Clip data below nsigma time the background level.
-    nsigma_connected : bool, optional
-        Keep only the brightest isolated structure.
+    keep_brightest_only : bool, optional
+        Keep only the brightest isolated structure (renamed from
+        ``nsigma_connected`` in 1.0).
 
 
     .. _tags: task_conf_helper
     '''
     stack_img = ctx.build_stack_image(preprocess=False, nsigma=nsigma,
-                                      nsigma_connected=nsigma_connected)
+                                      keep_brightest_only=keep_brightest_only)
 
     ctx.set_ref_image(stack_img)
 
 
-def set_mask_from_stack_img(ctx, nsigma=3, nsigma_connected=True):
+def set_mask_from_stack_img(ctx, nsigma=3, keep_brightest_only=True):
     """Set the mask image from a stacked images
 
     Parameters
@@ -117,15 +118,16 @@ def set_mask_from_stack_img(ctx, nsigma=3, nsigma_connected=True):
     ctx : :class:`wise.project.AnalysisContext`
     nsigma : int, optional
         Clip data below nsigma time the background level.
-    nsigma_connected : bool, optional
-        Keep only the brightest isolated structure.
+    keep_brightest_only : bool, optional
+        Keep only the brightest isolated structure (renamed from
+        ``nsigma_connected`` in 1.0).
 
 
     .. _tags: task_conf_helper
     """
     def mask_fct(ctx):
         stack_img = ctx.build_stack_image(preprocess=False, nsigma=nsigma,
-                                          nsigma_connected=nsigma_connected)
+                                          keep_brightest_only=keep_brightest_only)
 
         return stack_img
 
@@ -633,7 +635,7 @@ def view_all(ctx, preprocess=True, show_mask=True, show_regions=[], save_filenam
         stack.show()
 
 
-def view_stack(ctx, preprocess=True, nsigma=0, nsigma_connected=False, show_mask=True, show_regions=[],
+def view_stack(ctx, preprocess=True, nsigma=0, keep_brightest_only=False, show_mask=True, show_regions=[],
                   intensity_colorbar=False, save_filename=None, **kwargs):
     '''Preview the stack image
 
@@ -644,8 +646,9 @@ def view_stack(ctx, preprocess=True, nsigma=0, nsigma_connected=False, show_mask
         If True, run the pre_process fct on each images
     nsigma : int, optional
         Clip bg below nsigma level
-    nsigma_connected : bool, optional
-        If True, keep only the brightest connected structure
+    keep_brightest_only : bool, optional
+        If True, keep only the brightest connected structure (renamed from
+        ``nsigma_connected`` in 1.0)
     show_mask : bool, optional
         If True, show the saved mask in the map
     show_regions : list of :class:`libwise.imgutils.Region`, optional
@@ -665,7 +668,7 @@ def view_stack(ctx, preprocess=True, nsigma=0, nsigma_connected=False, show_mask
     stack = plotutils.FigureStack()
 
     stack_img = ctx.build_stack_image(preprocess=preprocess, nsigma=nsigma,
-                                      nsigma_connected=nsigma_connected)
+                                      keep_brightest_only=keep_brightest_only)
 
     def do_plot(fig):
         ax = fig.subplots()
@@ -1558,7 +1561,7 @@ def _test_load_3c120_config():
     # finder configuration
     ctx.config.finder.min_scale = 1
     ctx.config.finder.max_scale = 4
-    ctx.config.finder.alpha_threashold = 3
+    ctx.config.finder.alpha_threshold = 3
     ctx.config.finder.exclude_noise = False
     ctx.config.finder.ms_dec_klass = wds.WaveletMultiscaleDecomposition
 

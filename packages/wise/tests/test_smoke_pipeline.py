@@ -90,7 +90,7 @@ def test_detect_then_match_completes(synthetic_fits_pair, tmp_path, monkeypatch)
     # Bump SNR thresholds well above the noise floor so only the
     # injected gaussians are detected — keeps the matcher's
     # combinatorial optimize() step bounded.
-    ctx.config.finder.alpha_threashold = 10
+    ctx.config.finder.alpha_threshold = 10
     ctx.config.finder.alpha_detection = 15
     ctx.config.data.bg_use_ksigma_method = True
     ctx.select_files(synthetic_fits_pair)

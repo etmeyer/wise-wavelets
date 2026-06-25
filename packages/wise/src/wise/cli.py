@@ -80,6 +80,7 @@ def cli(
     _setup_logging(verbose, quiet, debug)
     ctx.ensure_object(dict)
     ctx.obj["non_interactive"] = non_interactive
+    ctx.obj["quiet"] = quiet
 
 
 # ---------------------------------------------------------------------------
@@ -156,19 +157,27 @@ def project(ctx: click.Context) -> None:
     cwd has no .wise/ ancestor — the same error path as any other
     project-requiring command.
     """
-    root = wise.find_project_root()
-    if root is None:
-        raise wise.ProjectRootNotFound(
-            f"no project root found in {os.getcwd()}; run "
-            f"`wise init` to create one, or cd into a directory "
-            f"with a .wise/"
-        )
-    click.echo(root)
+    click.echo(wise.require_project_root())
 
 
 # ---------------------------------------------------------------------------
 # stack
 # ---------------------------------------------------------------------------
+
+def _renamed_nsigma_connected(ctx, param, value):
+    """Migration callback for the removed ``--nsigma_connected`` flag (A4).
+
+    Hidden option: when the old flag is passed, error with a clear rename
+    message instead of click's generic "no such option".
+    """
+    if value:
+        raise click.UsageError(
+            "--nsigma_connected was renamed to --keep_brightest_only in "
+            "wise 1.0. Update your scripts. If you have saved CLI configs "
+            "or shell aliases, run `wise upgrade-config`."
+        )
+    # value=False means the flag wasn't passed; nothing to do.
+
 
 @cli.command()
 @click.argument("files", nargs=-1, required=True)
@@ -176,15 +185,19 @@ def project(ctx: click.Context) -> None:
               help="Output file name.")
 @click.option("--nsigma", "-n", default=0.0, type=float, show_default=True,
               help="Clip background below NSIGMA level.")
-@click.option("--nsigma_connected", "-c", is_flag=True, default=False,
-              help="Keep only the brightest isolated structure.")
+@click.option("--nsigma_connected", is_flag=True, hidden=True,
+              callback=_renamed_nsigma_connected, expose_value=False)
+@click.option("--keep_brightest_only", "-c", is_flag=True, default=False,
+              help="Discard everything except the brightest connected blob "
+                   "(default behaviour is the union of all pixels above σ). "
+                   "Renamed in 1.0.")
 @click.pass_context
 def stack(
     ctx: click.Context,
     files: tuple[str, ...],
     output: str,
     nsigma: float,
-    nsigma_connected: bool,
+    keep_brightest_only: bool,
 ) -> None:
     """Stack images."""
     import logging as _logging
@@ -193,7 +206,7 @@ def stack(
     context = wise.AnalysisContext(config)
     actions.select_files(context, list(files))
     stack_img = context.build_stack_image(
-        preprocess=False, nsigma=nsigma, nsigma_connected=nsigma_connected
+        preprocess=False, nsigma=nsigma, keep_brightest_only=keep_brightest_only
     )
     stack_img.save(output)
     _logger.info("Stacked images saved to %s", output)
@@ -222,12 +235,7 @@ def settings(ctx: click.Context, args: tuple[str, ...]) -> None:
 
     non_interactive = ctx.obj.get("non_interactive", False)
 
-    if wise.find_project_root() is None:
-        raise wise.ProjectRootNotFound(
-            f"no project root found in {os.getcwd()}; run "
-            f"`wise init` to create one, or cd into a directory "
-            f"with a .wise/"
-        )
+    wise.require_project_root()
 
     config = actions.get_config(True)
     args = list(args)
@@ -503,7 +511,9 @@ def detect(
             raise click.UsageError(
                 "--save or --no-save is required in non-interactive mode"
             )
-        save = click.confirm("Save the result?")
+        save = click.confirm(
+            "Save detection for plotting only? (1.0 bundles cannot be re-matched.)"
+        )
 
     if save:
         if name is None:
@@ -544,6 +554,20 @@ def match(
 
     _logger = _logging.getLogger(__name__)
     non_interactive = ctx.obj.get("non_interactive", False)
+
+    # A2: `wise match` re-runs detection before matching. The .wiseproj bundle
+    # only persists feature centroids, so a saved detection cannot be re-matched
+    # in 1.0. Always inform the user (click.echo, not logger.info — suppressible
+    # via --quiet but on by default).
+    if not ctx.obj.get("quiet", False):
+        click.echo(
+            "Note: 'wise match' re-runs detection with the current finder.* "
+            "settings before matching. The .wiseproj bundle layout in this "
+            "release saves feature centroids only; re-matching a saved "
+            "detection isn't supported in 1.0 (planned for a future release). "
+            "If you want matching with different finder settings, change "
+            "finder.* in wise_config and re-run `wise match`."
+        )
 
     config = actions.get_config(True)
     context = wise.AnalysisContext(config)
@@ -590,7 +614,7 @@ def match(
             raise click.UsageError(
                 "--save or --no-save is required in non-interactive mode"
             )
-        save = click.confirm("Save the result?")
+        save = click.confirm("Save matched result?")
 
     if save:
         if name is None:
