@@ -1,6 +1,6 @@
 [project]
 name = "libwise"
-version = "0.6.0"
+version = "1.0.0"
 description = "Utilities for plotting, wavelet transforms, image processing, and Qt UI (modernization fork)"
 authors = [{ name = "Florent Mertens", email = "flomertens@gmail.com" }]
 maintainers = [{ name = "Eileen Meyer", email = "eileen.meyer@gmail.com" }]
