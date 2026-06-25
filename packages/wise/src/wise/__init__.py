@@ -15,7 +15,7 @@ from .scc import *
 from .wds import *
 from .wiseutils import *
 
-__version__ = '0.6.0'
+__version__ = '1.0.0'
 
 
 def get_version():

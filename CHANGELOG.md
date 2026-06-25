@@ -4,17 +4,36 @@ All notable changes to wise-wavelets are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] — 2026-06-25
 
-Phase 2 of the wise 1.0 plan ("the clean break"), in progress. PR5
-introduced the project-root concept; PR7 built on it with the
-`wise plot` / `wise show` subcommand regrouping and the `.wiseproj/`
-result bundle layout. PR6 lands the breaking key/flag renames
-(`--keep_brightest_only`, `alpha_threshold`), lenient int-keyed dict
-config parsing, and the documented A2 fallback (the `wise match`
-load-and-rematch primary fix is deferred — see Known limitations). PR8
-adds `wise upgrade-config`, the migration tool that moves 0.5/0.6
-projects onto the 1.0 layout — the last clean-break PR before v1.0.0.
+The clean-break release. wise 1.0 introduces a project-root concept
+(`wise init` and a `git`-style upward resolver, sole source of truth
+for "where is this project's data"), regroups the CLI into `wise plot`
+and `wise show` subcommand families, restructures saved results into
+self-describing `<name>.wiseproj/` bundles with a `manifest.json`, and
+takes the long-overdue breaking renames (`alpha_threashold` →
+`alpha_threshold`, `--nsigma_connected` → `--keep_brightest_only`).
+Loading or interpreting 0.5/0.6-shaped projects in 1.0 is no longer
+supported.
+
+**Migration path:** install 1.0, `cd` into your existing 0.5/0.6
+project, and run `wise upgrade-config --dry-run .` to preview, then
+`wise upgrade-config .` to apply. The migrator rewrites
+`wise_config`, converts old `<name>/<name>.set.dat` directories into
+`<name>.wiseproj/` bundles, creates the `.wise/` marker, and is
+idempotent.
+
+**Escape hatches for users who can't migrate yet:**
+`git checkout v0.6.0` (the immediate predecessor, same CLI surface
+as 0.5 but with the v0.6.0 polish) or `git clone --branch 0.5.x
+https://github.com/etmeyer/wise-wavelets` (the long-lived
+upstream-compatible maintenance branch).
+
+**Known limitation:** saved detections cannot be re-matched in 1.0
+— the bundle persists feature centroids only, not the segment pixel
+data the default matcher needs. `wise match` always re-runs
+detection. The primary fix (extending the bundle) is tracked for a
+future v1.x release.
 
 ### Added
 
@@ -108,8 +127,7 @@ projects onto the 1.0 layout — the last clean-break PR before v1.0.0.
 - **`alpha_threashold` → `alpha_threshold`** (C3): the misspelled
   finder config key is fixed. Loading a `wise_config` that still uses
   the old spelling raises a `click.UsageError` naming both keys and
-  pointing at `wise upgrade-config` (coming in PR8). No alias — clean
-  break.
+  pointing at `wise upgrade-config`. No alias — clean break.
 
 - **CLI surface regrouped** (F4): the chart/render/table commands moved
   under the `wise plot` and `wise show` groups (see Added). The old
@@ -123,9 +141,9 @@ projects onto the 1.0 layout — the last clean-break PR before v1.0.0.
   `<name>.wiseproj/` bundle layout; the 0.5/0.6
   `<name>/<name>.set.dat` layout is no longer read or written.
   Loading a name that still exists in the old layout raises a
-  UsageError pointing at `wise upgrade-config` (coming in PR8). To keep
-  using old result directories in the meantime, install
-  `wisetool==0.6.*`. The migration tool itself lands in PR8.
+  UsageError pointing at `wise upgrade-config`. To keep using old
+  result directories without migrating, check out the `v0.6.0` tag
+  or the `0.5.x` branch.
 
 ### Changed
 
@@ -170,10 +188,9 @@ projects onto the 1.0 layout — the last clean-break PR before v1.0.0.
   `AnalysisContext.get_data_dir()` no longer falls back to
   `os.getcwd()`; it raises `wise.ProjectRootNotFound` (a
   `click.UsageError` subclass) when no project root is found.
-  **Migration:** run `wise init` in the directory that previously held
-  your `wise_config`. The full upgrade path for 0.5/0.6 projects
-  (including key renames and result-directory migration) lands in PR8
-  as `wise upgrade-config`.
+  **Migration:** run `wise upgrade-config` (which creates `.wise/`
+  alongside the key/layout rewrites), or `wise init` if you only need
+  the marker.
 
 - **A2 interim `display_overrides` hook** on
   `wise settings show` / `doc` (`_data_dir_overrides` in `cli.py`).
