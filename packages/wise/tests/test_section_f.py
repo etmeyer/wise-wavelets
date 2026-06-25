@@ -471,3 +471,48 @@ def test_actions_load_reads_bundle(matched_ctx, tmp_path):
     loaded = actions.load("result1")
     assert loaded is not None
     assert loaded.result.get_scales() == ctx.result.get_scales()
+
+
+def test_upgraded_bundle_loads_end_to_end(matched_ctx, tmp_path):
+    """PR8 end-to-end: a real bundle 'downgraded' to 0.6.0 layout, then run
+    through ``wise upgrade-config``, loads back through the 1.0 loader with the
+    same scales/epochs. Proves the migration is byte-compatible (only file
+    names change, not contents) — and exercises the real ``.ms.dfc.dat`` link
+    suffix 0.6.0 actually wrote.
+    """
+    import shutil
+
+    from wise import upgrade
+
+    ctx, ref_path = matched_ctx
+    wise.tasks.save(ctx, "result1")
+    saved_scales = ctx.result.get_scales()
+    saved_epochs = ctx.result.image_set.get_epochs()
+
+    bundle = tmp_path / "result1.wiseproj"
+    manifest = json.loads((bundle / "manifest.json").read_text())
+
+    # Reconstruct a 0.6.0-style result directory from the 1.0 bundle.
+    old = tmp_path / "result1"
+    old.mkdir()
+    shutil.move(str(bundle / "detection.dat"), str(old / "result1.ms.dat"))
+    shutil.move(str(bundle / "image_set.dat"), str(old / "result1.set.dat"))
+    shutil.move(str(bundle / "config.wise_config"), str(old / "result1.conf"))
+    for link_file in manifest["files"]["links"]:
+        scale = link_file[len("links_"):-len(".dfc.dat")]
+        # 0.6.0 wrote the multiscale suffix .ms.dfc.dat
+        shutil.move(str(bundle / link_file),
+                    str(old / ("result1_%s.ms.dfc.dat" % scale)))
+    shutil.rmtree(str(bundle))
+
+    report = upgrade.upgrade_project(str(tmp_path))
+    assert report.results_migrated == 1
+    assert (tmp_path / "result1.wiseproj").is_dir()
+    assert not old.exists()
+
+    ctx2 = wise.AnalysisContext()
+    ctx2.config.data.ref_image_filename = ref_path
+    wise.tasks.load(ctx2, "result1")
+    assert ctx2.result.get_scales() == saved_scales
+    assert ctx2.result.image_set.get_epochs() == saved_epochs
+    assert ctx2.result.has_detection_result()

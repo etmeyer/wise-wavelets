@@ -14,6 +14,7 @@ from wise.cli import cli
 SUBCOMMANDS = [
     "init",
     "project",
+    "upgrade-config",
     "stack",
     "settings",
     "detect",
@@ -160,6 +161,31 @@ def test_non_interactive_no_files_is_clean_error():
     # Either exit 0 (no files found) or 2 (usage error from click) is fine;
     # the key requirement is no uncaught exception traceback.
     assert "Traceback" not in result.output
+
+
+# ---------------------------------------------------------------------------
+# PR8: upgrade-config
+# ---------------------------------------------------------------------------
+
+def test_upgrade_config_dry_run_smoke(tmp_path):
+    """wise upgrade-config DIR --dry-run on a 0.5-style fixture exits 0."""
+    (tmp_path / "wise_config").write_text(
+        "[Data configuration]\ndata_dir = /old\nfits_extension = 0\n\n"
+        "[Finder configuration]\nalpha_threashold = 3\n"
+    )
+    rdir = tmp_path / "result1"
+    rdir.mkdir()
+    for fn in ("result1.set.dat", "result1.ms.dat", "result1.conf",
+               "result1_4.dfc.dat"):
+        (rdir / fn).write_text("x")
+
+    runner = CliRunner()
+    result = runner.invoke(cli, ["upgrade-config", str(tmp_path), "--dry-run"])
+    assert result.exit_code == 0, result.output
+    assert "Dry run:" in result.output
+    # dry-run must not have written anything
+    assert not (tmp_path / "result1.wiseproj").exists()
+    assert not (tmp_path / ".wise").exists()
 
 
 # ---------------------------------------------------------------------------
