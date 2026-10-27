@@ -507,9 +507,6 @@ def detect(
 
     actions.select_files(context, list(files))
 
-    if len(context.files) == 0:
-        return
-
     wise.tasks.detection_all(context)
 
     str2vector = lambda s: [float(k) for k in re.findall("[-0-9.]+", s)]
@@ -611,9 +608,6 @@ def match(
     config = actions.get_config(True)
     context = wise.AnalysisContext(config)
     actions.select_files(context, list(files))
-
-    if len(context.files) == 0:
-        return
 
     wise.tasks.match_all(context)
 

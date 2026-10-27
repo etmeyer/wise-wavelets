@@ -2476,9 +2476,13 @@ def validator_list(length, instance=None):
 def format_table(data, header=None, min_col_size=10, max_col_size=None):
     ''' Return a table formatted version of data'''
 
-    dim = len(data[0])
+    if header:
+        dim = len(header)
+    elif data:
+        dim = len(data[0])
+    else:
+        return ""
     if header :
-        assert len(header) == dim
         data = [header] + [None] + data
     col_size = [min_col_size] * dim
     for i, line in enumerate(data) :
