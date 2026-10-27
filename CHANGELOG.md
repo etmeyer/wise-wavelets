@@ -61,6 +61,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   them by (1 + z), or (1 + z)^2 with `object_z` also set. The
   `object_z` text now names the cosmology (WMAP9).
 
+- **Docs install page**: it still gave the original Python 2
+  instructions (`conda install -c flomertens` or `pip install
+  wisetool`), which install the 0.4.7 release. It now gives this
+  repository's conda and pip instructions. The docs also read their
+  version from the `wise` package; they showed 0.1.
+
 ### Added
 
 - **Test workflow** (`.github/workflows/tests.yml`): runs the test

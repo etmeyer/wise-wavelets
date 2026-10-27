@@ -41,58 +41,39 @@ This software is based on a method introduced and described in:
 | Mertens, F., Lobanov, A.P. 2016, Astronomy & Astrophysics, 587, 52 `ADS <http://adsabs.harvard.edu/abs/2016A%26A...587A..52M>`_
 
 Installation
--------------
+------------
 
-The WISE package can be installed using the conda package management system. You
-can install conda easily by downloading the installer corresponding to your OS
-and for Python 2.7 at:
+These instructions install wise-wavelets, the maintained Python 3 port of
+WISE, from https://github.com/etmeyer/wise-wavelets. The ``wisetool`` package
+on PyPI and the ``flomertens`` conda channel still hold the original Python 2
+release (0.4.7).
 
-http://conda.pydata.org/miniconda.html
-
-and following the installation instruction at:
-
-http://conda.pydata.org/docs/install/quick.html
-
-Once done, you can install WISE in just one command line:
+Conda is the recommended route, since several of the dependencies install more
+reliably from conda-forge than from PyPI. The environment installs both
+packages (``libwise`` and ``wise``) in editable mode, with all their
+dependencies:
 
 ::
 
-    conda install -c flomertens -c conda-forge wise cython dask
+    git clone https://github.com/etmeyer/wise-wavelets
+    cd wise-wavelets
+    conda env create -f environment.yml
+    conda activate wise-wavelets
 
-It is also possible to install WISE using pip:
-
-::
-
-    pip install wisetool
-
-
-Alternative manual installation:
---------------------------------
-
-Latest version of WISE and libwise package can be download at:
-
-https://github.com/flomertens/libwise/releases/
-
-https://github.com/flomertens/wise/releases/
-
-Each package can be installed with the command line:
+A pure-pip install also works, with Python 3.11 or newer:
 
 ::
 
-    python setup.py install
+    git clone https://github.com/etmeyer/wise-wavelets
+    cd wise-wavelets
+    python -m venv .venv && source .venv/bin/activate
+    pip install -e packages/libwise
+    pip install -e packages/wise
+    pip install PyQt5   # needed for the GUI viewers
 
-Requirements:
-
-- numpy (>= 1.5)
-- scipy (>= 0.10)
-- skimage (>= 0.5)
-- astropy (>= 0.4)
-- matplotlib (>= 1.0)
-- pyqt (>= 4.8)
-- pandas
-- pyregion (https://pypi.python.org/pypi/pyregion)
-- uncertainties (https://pypi.python.org/pypi/uncertainties)
-- pymorph (https://pypi.python.org/pypi/pymorph)
+``wise --version`` prints the installed versions of both packages. The
+dependencies and their minimum versions are listed in ``environment.yml`` and
+in each package's ``pyproject.toml``.
 
 Using WISE
 ----------
