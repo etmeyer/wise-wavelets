@@ -36,6 +36,10 @@ class ProjectRootNotFound(click.UsageError):
     """Raised when no ``.wise/`` ancestor is found from the cwd."""
 
 
+class GridMismatchError(click.ClickException):
+    """Raised when the input images don't share one pixel grid."""
+
+
 def find_project_root(start: str | None = None) -> str | None:
     """Walk upward from ``start`` (default cwd) looking for ``.wise/``.
 
@@ -130,8 +134,8 @@ class DataConfiguration(nputils.BaseConfiguration):
         ["projection_unit", u.mas, "Angular unit for sky coordinates throughout the project (default mas — appropriate for VLBI). Set to arcsec for connected-element data (e.g. JVLA). bg_coords / roi_coords are interpreted in this unit.", None, validator_is(u.Unit), u.Unit, str, 0],
         ["projection_relative", True, "Use relative projection", None, validator_is(bool), str2bool, str, 0],
         ["projection_center", "pix_ref", "Method used to get the center", None, validator_is(str), str, str, 0],
-        ["object_distance", None, "Luminosity (or angular-diameter, in the relativistic regime) distance as an astropy.units.Quantity, e.g. 200 * u.Mpc. Takes precedence over object_z when both are set.", "astropy.units.Quantity (e.g. Mpc)", validator_is(u.Quantity), quantity_decode, str, 0],
-        ["object_z", 0, "Redshift of the target. Used with the standard cosmology to derive a luminosity distance when object_distance is unset. Required for proper-velocity reporting; object_distance takes precedence if both are set.", "redshift", validator_in_range(0, 5), float, str, 0],
+        ["object_distance", None, "Angular-diameter distance to the target as an astropy.units.Quantity, e.g. 134 * u.Mpc. Not the luminosity distance: proper velocities are angular velocity x this distance x (1 + object_z). Takes precedence over the distance derived from object_z when both are set.", "astropy.units.Quantity (e.g. Mpc)", validator_is(u.Quantity), quantity_decode, str, 0],
+        ["object_z", 0, "Redshift of the target. When object_distance is unset, the angular-diameter distance is derived from it with astropy's default cosmology (WMAP9, which libwise sets on import). Proper velocities include the (1 + z) factor. Proper-velocity reporting needs object_z or object_distance.", "redshift", validator_in_range(0, 5), float, str, 0],
         ]
 
         super().__init__(data, title="Data configuration")
@@ -471,6 +475,54 @@ class AnalysisContext:
             logger.info("Aligning: %s", img.get_epoch())
             core_offset.align_img(img, projection=self.get_projection(img))
 
+    def check_common_grid(self, include_ref=True):
+        """Raise :class:`GridMismatchError` unless the selected files share one
+        pixel grid (same shape and pixel scale). Detection, matching and
+        stacking work in pixels, so mixed grids give wrong positions and
+        velocities, or a numpy shape error.
+
+        Parameters
+        ----------
+        include_ref : bool, optional
+            Also check the reference image, if data.ref_image_filename points
+            to an existing file. Saved results use its projection.
+        """
+        def describe(img):
+            prj = self.get_projection(img)
+            return img.data.shape, np.abs(prj.pixel_scales()), prj.get_unit()
+
+        # Keep each image's grid, not its data.
+        grids = [(os.path.basename(file), describe(self.open_file(file))) for file in self.files]
+        if include_ref:
+            ref_file = self._resolve_optional_file("ref_image_filename")
+            if ref_file is not None:
+                grids.append(("%s (reference image)" % os.path.basename(ref_file),
+                              describe(self.get_ref_image(preprocess=False))))
+        if len(grids) < 2:
+            return
+
+        shape0, scales0, _ = grids[0][1]
+        groups = {}
+        mismatch = False
+        for name, (shape, scales, unit) in grids:
+            if shape != shape0 or not np.allclose(scales, scales0, rtol=1e-4):
+                mismatch = True
+            if np.isclose(scales[0], scales[1], rtol=1e-4):
+                scale_str = "%.4g" % scales[0]
+            else:
+                scale_str = "%.4g x %.4g" % tuple(scales)
+            key = "%sx%s px at %s %s/px" % (shape + (scale_str, unit))
+            groups.setdefault(key, []).append(name)
+        if not mismatch:
+            return
+        lines = ["  %s: %s" % (key, ", ".join(names)) for key, names in groups.items()]
+        raise GridMismatchError(
+            "The input images are not on one pixel grid:\n%s\n"
+            "wise measures positions and motions in pixels, so every image needs "
+            "the same shape and pixel scale. Regrid the images onto a common grid "
+            "first." % "\n".join(lines)
+        )
+
     def build_stack_image(self, preprocess=False, nsigma=0, keep_brightest_only=False):
         """Create a stacked image (:class:`libwise.imgutils.StackedImage` of all
            the project images, aligning them if necessary.
@@ -485,6 +537,9 @@ class AnalysisContext:
             If True, keep only the brightest connected structure (renamed from
             ``nsigma_connected`` in 1.0)
         """
+        # The stack often becomes the reference image, so don't check against
+        # an existing (possibly stale) one.
+        self.check_common_grid(include_ref=False)
         stack_builder = imgutils.StackedImageBuilder()
         stack_bg_builder = imgutils.StackedImageBuilder()
         for file in self.files:

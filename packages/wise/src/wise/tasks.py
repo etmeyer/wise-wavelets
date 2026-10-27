@@ -66,27 +66,27 @@ def info_files(ctx):
     data_beam = []
     data_table = []
     proj_unit = ctx.get_projection(ctx.open_file(ctx.files[0])).get_unit() if ctx.files else ""
-    header = ["File", "Date", "Shape", f"Pixel scale ({proj_unit})", f"Beam ({proj_unit})"]
+    header = ["File", "Date", "Shape", f"Pixel scale ({proj_unit})",
+              f"Beam: Bmaj x Bmin ({proj_unit}), PA (deg)"]
     for file in ctx.files:
         img = ctx.open_file(file)
         beam = img.get_beam()
         date = img.get_epoch(str_format='%Y-%m-%d')
         k = ctx.get_projection(img).mean_pixel_scale()
-        u = ctx.get_projection(img).get_unit()
         if isinstance(beam, imgutils.GaussianBeam):
-            b = [k * beam.bmin, k * beam.bmaj, beam.bpa]
-            # beam_str = "%.3f, %.3f, %.3f" % (b[0] * u, b[1] * u, b[2])
-            beam_str = f"{b[0] * u:.3f}, {b[1] * u:.3f}, {b[2]:.2f}"
-            data_beam.append([b[0], b[1], b[2]])
+            b = [k * beam.bmaj, k * beam.bmin, np.degrees(beam.bpa)]
+            beam_str = "%.3f x %.3f, %.1f" % tuple(b)
+            data_beam.append(b)
         else:
             beam_str = str(beam)
         shape_str = "%sx%s" % img.data.shape
-        data_table.append([os.path.basename(file), date, shape_str, f"{k * u:.3f}", beam_str])
+        data_table.append([os.path.basename(file), date, shape_str, "%.3f" % k, beam_str])
 
     click.echo(nputils.format_table(data_table, header))
     click.echo("Number of files: %s" % (len(ctx.files)))
     if len(data_beam) > 0:
-        click.echo("Mean beam: Bmin: %.3f, Bmaj: %.3f, Angle:%.2f" % tuple(np.mean(data_beam, axis=0)))
+        bmaj, bmin, bpa = np.mean(data_beam, axis=0)
+        click.echo("Mean beam: %.3f x %.3f %s, PA %.1f deg" % (bmaj, bmin, proj_unit, bpa))
 
 
 def set_stack_image_as_ref(ctx, nsigma=3, keep_brightest_only=True):
@@ -160,11 +160,11 @@ def info_files_delta(ctx, delta_time_unit=u.day, angular_velocity_unit=u.mas / u
         img1 = ctx.open_file(file1)
         img2 = ctx.open_file(file2)
         prj = ctx.get_projection(img1)
-        date1 = img1.get_epoch(str_format='%Y-%m-%d')
-        date2 = img2.get_epoch(str_format='%Y-%m-%d')
-        if not isinstance(date1, datetime.date):
+        if not isinstance(img1.get_epoch(), datetime.date):
             logger.warning("Images have no date information")
             return
+        date1 = img1.get_epoch(str_format='%Y-%m-%d')
+        date2 = img2.get_epoch(str_format='%Y-%m-%d')
         delta_t = ((img2.get_epoch() - img1.get_epoch()).total_seconds() * u.second).to(delta_time_unit)
         all_delta_time.append(delta_t)
 
@@ -175,10 +175,9 @@ def info_files_delta(ctx, delta_time_unit=u.day, angular_velocity_unit=u.mas / u
             velocity_c_px = prj.proper_velocity([0, 0], [0, 1], delta_t).to(proper_velocity_unit)
             all_velocity_c_px.append(velocity_c_px)
 
-        if has_distance:
-            data.append([date1, date2, delta_t.value, velocity_px.value, velocity_c_px.value])
-        else:
-            data.append([date1, date2, delta_t.value, velocity_px.value, '-'])
+        row = [date1, date2, "%.1f" % delta_t.value, "%.4g" % velocity_px.value]
+        row.append("%.3g" % velocity_c_px.value if has_distance else '-')
+        data.append(row)
 
         # print "{0} -> {1}: Delta time: {2}, Velocity resolution: {3:.3f}, {4:.3f}".format(*data)
 
@@ -187,18 +186,28 @@ def info_files_delta(ctx, delta_time_unit=u.day, angular_velocity_unit=u.mas / u
 
     click.echo(nputils.format_table(data, header))
 
-    click.echo("Mean Delta time: %s +- %s" % (np.mean(all_delta_time), np.std(all_delta_time)))
-    click.echo("Mean Velocity resolution: %s +- %s" % (np.mean(all_velocity_px), np.std(all_velocity_px)))
+    def mean_std(values, fmt):
+        mean, std = np.mean(values), np.std(values)
+        return (fmt + " +- " + fmt + " %s") % (mean.value, std.value, mean.unit)
+
+    click.echo("Mean Delta time: %s" % mean_std(all_delta_time, "%.1f"))
+    click.echo("Mean Velocity resolution: %s" % mean_std(all_velocity_px, "%.4g"))
     if has_distance:
         all_velocity_c_px = nputils.quantities_to_array(all_velocity_c_px)
-        click.echo("Mean Velocity resolution: %s +- %s" % (np.mean(all_velocity_c_px), np.std(all_velocity_c_px)))
+        click.echo("Mean Velocity resolution: %s" % mean_std(all_velocity_c_px, "%.3g"))
 
 
 def detection_preview(ctx, file, alpha_lower=1.5):
     """Run wavelet decomposition on a single file and return per-scale peak stats.
 
-    Returns a list of dicts with keys: scale (1-based index), width (px),
-    noise (σ per scale), n_above (peaks above alpha_detection * noise),
+    The image is prepared as for detection: background estimate, then core
+    alignment and the ROI crop, and peaks outside the mask are not counted.
+    The mask and core offsets are project files, so they apply only inside a
+    project.
+
+    Returns a list of dicts with keys: scale (1-based index), level (wavelet
+    decomposition level, as in finder.min_scale/max_scale), wavelet, width
+    (px), noise (σ per scale), n_above (peaks above alpha_detection * noise),
     n_between (peaks above alpha_lower * noise but not above alpha_detection).
     Callable from notebooks without side effects.
 
@@ -213,12 +222,21 @@ def detection_preview(ctx, file, alpha_lower=1.5):
     from libwise import imgutils
 
     img = ctx.open_file(file)
+    ctx.pre_bg_process(img)
     bg = ctx.get_bg(img)
+    in_project = project.find_project_root() is not None
+    if in_project:
+        ctx.align(img)
+    ctx.pre_process(img)
+    mask_filter = wfeatures.MaskFilter(ctx.get_mask() if in_project else None)
 
     finder_config = ctx.config.finder
     alpha_detection = finder_config.get("alpha_detection")
     use_iwd = finder_config.get("use_iwd")
     exclude_border_dist = finder_config.get("exclude_border_dist")
+    min_scale = finder_config.get("min_scale")
+    wd_wavelet = finder_config.get("wd_wavelet")
+    iwd_wavelet = finder_config.get("iwd_wavelet")
 
     if use_iwd:
         ms_dec_klass = wds.InterscalesWaveletMultiscaleDecomposition
@@ -235,19 +253,27 @@ def detection_preview(ctx, file, alpha_lower=1.5):
         threshold_lower = alpha_lower * scale_noise
 
         group_above = wfeatures.FeaturesGroup.from_img_peaks(
-            scale_img, min(width, 8), threshold_current,
+            scale_img, min(width, 8), threshold_current, feature_filter=mask_filter,
             exclude_border_dist=exclude_border_dist,
         )
         group_lower = wfeatures.FeaturesGroup.from_img_peaks(
-            scale_img, min(width, 8), threshold_lower,
+            scale_img, min(width, 8), threshold_lower, feature_filter=mask_filter,
             exclude_border_dist=exclude_border_dist,
         )
 
         n_above = group_above.size()
         n_between = max(0, group_lower.size() - n_above)
 
+        # With use_iwd, the two wavelets' scales are interleaved level by level.
+        if use_iwd:
+            level, wavelet = min_scale + idx // 2, (wd_wavelet, iwd_wavelet)[idx % 2]
+        else:
+            level, wavelet = min_scale + idx, wd_wavelet
+
         stats.append({
             "scale": idx + 1,
+            "level": level,
+            "wavelet": wavelet,
             "width": width,
             "noise": scale_noise,
             "n_above": n_above,
@@ -268,6 +294,7 @@ def detection_all(ctx, filter=None):
 
     .. _tags: task_detection
     '''
+    ctx.check_common_grid()
     ctx.result = project.AnalysisResult(ctx.config)
     for file in ctx.files:
         img = ctx.open_file(file)
@@ -286,6 +313,7 @@ def match_all(ctx, filter=None):
 
     .. _tags: task_detection
     '''
+    ctx.check_common_grid()
     ctx.result = project.AnalysisResult(ctx.config)
     prev_result = None
     prev_img = None
@@ -316,6 +344,7 @@ def match_all(ctx, filter=None):
 
 
 def bootstrap_matching(ctx, n=100, filter=None, cb_post_match=None):
+    ctx.check_common_grid()
     all_res = dict()
     all_epochs = []
     all_imgs = dict()

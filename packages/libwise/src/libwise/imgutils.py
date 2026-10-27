@@ -250,12 +250,31 @@ _DATE_OBS_FORMATS = [
     "%d/%m/%y",
 ]
 
+# Some archives append a parenthesised counter to DATE-OBS, e.g. astrogeo's
+# '2015-09-28(2)' (issue #12). It is not part of the date.
+_DATE_OBS_COUNTER_SUFFIX = re.compile(r"\s*\(\d+\)$")
+
+
+def parse_date_obs(value):
+    '''Parse a FITS DATE-OBS value. Return a datetime, or None if the value
+    is not a string or matches none of the supported formats.'''
+    if not isinstance(value, str):
+        return None
+    value = _DATE_OBS_COUNTER_SUFFIX.sub("", value.strip())
+    return nputils.guess_date(value, _DATE_OBS_FORMATS)
+
 
 def get_fits_epoch_fast(file):
+    '''Return the DATE-OBS epoch of a FITS file, or None if it is missing or
+    can't be parsed.'''
     header = FastHeaderReader(file)
-    date = nputils.guess_date(header.get_value("DATE-OBS"), _DATE_OBS_FORMATS)
-
-    return date
+    if header.has_key("DATE-OBS"):
+        return parse_date_obs(header.get_value("DATE-OBS"))
+    # The fast reader only scans the first 100 cards.
+    try:
+        return parse_date_obs(pyfits.getval(file, "DATE-OBS"))
+    except (KeyError, OSError):
+        return None
 
 
 def fast_sorted_fits(files, key="DATE-OBS", start_date=None, end_date=None, filter_dates=None,
@@ -269,7 +288,7 @@ def fast_sorted_fits(files, key="DATE-OBS", start_date=None, end_date=None, filt
             date = get_fits_epoch_fast(file)
             if date is None:
                 warnings.warn(
-                    "Skipping %s: DATE-OBS could not be parsed" % file,
+                    "Skipping %s: DATE-OBS is missing or could not be parsed" % file,
                     stacklevel=2,
                 )
                 continue
@@ -1072,8 +1091,8 @@ class Image:
         return ""
 
     def get_epoch(self, str_format=None):
-        if str_format and isinstance(self.epoch, datetime.time):
-            return self.epoch.strftime('%Y-%m-%d')
+        if str_format and isinstance(self.epoch, datetime.date):
+            return self.epoch.strftime(str_format)
         return self.epoch
 
     def get_region(self, center, shape, projection=None):
@@ -1242,7 +1261,7 @@ class FitsImage(Image):
         # order, so freq/Stokes axes don't pollute pixel-scale lookups.
         self.wcs = pywcs.WCS(self.header, fobj=fits).celestial
         if "DATE-OBS" in self.zero_header:
-            epoch = nputils.guess_date(self.zero_header["DATE-OBS"], _DATE_OBS_FORMATS)
+            epoch = parse_date_obs(self.zero_header["DATE-OBS"])
         else:
             epoch = None
 

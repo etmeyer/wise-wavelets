@@ -8,6 +8,7 @@ import sys
 import warnings
 
 import click
+from astropy.io.fits.verify import VerifyWarning
 from astropy.wcs import FITSFixedWarning
 
 import wise
@@ -16,18 +17,23 @@ from wise.actions import actions
 
 def _finder_widths_footer(config) -> str:
     """Return the 'Resulting widths' line for the finder settings section."""
+    from libwise import nputils as _nputils
+
     from wise import wds as _wds
     min_scale = config.finder.get("min_scale")
     max_scale = config.finder.get("max_scale")
     wavelet = config.finder.get("wd_wavelet")
     use_iwd = config.finder.get("use_iwd")
     widths = _wds.compute_scales_widths(min_scale, max_scale, wavelet)
-    widths_disp = [int(w) if w == int(w) else w for w in widths]
     if use_iwd:
         iwd_wavelet = config.finder.get("iwd_wavelet")
+        # Interleaved level by level, as in InterscalesWaveletMultiscaleDecomposition.
+        widths = list(_nputils.roundrobin(
+            widths, _wds.compute_scales_widths(min_scale, max_scale, iwd_wavelet)))
         wavelet_desc = "wavelet=%s+%s, use_iwd=True" % (wavelet, iwd_wavelet)
     else:
         wavelet_desc = "wavelet=%s, use_iwd=False" % wavelet
+    widths_disp = [int(w) if w == int(w) else w for w in widths]
     return "Resulting widths: %s px  (%s)" % (widths_disp, wavelet_desc)
 
 
@@ -53,6 +59,9 @@ def _setup_logging(verbose: bool, quiet: bool, debug: bool) -> None:
     logging.captureWarnings(True)
     # E5: silence astropy's per-file FITS-spec drift warning
     warnings.filterwarnings("ignore", category=FITSFixedWarning)
+    # Same for non-standard header cards that astropy fixes on read (astrogeo's
+    # RA/DEC/PROJECT/URL): about ten lines per file, nothing the user can act on.
+    warnings.filterwarnings("ignore", category=VerifyWarning)
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
@@ -486,7 +495,7 @@ def detect(
         )
         stats = wise.tasks.detection_preview(context, file)
         header = [
-            "Scale (level)",
+            "Level (wavelet)",
             "Width (px)",
             "σ_noise",
             "Above α=%s (current)" % alpha_detection,
@@ -494,7 +503,8 @@ def detect(
         ]
         from libwise import nputils as _nputils
         rows = [
-            [s["scale"], s["width"], "%.4g" % s["noise"], s["n_above"], s["n_between"]]
+            ["%s (%s)" % (s["level"], s["wavelet"]), s["width"], "%.4g" % s["noise"],
+             s["n_above"], s["n_between"]]
             for s in stats
         ]
         click.echo(_nputils.format_table(rows, header))
@@ -506,9 +516,6 @@ def detect(
         return
 
     actions.select_files(context, list(files))
-
-    if len(context.files) == 0:
-        return
 
     wise.tasks.detection_all(context)
 
@@ -611,9 +618,6 @@ def match(
     config = actions.get_config(True)
     context = wise.AnalysisContext(config)
     actions.select_files(context, list(files))
-
-    if len(context.files) == 0:
-        return
 
     wise.tasks.match_all(context)
 

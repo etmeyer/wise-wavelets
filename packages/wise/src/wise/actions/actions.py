@@ -47,11 +47,24 @@ def get_config(create_if_none=False):
 
 
 def select_files(ctx, args):
+    """Select the input images: image paths, or a text file listing one path
+    per line (as written by `wise select_files`). Raise a UsageError if a path
+    doesn't exist or if no file survives selection."""
+    if not os.path.isfile(args[0]):
+        raise click.UsageError("File not found: %s" % args[0])
     if imgutils.is_fits(args[0]) or imgutils.is_img(args[0]):
-        ctx.select_files(args)
+        files = list(args)
     else:
         with open(args[0]) as file:
-            ctx.select_files([k.strip() for k in file.readlines()])
+            files = [k.strip() for k in file.readlines() if k.strip()]
+    missing = [f for f in files if not os.path.isfile(f)]
+    if missing:
+        raise click.UsageError("File not found: %s" % ", ".join(missing))
+    ctx.select_files(files)
+    if not ctx.files:
+        raise click.UsageError(
+            "No usable input files (%d skipped; see the warnings above)." % len(files)
+        )
 
 
 def load(name):

@@ -4,6 +4,69 @@ All notable changes to wise-wavelets are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **DATE-OBS with a trailing counter is parsed** (#12): astrogeo maps
+  carry values like `'2015-09-28(2)'`, and those epochs were dropped
+  with a "could not be parsed" warning. Both date readers now strip a
+  trailing `(N)`. A missing DATE-OBS no longer raises a bare
+  `Exception` from the fast header reader (the file is skipped with
+  the usual warning), and a DATE-OBS past the reader's 100-card window
+  is found through astropy.
+
+- **Clear errors for unusable input** (#12): commands that take FILES
+  now stop with a usage error when a path doesn't exist (an unmatched
+  shell glob used to end in a `FileNotFoundError` traceback) or when no
+  file survives selection (`wise show info` used to crash with an
+  `IndexError`, and `wise detect` / `wise match` returned silently).
+  File lists given as a text file may contain blank lines.
+
+- **Images on different pixel grids are refused**: `wise detect`,
+  `wise match`, `wise stack` and `bootstrap_matching` stop with an
+  error listing each grid and its files, instead of running silently,
+  crashing on a numpy broadcast error, or stacking mismatched pixels.
+  The reference image is checked too, except when building a stack.
+  The matcher measures displacements in pixels, so mixed grids gave
+  wrong positions and velocities. New:
+  `AnalysisContext.check_common_grid()` and `GridMismatchError`.
+
+- **`wise show info` beam and date columns**: the beam is printed as
+  `Bmaj x Bmin, PA` with the PA in degrees (it was `Bmin, Bmaj` with
+  the PA in radians), the unit appears only in the header, and dates
+  no longer carry `00:00:00`. `Image.get_epoch(str_format)` now
+  formats dates and datetimes with the format it is given. The
+  `--velocity` table prints rounded values.
+
+- **astropy `VerifyWarning` is silenced in the CLI**, next to the
+  existing `FITSFixedWarning` filter. astrogeo's non-standard
+  RA/DEC/PROJECT/URL cards produced about ten lines of warnings per
+  file.
+
+- **Finder widths footer with `use_iwd`**: `wise settings show finder`
+  now lists the intermediate scales too (e.g. `[8, 12, 16, 24, 32,
+  48] px` for min_scale=3, max_scale=6, where it showed
+  `[8, 16, 32]`).
+
+- **`wise detect --dry-run` previews what detection sees**: the image
+  gets the core alignment and ROI crop, peaks outside the mask are not
+  counted, and the first column shows the wavelet level and family
+  (e.g. `3 (b1)`, `3 (b3)`) instead of a 1-based index labelled as the
+  level. `detection_preview()` adds `level` and `wavelet` keys.
+
+- **`data.object_distance` help text**: it is an angular-diameter
+  distance, not a luminosity distance. Speeds are angular speed x
+  distance x (1 + `object_z`), so following the old text overstated
+  them by (1 + z), or (1 + z)^2 with `object_z` also set. The
+  `object_z` text now names the cosmology (WMAP9).
+
+### Added
+
+- **Test workflow** (`.github/workflows/tests.yml`): runs the test
+  suite on pushes to `main` and on pull requests, in the conda
+  environment from `environment.yml`.
+
 ## [1.0.0] — 2026-06-25
 
 The clean-break release. wise 1.0 introduces a project-root concept

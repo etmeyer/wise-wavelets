@@ -454,6 +454,68 @@ def test_get_fits_epoch_fast_parses_iso_with_subseconds(tmp_path):
     assert epoch == datetime.datetime(2019, 3, 15, 12, 34, 56, 700000)
 
 
+def test_get_fits_epoch_fast_strips_counter_suffix(tmp_path):
+    # Regression for issue #12: astrogeo maps carry DATE-OBS = '2015-09-28(2)'.
+    path = _write_minimal_fits(tmp_path / "astrogeo.fits", '2015-09-28(2)')
+
+    assert imgutils.get_fits_epoch_fast(path) == datetime.datetime(2015, 9, 28)
+
+
+def test_fast_sorted_fits_keeps_counter_suffixed_dates(tmp_path):
+    suffixed = _write_minimal_fits(tmp_path / "suffixed.fits", '2015-09-28(2)')
+    plain = _write_minimal_fits(tmp_path / "plain.fits", '2014-01-04')
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        out = imgutils.fast_sorted_fits([suffixed, plain])
+
+    assert list(out) == [plain, suffixed]
+    assert not any('DATE-OBS' in str(w.message) for w in caught)
+
+
+def test_fits_image_epoch_strips_counter_suffix(tmp_path):
+    path = _write_fits(
+        tmp_path,
+        np.zeros((8, 8)),
+        axis_types=['RA---SIN', 'DEC--SIN'],
+        axis_units=['deg', 'deg'],
+        crval=[196.25, -21.11],
+        cdelt=[-2.8e-8, 2.8e-8],
+        crpix=[5.0, 5.0],
+        extra_header={'DATE-OBS': '2015-09-28(2)'},
+    )
+
+    assert imgutils.FitsImage(path).get_epoch() == datetime.datetime(2015, 9, 28)
+
+
+def test_fast_sorted_fits_skips_missing_date_obs(tmp_path):
+    # A FITS file without DATE-OBS used to raise a bare Exception from
+    # FastHeaderReader; it is now skipped with the usual warning.
+    good = _write_minimal_fits(tmp_path / "good.fits", '2018-01-25')
+    nodate = str(tmp_path / "nodate.fits")
+    pyfits.PrimaryHDU(data=np.zeros((4, 4), dtype=np.float32)).writeto(nodate)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        out = imgutils.fast_sorted_fits([good, nodate])
+
+    assert list(out) == [good]
+    assert any('DATE-OBS' in str(w.message) and 'nodate.fits' in str(w.message)
+               for w in caught)
+
+
+def test_get_fits_epoch_fast_reads_date_obs_past_card_100(tmp_path):
+    # FastHeaderReader stops after 100 cards; long headers fall back to astropy.
+    hdu = pyfits.PrimaryHDU(data=np.zeros((4, 4), dtype=np.float32))
+    for i in range(120):
+        hdu.header['KEY%03d' % i] = i
+    hdu.header['DATE-OBS'] = '2016-05-24'
+    path = str(tmp_path / "long_header.fits")
+    hdu.writeto(path)
+
+    assert imgutils.get_fits_epoch_fast(path) == datetime.datetime(2016, 5, 24)
+
+
 def test_get_ensemble_index():
     img1 = imgutils.ImageRegion(np.zeros([20, 20]), (2, 5, 3, 6))
     img2 = imgutils.ImageRegion(np.zeros([20, 20]), (3, 10, 1, 5))
