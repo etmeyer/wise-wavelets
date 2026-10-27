@@ -516,6 +516,69 @@ def test_get_fits_epoch_fast_reads_date_obs_past_card_100(tmp_path):
     assert imgutils.get_fits_epoch_fast(path) == datetime.datetime(2016, 5, 24)
 
 
+def _gaussian_image(shape, x0, y0, sigma=2.0):
+    yy, xx = np.mgrid[0:shape[0], 0:shape[1]]
+    return np.exp(-((xx - x0) ** 2 + (yy - y0) ** 2) / (2 * sigma ** 2))
+
+
+def _centroid(data):
+    yy, xx = np.mgrid[0:data.shape[0], 0:data.shape[1]]
+    return np.array([(xx * data).sum(), (yy * data).sum()]) / data.sum()
+
+
+def test_image_shift_rounds_to_whole_pixels_by_default():
+    img = imgutils.Image(_gaussian_image((64, 64), 20.0, 30.0))
+    img.shift(np.array([0.3, -1.7]))
+
+    assert np.allclose(_centroid(img.data), [20.0, 28.0], atol=1e-6)
+
+
+def test_image_shift_subpixel_moves_by_the_exact_amount():
+    img = imgutils.Image(_gaussian_image((64, 64), 20.0, 30.0))
+    img.shift(np.array([0.3, -1.7]), subpixel=True)
+
+    assert np.allclose(_centroid(img.data), [20.3, 28.3], atol=0.005)
+
+
+def test_image_shift_subpixel_keeps_nans_local():
+    # The spline prefilter runs along whole rows: one NaN must not spread.
+    data = _gaussian_image((64, 64), 32.0, 32.0)
+    data[:3, :3] = np.nan
+    img = imgutils.Image(data)
+    img.shift(np.array([0.5, 0.5]), subpixel=True)
+
+    assert 0 < np.isnan(img.data).sum() <= 16
+    assert np.isfinite(img.data[8:, 8:]).all()
+    assert np.allclose(_centroid(np.nan_to_num(img.data)), [32.5, 32.5], atol=0.005)
+
+
+def _write_sky_fits(tmp_path):
+    return _write_fits(tmp_path, np.zeros((8, 8)), axis_types=['RA---SIN', 'DEC--SIN'],
+                       axis_units=['deg', 'deg'], crval=[196.25, -21.11],
+                       cdelt=[-2.8e-8, 2.8e-8], crpix=[5.0, 5.0])
+
+
+def test_fits_image_reads_aips_clean_components(tmp_path):
+    path = _write_sky_fits(tmp_path)
+    flux, dx, dy = [0.5, 0.25], [1e-7, -2e-7], [0.0, 3e-7]
+    columns = [pyfits.Column(name="FLUX", format="E", unit="JY", array=flux),
+               pyfits.Column(name="DELTAX", format="E", unit="DEGREES", array=dx),
+               pyfits.Column(name="DELTAY", format="E", unit="DEGREES", array=dy)]
+    with pyfits.open(path, mode="append") as hdul:
+        hdul.append(pyfits.BinTableHDU.from_columns(columns, name="AIPS CC"))
+
+    cc = imgutils.FitsImage(path).get_clean_components()
+
+    # Tables without the Gaussian-component columns get zeros there.
+    assert cc.shape == (2, 6)
+    assert np.allclose(cc[:, :3], np.array([flux, dx, dy]).T, rtol=1e-6)
+    assert not cc[:, 3:].any()
+
+
+def test_fits_image_without_clean_components(tmp_path):
+    assert imgutils.FitsImage(_write_sky_fits(tmp_path)).get_clean_components() is None
+
+
 def test_get_ensemble_index():
     img1 = imgutils.ImageRegion(np.zeros([20, 20]), (2, 5, 3, 6))
     img2 = imgutils.ImageRegion(np.zeros([20, 20]), (3, 10, 1, 5))

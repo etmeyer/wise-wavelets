@@ -126,6 +126,7 @@ class DataConfiguration(nputils.BaseConfiguration):
             validator_list(4, (int, float)), str2floatlist, jp.encode, 0],
         ["core_offset_filename", "core.dat", "Core offset filename", None, validator_is(str), str, str, 0],
         ["core_offset_fct", None, "Core offset generation fct", None, is_callable, None, None, 2],
+        ["align_subpixel", True, "Align images on the core offset file by the exact offset, interpolating with a cubic spline. False rounds each shift to whole pixels, as wise 1.0 did.", None, validator_is(bool), str2bool, str, 0],
         ["pre_bg_process_fct", None, "Initial processing before bg extraction", None, is_callable, None, None, 2],
         ["pre_process_fct", None, "Pre detection processing", None, is_callable, None, None, 2],
         ["post_process_fct", None, "Post detection processing", None, is_callable, None, None, 2],
@@ -465,15 +466,25 @@ class AnalysisContext:
     def align(self, img):
         """Align image using core position defined in self.config.data.core_offset_filename.
 
+        Maps that ``wise prep`` centered on their core (PREP_CEN = T in the
+        header) are left as they are.
+
         Parameters
         ----------
         img : :class:`libwise.imgutils.Image`
             The image to align.
         """
         core_offset = self.get_core_offset()
-        if core_offset is not None:
-            logger.info("Aligning: %s", img.get_epoch())
-            core_offset.align_img(img, projection=self.get_projection(img))
+        if core_offset is None:
+            return
+        header = getattr(img, "header", None)
+        if header is not None and header.get("PREP_CEN", False):
+            logger.warning("%s: wise prep centered this map on its core, so the core offset file "
+                           "is not applied to it.", img)
+            return
+        logger.info("Aligning: %s", img.get_epoch())
+        core_offset.align_img(img, projection=self.get_projection(img),
+                              subpixel=self.config.data.align_subpixel)
 
     def check_common_grid(self, include_ref=True):
         """Raise :class:`GridMismatchError` unless the selected files share one

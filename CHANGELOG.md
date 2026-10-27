@@ -4,6 +4,69 @@ All notable changes to wise-wavelets are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+Two commands for maps that weren't made with wise in mind, from the
+J1304-2106 astrogeo X-band analysis: `wise core` measures core
+positions and writes the core offset file, and `wise prep` puts maps
+from different arrays or pipelines on one pixel grid with the core on
+the reference pixel. Alignment on a core offset file is now sub-pixel
+by default, which moves results on existing projects slightly (see
+Changed).
+
+### Added
+
+- **`wise core FILES`** fits each map's core with a Gaussian of the
+  restoring-beam shape (free in peak and position) and writes the core
+  offset file (`data.core_offset_filename`), in
+  `data.projection_unit`. It prints each core's position, formal
+  error and SNR, with a free-shape fit as a check for a resolved or
+  blended core. `--search-radius` and `--near` pick the component when
+  the core isn't the brightest pixel near the reference pixel;
+  `--dry-run` only prints, and an existing file is replaced only with
+  `--overwrite`.
+
+- **`wise prep FILES -o DIR`** resamples each map onto one grid (by
+  default the finest input pixel over the smallest input field), with
+  its core on the reference pixel, so that maps from different grids
+  can go through `detect`, `match` and `stack`. Maps with an AIPS CC
+  table are restored from their clean components on the new grid and
+  only the residual is interpolated; maps without one are
+  interpolated. `--beam native|common|BMAJ,BMIN,PA` keeps each map's
+  beam, uses the smallest beam that contains them all, or uses the
+  given one. Headers record the input file and offset (`ORIGFILE`,
+  `PREP_DX`, `PREP_DY`, `PREP_CEN`, `HISTORY`), and `prep_log.txt`
+  in `DIR` lists what was done. `--no-center` only regrids. Maps that
+  `wise prep` centered are not aligned on a core offset file, so one
+  measured on the input maps can't shift them a second time. The
+  formats are in *Data file formats* in the docs.
+
+- **`data.align_subpixel`** (default `true`): align images on the
+  core offset file by the exact offset, interpolating with a cubic
+  spline.
+
+- Python API: the `wise.prep` module (`Beam`, `common_beam`,
+  `fit_core`, `prepare_map`, `prepare_files`, …),
+  `FitsImage.get_clean_components()`, and a `subpixel` argument to
+  `Image.shift` and `CoreOffsetPositions.align_img`.
+
+### Changed
+
+- **Core-offset alignment is sub-pixel by default.** wise 1.0 rounded
+  each shift to whole pixels, so on an existing project each epoch
+  moves by up to half a pixel along each axis, and fitted velocities
+  change accordingly. Set `data.align_subpixel = false` to reproduce
+  1.0.
+
+### Fixed
+
+- **Core offset rows match images by day**: an image whose DATE-OBS
+  has a time of day was left unaligned, with a "No core position"
+  warning, because rows are stored by date only.
+
+- **A core offset file with a single row loads**; it raised a
+  `ValueError`.
+
 ## [1.0.1] — 2026-10-27
 
 A bug-fix release, for problems found while running wise on the
