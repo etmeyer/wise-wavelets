@@ -36,6 +36,10 @@ class ProjectRootNotFound(click.UsageError):
     """Raised when no ``.wise/`` ancestor is found from the cwd."""
 
 
+class GridMismatchError(click.ClickException):
+    """Raised when the input images don't share one pixel grid."""
+
+
 def find_project_root(start: str | None = None) -> str | None:
     """Walk upward from ``start`` (default cwd) looking for ``.wise/``.
 
@@ -471,6 +475,57 @@ class AnalysisContext:
             logger.info("Aligning: %s", img.get_epoch())
             core_offset.align_img(img, projection=self.get_projection(img))
 
+    def check_common_grid(self, include_ref=True):
+        """Raise :class:`GridMismatchError` unless the selected files share one
+        pixel grid (same shape and pixel scale). Detection, matching and
+        stacking work in pixels, so mixed grids give wrong positions and
+        velocities, or a numpy shape error.
+
+        Parameters
+        ----------
+        include_ref : bool, optional
+            Also check the reference image, if data.ref_image_filename points
+            to an existing file. Saved results use its projection.
+        """
+        grids = []
+        for file in self.files:
+            grids.append((os.path.basename(file), self.open_file(file)))
+        if include_ref:
+            ref_file = self._resolve_optional_file("ref_image_filename")
+            if ref_file is not None:
+                grids.append(("%s (reference image)" % os.path.basename(ref_file),
+                              self.get_ref_image(preprocess=False)))
+        if len(grids) < 2:
+            return
+
+        def describe(img):
+            prj = self.get_projection(img)
+            scales = np.abs(prj.pixel_scales())
+            return img.data.shape, scales, prj.get_unit()
+
+        shape0, scales0, _ = describe(grids[0][1])
+        groups = {}
+        mismatch = False
+        for name, img in grids:
+            shape, scales, unit = describe(img)
+            if shape != shape0 or not np.allclose(scales, scales0, rtol=1e-4):
+                mismatch = True
+            if np.isclose(scales[0], scales[1], rtol=1e-4):
+                scale_str = "%.4g" % scales[0]
+            else:
+                scale_str = "%.4g x %.4g" % tuple(scales)
+            key = "%sx%s px at %s %s/px" % (shape + (scale_str, unit))
+            groups.setdefault(key, []).append(name)
+        if not mismatch:
+            return
+        lines = ["  %s: %s" % (key, ", ".join(names)) for key, names in groups.items()]
+        raise GridMismatchError(
+            "The input images are not on one pixel grid:\n%s\n"
+            "wise measures positions and motions in pixels, so every image needs "
+            "the same shape and pixel scale. Regrid the images onto a common grid "
+            "first." % "\n".join(lines)
+        )
+
     def build_stack_image(self, preprocess=False, nsigma=0, keep_brightest_only=False):
         """Create a stacked image (:class:`libwise.imgutils.StackedImage` of all
            the project images, aligning them if necessary.
@@ -485,6 +540,9 @@ class AnalysisContext:
             If True, keep only the brightest connected structure (renamed from
             ``nsigma_connected`` in 1.0)
         """
+        # The stack often becomes the reference image, so don't check against
+        # an existing (possibly stale) one.
+        self.check_common_grid(include_ref=False)
         stack_builder = imgutils.StackedImageBuilder()
         stack_bg_builder = imgutils.StackedImageBuilder()
         for file in self.files:

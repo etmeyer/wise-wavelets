@@ -268,6 +268,7 @@ def detection_all(ctx, filter=None):
 
     .. _tags: task_detection
     '''
+    ctx.check_common_grid()
     ctx.result = project.AnalysisResult(ctx.config)
     for file in ctx.files:
         img = ctx.open_file(file)
@@ -286,6 +287,7 @@ def match_all(ctx, filter=None):
 
     .. _tags: task_detection
     '''
+    ctx.check_common_grid()
     ctx.result = project.AnalysisResult(ctx.config)
     prev_result = None
     prev_img = None
@@ -316,6 +318,7 @@ def match_all(ctx, filter=None):
 
 
 def bootstrap_matching(ctx, n=100, filter=None, cb_post_match=None):
+    ctx.check_common_grid()
     all_res = dict()
     all_epochs = []
     all_imgs = dict()

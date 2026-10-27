@@ -2,6 +2,8 @@
 
 - Input selection: clear errors for missing files and when no file is usable
   (issue #12 follow-up: `wise show info` used to crash with an IndexError).
+- Pixel grids: detect/match/stack refuse images on different grids instead of
+  running silently, crashing on a numpy broadcast, or stacking garbage.
 """
 import numpy as np
 import pytest
@@ -12,6 +14,7 @@ fits = pytest.importorskip("astropy.io.fits")
 
 from libwise import nputils
 
+import wise
 from wise.cli import cli
 
 
@@ -80,3 +83,52 @@ def test_format_table_with_no_rows():
     assert nputils.format_table([]) == ""
     table = nputils.format_table([], ["File", "Date"])
     assert "File" in table and "Date" in table
+
+
+# ---------------------------------------------------------------------------
+# Pixel grids
+# ---------------------------------------------------------------------------
+
+def test_detect_refuses_mixed_pixel_scales(project):
+    a = _write_fits(project / "a.fits", cdelt_deg=1e-5, date_obs="2026-01-01")
+    b = _write_fits(project / "b.fits", cdelt_deg=2e-5, date_obs="2026-02-01")
+
+    result = CliRunner().invoke(cli, ["-q", "--non-interactive", "detect", a, b, "--no-save"])
+
+    assert result.exit_code == 1, result.output
+    assert "not on one pixel grid" in result.output
+    assert "32x32 px at 36 mas/px: a.fits" in result.output
+    assert "32x32 px at 72 mas/px: b.fits" in result.output
+
+
+def test_stack_refuses_mixed_shapes(project):
+    a = _write_fits(project / "a.fits", shape=(32, 32), date_obs="2026-01-01")
+    b = _write_fits(project / "b.fits", shape=(16, 16), date_obs="2026-02-01")
+
+    result = CliRunner().invoke(cli, ["-q", "stack", a, b, "-o", "stack.fits"])
+
+    assert result.exit_code == 1, result.output
+    assert "not on one pixel grid" in result.output
+    assert "Image shape are not adequate" not in result.output
+    assert not (project / "stack.fits").exists()
+
+
+def test_check_common_grid_accepts_one_grid(project):
+    ctx = wise.AnalysisContext()
+    ctx.select_files([_write_fits(project / "a.fits", date_obs="2026-01-01"),
+                      _write_fits(project / "b.fits", date_obs="2026-02-01")])
+
+    ctx.check_common_grid()
+
+
+def test_check_common_grid_includes_the_reference_image(project):
+    ctx = wise.AnalysisContext()
+    ctx.select_files([_write_fits(project / "a.fits", date_obs="2026-01-01"),
+                      _write_fits(project / "b.fits", date_obs="2026-02-01")])
+    _write_fits(project / "ref.fits", cdelt_deg=2e-5)
+    ctx.config.data.ref_image_filename = "ref.fits"
+
+    with pytest.raises(wise.GridMismatchError, match=r"ref\.fits \(reference image\)"):
+        ctx.check_common_grid()
+    # Building a stack (which often replaces the reference image) skips it.
+    ctx.check_common_grid(include_ref=False)
