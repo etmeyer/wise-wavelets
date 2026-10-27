@@ -200,8 +200,14 @@ def info_files_delta(ctx, delta_time_unit=u.day, angular_velocity_unit=u.mas / u
 def detection_preview(ctx, file, alpha_lower=1.5):
     """Run wavelet decomposition on a single file and return per-scale peak stats.
 
-    Returns a list of dicts with keys: scale (1-based index), width (px),
-    noise (σ per scale), n_above (peaks above alpha_detection * noise),
+    The image is prepared as for detection: background estimate, then core
+    alignment and the ROI crop, and peaks outside the mask are not counted.
+    The mask and core offsets are project files, so they apply only inside a
+    project.
+
+    Returns a list of dicts with keys: scale (1-based index), level (wavelet
+    decomposition level, as in finder.min_scale/max_scale), wavelet, width
+    (px), noise (σ per scale), n_above (peaks above alpha_detection * noise),
     n_between (peaks above alpha_lower * noise but not above alpha_detection).
     Callable from notebooks without side effects.
 
@@ -216,12 +222,21 @@ def detection_preview(ctx, file, alpha_lower=1.5):
     from libwise import imgutils
 
     img = ctx.open_file(file)
+    ctx.pre_bg_process(img)
     bg = ctx.get_bg(img)
+    in_project = project.find_project_root() is not None
+    if in_project:
+        ctx.align(img)
+    ctx.pre_process(img)
+    mask_filter = wfeatures.MaskFilter(ctx.get_mask() if in_project else None)
 
     finder_config = ctx.config.finder
     alpha_detection = finder_config.get("alpha_detection")
     use_iwd = finder_config.get("use_iwd")
     exclude_border_dist = finder_config.get("exclude_border_dist")
+    min_scale = finder_config.get("min_scale")
+    wd_wavelet = finder_config.get("wd_wavelet")
+    iwd_wavelet = finder_config.get("iwd_wavelet")
 
     if use_iwd:
         ms_dec_klass = wds.InterscalesWaveletMultiscaleDecomposition
@@ -238,19 +253,27 @@ def detection_preview(ctx, file, alpha_lower=1.5):
         threshold_lower = alpha_lower * scale_noise
 
         group_above = wfeatures.FeaturesGroup.from_img_peaks(
-            scale_img, min(width, 8), threshold_current,
+            scale_img, min(width, 8), threshold_current, feature_filter=mask_filter,
             exclude_border_dist=exclude_border_dist,
         )
         group_lower = wfeatures.FeaturesGroup.from_img_peaks(
-            scale_img, min(width, 8), threshold_lower,
+            scale_img, min(width, 8), threshold_lower, feature_filter=mask_filter,
             exclude_border_dist=exclude_border_dist,
         )
 
         n_above = group_above.size()
         n_between = max(0, group_lower.size() - n_above)
 
+        # With use_iwd, the two wavelets' scales are interleaved level by level.
+        if use_iwd:
+            level, wavelet = min_scale + idx // 2, (wd_wavelet, iwd_wavelet)[idx % 2]
+        else:
+            level, wavelet = min_scale + idx, wd_wavelet
+
         stats.append({
             "scale": idx + 1,
+            "level": level,
+            "wavelet": wavelet,
             "width": width,
             "noise": scale_noise,
             "n_above": n_above,

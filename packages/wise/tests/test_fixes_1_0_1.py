@@ -7,6 +7,8 @@
 - `wise show info`: Bmaj before Bmin, PA in degrees, plain dates, and the
   unit only in the column header.
 - astropy VerifyWarning (non-standard header cards) is silenced in the CLI.
+- The finder widths footer and `wise detect --dry-run` match the real
+  detection (intermediate scales, wavelet levels, ROI, mask).
 """
 import datetime
 import subprocess
@@ -201,3 +203,82 @@ def test_cli_silences_verify_warning_for_non_standard_cards(project):
     assert result.returncode == 0, result.stderr
     assert "a.fits" in result.stdout
     assert "VerifyWarning" not in result.stderr
+
+
+# ---------------------------------------------------------------------------
+# Finder widths footer and detect --dry-run
+# ---------------------------------------------------------------------------
+
+def test_widths_footer_includes_intermediate_scales(project):
+    runner = CliRunner()
+    runner.invoke(cli, ["settings", "set", "finder.min_scale=3", "finder.max_scale=6",
+                        "finder.use_iwd=True"])
+
+    result = runner.invoke(cli, ["settings", "show", "finder"])
+
+    assert result.exit_code == 0, result.output
+    assert "Resulting widths: [8, 12, 16, 24, 32, 48] px" in result.output
+
+
+def _two_source_image(path):
+    """64x64 px image with sources at x = 16 and x = 48 px (y = 32 px)."""
+    _write_fits(path, shape=(64, 64))
+    yy, xx = np.indices((64, 64))
+    data = sum(np.exp(-((xx - x0) ** 2 + (yy - 32) ** 2) / (2 * 2.0 ** 2)) for x0 in (16, 48))
+    data = data + np.random.default_rng(0).normal(0, 1e-3, data.shape)
+    with fits.open(str(path), mode="update") as hdul:
+        hdul[0].data = data.astype(np.float32)
+    return str(path)
+
+
+def _preview_context(**finder):
+    """Settings that count only the two bright sources. The k-sigma noise
+    estimate is randomised, so noise peaks near threshold come and go."""
+    ctx = wise.AnalysisContext()
+    ctx.config.data.bg_use_ksigma_method = True
+    ctx.config.finder.set("alpha_detection", 20)
+    for key, value in finder.items():
+        ctx.config.finder.set(key, value)
+    return ctx
+
+
+def _n_above(ctx, path):
+    return [s["n_above"] for s in wise.tasks.detection_preview(ctx, path)]
+
+
+def test_dry_run_reports_wavelet_levels(project):
+    path = _two_source_image(project / "src.fits")
+
+    plain = wise.tasks.detection_preview(_preview_context(min_scale=1, max_scale=4), path)
+    iwd = wise.tasks.detection_preview(
+        _preview_context(min_scale=2, max_scale=4, use_iwd=True), path)
+
+    assert [(s["level"], s["wavelet"]) for s in plain] == [(1, "b1"), (2, "b1"), (3, "b1")]
+    assert [(s["level"], s["wavelet"], s["width"]) for s in iwd] == [
+        (2, "b1", 4), (2, "b3", 6), (3, "b1", 8), (3, "b3", 12)]
+
+
+def test_dry_run_ignores_peaks_outside_the_mask(project):
+    path = _two_source_image(project / "src.fits")
+    # Not "mask.fits", which is the default data.mask_filename.
+    _write_fits(project / "east_half.fits", shape=(64, 64))
+    with fits.open(str(project / "east_half.fits"), mode="update") as hdul:
+        mask = np.zeros((64, 64), dtype=np.float32)
+        mask[:, :32] = 1  # keeps the source at x = 16 px only
+        hdul[0].data = mask
+    ctx = _preview_context(min_scale=2, max_scale=4)
+
+    assert _n_above(ctx, path) == [2, 2]
+    ctx.config.data.mask_filename = "east_half.fits"
+    assert _n_above(ctx, path) == [1, 1]
+
+
+def test_dry_run_crops_to_the_roi(project):
+    path = _two_source_image(project / "src.fits")
+    ctx = _preview_context(min_scale=2, max_scale=4)
+
+    assert _n_above(ctx, path) == [2, 2]
+    # CDELT1 < 0, so the x = 16 px source is east (+576 mas) of the reference
+    # pixel and the x = 48 px one is west (-576 mas). Keep the east half only.
+    ctx.config.data.roi_coords = [1152.0, 1152.0, 0.0, -1152.0]
+    assert _n_above(ctx, path) == [1, 1]
