@@ -66,27 +66,27 @@ def info_files(ctx):
     data_beam = []
     data_table = []
     proj_unit = ctx.get_projection(ctx.open_file(ctx.files[0])).get_unit() if ctx.files else ""
-    header = ["File", "Date", "Shape", f"Pixel scale ({proj_unit})", f"Beam ({proj_unit})"]
+    header = ["File", "Date", "Shape", f"Pixel scale ({proj_unit})",
+              f"Beam: Bmaj x Bmin ({proj_unit}), PA (deg)"]
     for file in ctx.files:
         img = ctx.open_file(file)
         beam = img.get_beam()
         date = img.get_epoch(str_format='%Y-%m-%d')
         k = ctx.get_projection(img).mean_pixel_scale()
-        u = ctx.get_projection(img).get_unit()
         if isinstance(beam, imgutils.GaussianBeam):
-            b = [k * beam.bmin, k * beam.bmaj, beam.bpa]
-            # beam_str = "%.3f, %.3f, %.3f" % (b[0] * u, b[1] * u, b[2])
-            beam_str = f"{b[0] * u:.3f}, {b[1] * u:.3f}, {b[2]:.2f}"
-            data_beam.append([b[0], b[1], b[2]])
+            b = [k * beam.bmaj, k * beam.bmin, np.degrees(beam.bpa)]
+            beam_str = "%.3f x %.3f, %.1f" % tuple(b)
+            data_beam.append(b)
         else:
             beam_str = str(beam)
         shape_str = "%sx%s" % img.data.shape
-        data_table.append([os.path.basename(file), date, shape_str, f"{k * u:.3f}", beam_str])
+        data_table.append([os.path.basename(file), date, shape_str, "%.3f" % k, beam_str])
 
     click.echo(nputils.format_table(data_table, header))
     click.echo("Number of files: %s" % (len(ctx.files)))
     if len(data_beam) > 0:
-        click.echo("Mean beam: Bmin: %.3f, Bmaj: %.3f, Angle:%.2f" % tuple(np.mean(data_beam, axis=0)))
+        bmaj, bmin, bpa = np.mean(data_beam, axis=0)
+        click.echo("Mean beam: %.3f x %.3f %s, PA %.1f deg" % (bmaj, bmin, proj_unit, bpa))
 
 
 def set_stack_image_as_ref(ctx, nsigma=3, keep_brightest_only=True):
@@ -160,11 +160,11 @@ def info_files_delta(ctx, delta_time_unit=u.day, angular_velocity_unit=u.mas / u
         img1 = ctx.open_file(file1)
         img2 = ctx.open_file(file2)
         prj = ctx.get_projection(img1)
-        date1 = img1.get_epoch(str_format='%Y-%m-%d')
-        date2 = img2.get_epoch(str_format='%Y-%m-%d')
-        if not isinstance(date1, datetime.date):
+        if not isinstance(img1.get_epoch(), datetime.date):
             logger.warning("Images have no date information")
             return
+        date1 = img1.get_epoch(str_format='%Y-%m-%d')
+        date2 = img2.get_epoch(str_format='%Y-%m-%d')
         delta_t = ((img2.get_epoch() - img1.get_epoch()).total_seconds() * u.second).to(delta_time_unit)
         all_delta_time.append(delta_t)
 
@@ -175,10 +175,9 @@ def info_files_delta(ctx, delta_time_unit=u.day, angular_velocity_unit=u.mas / u
             velocity_c_px = prj.proper_velocity([0, 0], [0, 1], delta_t).to(proper_velocity_unit)
             all_velocity_c_px.append(velocity_c_px)
 
-        if has_distance:
-            data.append([date1, date2, delta_t.value, velocity_px.value, velocity_c_px.value])
-        else:
-            data.append([date1, date2, delta_t.value, velocity_px.value, '-'])
+        row = [date1, date2, "%.1f" % delta_t.value, "%.4g" % velocity_px.value]
+        row.append("%.3g" % velocity_c_px.value if has_distance else '-')
+        data.append(row)
 
         # print "{0} -> {1}: Delta time: {2}, Velocity resolution: {3:.3f}, {4:.3f}".format(*data)
 
@@ -187,11 +186,15 @@ def info_files_delta(ctx, delta_time_unit=u.day, angular_velocity_unit=u.mas / u
 
     click.echo(nputils.format_table(data, header))
 
-    click.echo("Mean Delta time: %s +- %s" % (np.mean(all_delta_time), np.std(all_delta_time)))
-    click.echo("Mean Velocity resolution: %s +- %s" % (np.mean(all_velocity_px), np.std(all_velocity_px)))
+    def mean_std(values, fmt):
+        mean, std = np.mean(values), np.std(values)
+        return (fmt + " +- " + fmt + " %s") % (mean.value, std.value, mean.unit)
+
+    click.echo("Mean Delta time: %s" % mean_std(all_delta_time, "%.1f"))
+    click.echo("Mean Velocity resolution: %s" % mean_std(all_velocity_px, "%.4g"))
     if has_distance:
         all_velocity_c_px = nputils.quantities_to_array(all_velocity_c_px)
-        click.echo("Mean Velocity resolution: %s +- %s" % (np.mean(all_velocity_c_px), np.std(all_velocity_c_px)))
+        click.echo("Mean Velocity resolution: %s" % mean_std(all_velocity_c_px, "%.3g"))
 
 
 def detection_preview(ctx, file, alpha_lower=1.5):

@@ -1091,8 +1091,8 @@ class Image:
         return ""
 
     def get_epoch(self, str_format=None):
-        if str_format and isinstance(self.epoch, datetime.time):
-            return self.epoch.strftime('%Y-%m-%d')
+        if str_format and isinstance(self.epoch, datetime.date):
+            return self.epoch.strftime(str_format)
         return self.epoch
 
     def get_region(self, center, shape, projection=None):

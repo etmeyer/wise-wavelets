@@ -4,7 +4,11 @@
   (issue #12 follow-up: `wise show info` used to crash with an IndexError).
 - Pixel grids: detect/match/stack refuse images on different grids instead of
   running silently, crashing on a numpy broadcast, or stacking garbage.
+- `wise show info`: Bmaj before Bmin, PA in degrees, plain dates, and the
+  unit only in the column header.
 """
+import datetime
+
 import numpy as np
 import pytest
 from click.testing import CliRunner
@@ -12,7 +16,7 @@ from click.testing import CliRunner
 pytest.importorskip("astropy")
 fits = pytest.importorskip("astropy.io.fits")
 
-from libwise import nputils
+from libwise import imgutils, nputils
 
 import wise
 from wise.cli import cli
@@ -132,3 +136,39 @@ def test_check_common_grid_includes_the_reference_image(project):
         ctx.check_common_grid()
     # Building a stack (which often replaces the reference image) skips it.
     ctx.check_common_grid(include_ref=False)
+
+
+# ---------------------------------------------------------------------------
+# show info display
+# ---------------------------------------------------------------------------
+
+def test_get_epoch_formats_datetimes():
+    img = imgutils.Image(np.zeros((2, 2)), epoch=datetime.datetime(2015, 9, 28))
+
+    assert img.get_epoch(str_format="%Y-%m-%d") == "2015-09-28"
+    assert img.get_epoch() == datetime.datetime(2015, 9, 28)
+
+
+def test_show_info_lists_bmaj_first_with_pa_in_degrees(project):
+    # 36 mas pixels; beam 3 x 2 px at BPA -20 deg.
+    img = _write_fits(project / "a.fits")
+
+    result = CliRunner().invoke(cli, ["show", "info", img])
+
+    assert result.exit_code == 0, result.output
+    assert "2026-01-01 " in result.output
+    assert "00:00:00" not in result.output
+    assert "108.000 x 72.000, -20.0" in result.output
+    assert "36.000 mas" not in result.output
+    assert "Mean beam: 108.000 x 72.000 mas, PA -20.0 deg" in result.output
+
+
+def test_show_info_velocity_prints_dates(project):
+    a = _write_fits(project / "a.fits", date_obs="2026-01-01")
+    b = _write_fits(project / "b.fits", date_obs="2026-02-01")
+
+    result = CliRunner().invoke(cli, ["show", "info", "--velocity", a, b])
+
+    assert result.exit_code == 0, result.output
+    assert "Images have no date information" not in result.output
+    assert "2026-01-01 |2026-02-01 |31.0" in result.output
