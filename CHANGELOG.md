@@ -4,7 +4,15 @@ All notable changes to wise-wavelets are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.1] — 2026-10-27
+
+A bug-fix release, for problems found while running wise on the
+astrogeo X-band maps of J1304-2106 (#12). Commands, settings and file
+formats are unchanged, and 1.0.0 projects need no migration. Two fixes
+can change what an existing project does: epochs whose DATE-OBS ends
+in a `(N)` counter are no longer dropped, and images on different
+pixel grids now stop `detect`, `match` and `stack` with an error
+instead of giving wrong positions.
 
 ### Fixed
 
