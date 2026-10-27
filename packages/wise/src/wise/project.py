@@ -487,27 +487,24 @@ class AnalysisContext:
             Also check the reference image, if data.ref_image_filename points
             to an existing file. Saved results use its projection.
         """
-        grids = []
-        for file in self.files:
-            grids.append((os.path.basename(file), self.open_file(file)))
+        def describe(img):
+            prj = self.get_projection(img)
+            return img.data.shape, np.abs(prj.pixel_scales()), prj.get_unit()
+
+        # Keep each image's grid, not its data.
+        grids = [(os.path.basename(file), describe(self.open_file(file))) for file in self.files]
         if include_ref:
             ref_file = self._resolve_optional_file("ref_image_filename")
             if ref_file is not None:
                 grids.append(("%s (reference image)" % os.path.basename(ref_file),
-                              self.get_ref_image(preprocess=False)))
+                              describe(self.get_ref_image(preprocess=False))))
         if len(grids) < 2:
             return
 
-        def describe(img):
-            prj = self.get_projection(img)
-            scales = np.abs(prj.pixel_scales())
-            return img.data.shape, scales, prj.get_unit()
-
-        shape0, scales0, _ = describe(grids[0][1])
+        shape0, scales0, _ = grids[0][1]
         groups = {}
         mismatch = False
-        for name, img in grids:
-            shape, scales, unit = describe(img)
+        for name, (shape, scales, unit) in grids:
             if shape != shape0 or not np.allclose(scales, scales0, rtol=1e-4):
                 mismatch = True
             if np.isclose(scales[0], scales[1], rtol=1e-4):
