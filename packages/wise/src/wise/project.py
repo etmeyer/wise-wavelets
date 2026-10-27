@@ -134,8 +134,8 @@ class DataConfiguration(nputils.BaseConfiguration):
         ["projection_unit", u.mas, "Angular unit for sky coordinates throughout the project (default mas — appropriate for VLBI). Set to arcsec for connected-element data (e.g. JVLA). bg_coords / roi_coords are interpreted in this unit.", None, validator_is(u.Unit), u.Unit, str, 0],
         ["projection_relative", True, "Use relative projection", None, validator_is(bool), str2bool, str, 0],
         ["projection_center", "pix_ref", "Method used to get the center", None, validator_is(str), str, str, 0],
-        ["object_distance", None, "Luminosity (or angular-diameter, in the relativistic regime) distance as an astropy.units.Quantity, e.g. 200 * u.Mpc. Takes precedence over object_z when both are set.", "astropy.units.Quantity (e.g. Mpc)", validator_is(u.Quantity), quantity_decode, str, 0],
-        ["object_z", 0, "Redshift of the target. Used with the standard cosmology to derive a luminosity distance when object_distance is unset. Required for proper-velocity reporting; object_distance takes precedence if both are set.", "redshift", validator_in_range(0, 5), float, str, 0],
+        ["object_distance", None, "Angular-diameter distance to the target as an astropy.units.Quantity, e.g. 134 * u.Mpc. Not the luminosity distance: proper velocities are angular velocity x this distance x (1 + object_z). Takes precedence over the distance derived from object_z when both are set.", "astropy.units.Quantity (e.g. Mpc)", validator_is(u.Quantity), quantity_decode, str, 0],
+        ["object_z", 0, "Redshift of the target. When object_distance is unset, the angular-diameter distance is derived from it with astropy's default cosmology (WMAP9, which libwise sets on import). Proper velocities include the (1 + z) factor. Proper-velocity reporting needs object_z or object_distance.", "redshift", validator_in_range(0, 5), float, str, 0],
         ]
 
         super().__init__(data, title="Data configuration")

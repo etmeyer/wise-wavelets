@@ -9,6 +9,9 @@
 - astropy VerifyWarning (non-standard header cards) is silenced in the CLI.
 - The finder widths footer and `wise detect --dry-run` match the real
   detection (intermediate scales, wavelet levels, ROI, mask).
+- data.object_distance is an angular-diameter distance (its help text said
+  luminosity distance, which overstates speeds by (1+z)^2 when object_z is
+  also set).
 """
 import datetime
 import subprocess
@@ -282,3 +285,35 @@ def test_dry_run_crops_to_the_roi(project):
     # pixel and the x = 48 px one is west (-576 mas). Keep the east half only.
     ctx.config.data.roi_coords = [1152.0, 1152.0, 0.0, -1152.0]
     assert _n_above(ctx, path) == [1, 1]
+
+
+# ---------------------------------------------------------------------------
+# Distances and proper velocities
+# ---------------------------------------------------------------------------
+
+def _proper_velocity_c(ctx, path):
+    """Proper velocity (in c) of a 1-pixel shift per year."""
+    import astropy.units as u
+    prj = ctx.get_projection(imgutils.guess_and_open(path))
+    return prj.proper_velocity([0, 0], [0, 1], 1 * u.year).to(wise.tasks.unit_c).value
+
+
+def test_proper_velocity_is_angular_speed_times_da_times_1_plus_z(project):
+    # The formula the data.object_distance / object_z help text documents.
+    import astropy.constants as const
+    import astropy.units as u
+    from astropy.cosmology import WMAP9
+
+    path = _write_fits(project / "a.fits", cdelt_deg=0.1 / 3.6e6)  # 0.1 mas pixels
+    expected = ((0.1 * u.mas).to(u.rad).value / u.year
+                * WMAP9.angular_diameter_distance(1.0) * 2 / const.c).decompose().value
+
+    from_z = wise.AnalysisContext()
+    from_z.config.data.object_z = 1.0
+    explicit = wise.AnalysisContext()
+    explicit.config.data.object_z = 1.0
+    explicit.config.data.object_distance = WMAP9.angular_diameter_distance(1.0)
+
+    assert _proper_velocity_c(from_z, path) == pytest.approx(expected, rel=1e-3)
+    assert _proper_velocity_c(explicit, path) == pytest.approx(expected, rel=1e-3)
+    assert expected == pytest.approx(5.32, abs=0.01)  # 53.2 c per mas/yr at z = 1
