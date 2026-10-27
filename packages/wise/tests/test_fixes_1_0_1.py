@@ -6,8 +6,11 @@
   running silently, crashing on a numpy broadcast, or stacking garbage.
 - `wise show info`: Bmaj before Bmin, PA in degrees, plain dates, and the
   unit only in the column header.
+- astropy VerifyWarning (non-standard header cards) is silenced in the CLI.
 """
 import datetime
+import subprocess
+import sys
 
 import numpy as np
 import pytest
@@ -172,3 +175,29 @@ def test_show_info_velocity_prints_dates(project):
     assert result.exit_code == 0, result.output
     assert "Images have no date information" not in result.output
     assert "2026-01-01 |2026-02-01 |31.0" in result.output
+
+
+# ---------------------------------------------------------------------------
+# astropy VerifyWarning
+# ---------------------------------------------------------------------------
+
+def test_cli_silences_verify_warning_for_non_standard_cards(project):
+    # astrogeo maps carry cards like this RA one, which astropy fixes on read
+    # with a VerifyWarning. Run the real entry point: pytest records warnings
+    # itself, so CliRunner output would never show them.
+    path = _write_fits(project / "a.fits")
+    fits.setval(path, "OBSERVER", value="PLACEHOLDER")
+    raw = open(path, "rb").read()
+    placeholder = "OBSERVER= 'PLACEHOLDER'".ljust(80).encode()
+    assert placeholder in raw
+    bad = "RA      = 13:04:59.069355 / Right ascension in HH:MM:SS.ssssss".ljust(80).encode()
+    open(path, "wb").write(raw.replace(placeholder, bad))
+
+    result = subprocess.run(
+        [sys.executable, "-c", "from wise.cli import main; main()", "show", "info", path],
+        cwd=project, capture_output=True, text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "a.fits" in result.stdout
+    assert "VerifyWarning" not in result.stderr

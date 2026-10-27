@@ -8,6 +8,7 @@ import sys
 import warnings
 
 import click
+from astropy.io.fits.verify import VerifyWarning
 from astropy.wcs import FITSFixedWarning
 
 import wise
@@ -53,6 +54,9 @@ def _setup_logging(verbose: bool, quiet: bool, debug: bool) -> None:
     logging.captureWarnings(True)
     # E5: silence astropy's per-file FITS-spec drift warning
     warnings.filterwarnings("ignore", category=FITSFixedWarning)
+    # Same for non-standard header cards that astropy fixes on read (astrogeo's
+    # RA/DEC/PROJECT/URL): about ten lines per file, nothing the user can act on.
+    warnings.filterwarnings("ignore", category=VerifyWarning)
 
 
 @click.group(context_settings={"help_option_names": ["-h", "--help"]})
