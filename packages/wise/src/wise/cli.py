@@ -18,6 +18,7 @@ from wise.actions import actions
 def _finder_widths_footer(config) -> str:
     """Return the 'Resulting widths' line for the finder settings section."""
     from libwise import nputils as _nputils
+
     from wise import wds as _wds
     min_scale = config.finder.get("min_scale")
     max_scale = config.finder.get("max_scale")

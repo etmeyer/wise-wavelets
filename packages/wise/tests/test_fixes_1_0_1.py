@@ -24,9 +24,8 @@ from click.testing import CliRunner
 pytest.importorskip("astropy")
 fits = pytest.importorskip("astropy.io.fits")
 
-from libwise import imgutils, nputils
-
 import wise
+from libwise import imgutils, nputils
 from wise.cli import cli
 
 
