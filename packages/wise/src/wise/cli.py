@@ -968,6 +968,13 @@ def plot_links(
               help="Annotate each link.")
 @click.option("--min-link-size", "-m", default=2, type=float, show_default=True,
               help="Filter out links with size < N.")
+@click.option("--offset", is_flag=True, default=False,
+              help="Draw each link on its own baseline, as its change in "
+                   "separation since its first epoch, so slow motion is "
+                   "visible. Slopes and fits are unchanged.")
+@click.option("--offset-step", type=float, default=None, metavar="MAS",
+              help="Spacing between baselines (implies --offset). "
+                   "Default: just enough that no tracks overlap.")
 @click.pass_context
 def plot_sep(
     ctx: click.Context,
@@ -977,12 +984,19 @@ def plot_sep(
     fit: bool,
     num: bool,
     min_link_size: float,
+    offset: bool,
+    offset_step: float | None,
 ) -> None:
     """Plot separation from core with time.
 
     NAME is the saved result name; SCALES is a comma-separated list.
     """
     from libwise import nputils
+
+    if offset_step is not None:
+        if offset_step <= 0:
+            raise click.BadParameter("must be positive", param_hint="--offset-step")
+        offset = offset_step
 
     context = actions.load(name)
     if context is None:
@@ -998,7 +1012,7 @@ def plot_sep(
     fit_fct = nputils.LinearFct if fit else None
     fit_result = wise.tasks.plot_separation_from_core(
         context, scales=scale_list, num=num,
-        min_link_size=min_link_size, fit_fct=fit_fct, pa=pa
+        min_link_size=min_link_size, fit_fct=fit_fct, pa=pa, offset=offset
     )
     if fit and fit_result:
         for link, fct in fit_result.items():

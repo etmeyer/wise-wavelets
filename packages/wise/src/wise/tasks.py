@@ -852,7 +852,8 @@ def view_all_features(ctx, scales, region_list=None, legend=False, feature_filte
 
 
 def plot_separation_from_core(ctx, scales=None, feature_filter=None, min_link_size=2, title=True,
-                            pa=False, snr=False, num=False, fit_fct=None, save_filename=None, **kwargs):
+                            pa=False, snr=False, num=False, fit_fct=None, save_filename=None, offset=False,
+                            **kwargs):
     """Plot separation from core with time
 
     Parameters
@@ -876,6 +877,11 @@ def plot_separation_from_core(ctx, scales=None, feature_filter=None, min_link_si
     save_filename : str, optional
         If not None, the resulting maps will be saved in the project data dir
         with this filename.
+    offset : bool or float, optional
+        Draw each link on its own baseline, as its change in separation since
+        its first epoch, so that slow motion is visible. True spaces the
+        baselines just enough that no tracks overlap; a number sets the spacing
+        (in the projection unit). Slopes and fits are unchanged.
     **kwargs :
         Additional arguments to pass to :func:`wise.wiseutils.plot_links_dfc`
 
@@ -907,18 +913,27 @@ def plot_separation_from_core(ctx, scales=None, feature_filter=None, min_link_si
                         min_link_size=min_link_size))
         ax = fig.subplots(nrows=1 + int(pa or snr), reshape=False, sharex=True)
 
+        y_shift = None
+        if offset:
+            step = None if offset is True else float(offset)
+            y_shift = wiseutils.plot_links_dfc_baselines(ax[0], projection, links, step=step,
+                                                         mode=kwargs.get('mode', 'com'))
+
         if fit_fct:
             plotutils.checkargs(kwargs, 'ls', '--')
-        wiseutils.plot_links_dfc(ax[0], projection, links, num=num, **kwargs)
+        wiseutils.plot_links_dfc(ax[0], projection, links, num=num, y_shift=y_shift, **kwargs)
         if fit_fct:
-            fit_result = wiseutils.plot_links_dfc_fit(ax[0], projection, links, fit_fct, lw=2)
+            fit_result = wiseutils.plot_links_dfc_fit(ax[0], projection, links, fit_fct, y_shift=y_shift, lw=2)
             fit_results.update(fit_result)
 
         if title:
             ax[0].set_title("Separation from core at scale %s" % projection.get_sky(scale))
 
         ax[-1].set_xlabel("Epoch (years)")
-        ax[0].set_ylabel("Distance from core (mas)")
+        if offset:
+            ax[0].set_ylabel("Change in distance from core + offset (mas)")
+        else:
+            ax[0].set_ylabel("Distance from core (mas)")
 
         if pa:
             wiseutils.plot_links_pa(ax[1], projection, links, **kwargs)

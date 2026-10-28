@@ -4,6 +4,20 @@ All notable changes to wise-wavelets are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`wise plot sep --offset`** draws each link on its own baseline, as
+  its change in distance from core since its first epoch, so slow
+  motion stays visible when components lie far apart. Baselines are
+  stacked by mean distance from core, innermost at the bottom, and
+  labelled with the link ID and starting distance. By default they are
+  spaced just enough that no tracks overlap; `--offset-step MAS` sets
+  the spacing. The y scale is unchanged, so slopes and fits are the
+  real ones. In Python, `tasks.plot_separation_from_core(...,
+  offset=True)` or `offset=STEP`.
+
 ## [1.1.0] — 2026-10-28
 
 Two commands for maps that weren't made with wise in mind, from the
