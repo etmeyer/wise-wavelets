@@ -40,6 +40,10 @@ class GridMismatchError(click.ClickException):
     """Raised when the input images don't share one pixel grid."""
 
 
+class DuplicateEpochError(click.ClickException):
+    """Raised when two input images were observed on the same day."""
+
+
 def find_project_root(start: str | None = None) -> str | None:
     """Walk upward from ``start`` (default cwd) looking for ``.wise/``.
 
@@ -534,6 +538,33 @@ class AnalysisContext:
             "first." % "\n".join(lines)
         )
 
+    def check_unique_epochs(self):
+        """Raise :class:`DuplicateEpochError` if two of the selected files were
+        observed on the same day. Detections, core offsets and velocities are
+        per epoch, and the core offset file holds one position per day, so two
+        images of one day would overwrite each other or give meaningless
+        velocities.
+        """
+        days = {}
+        for file in self.files:
+            epoch = imgutils.get_fits_epoch_fast(file) if imgutils.is_fits(file) else None
+            if epoch is not None:
+                days.setdefault(epoch.strftime("%Y-%m-%d"), []).append(file)
+        lines = []
+        for day, files in sorted(days.items()):
+            if len(files) > 1:
+                names = [os.path.basename(file) for file in files]
+                if len(set(names)) < len(names):
+                    names = files
+                lines.append("  %s: %s" % (day, ", ".join(names)))
+        if lines:
+            raise DuplicateEpochError(
+                "Some input images were observed on the same day:\n%s\n"
+                "wise needs one image per epoch: detections, core offsets and velocities "
+                "are per date. Keep one image from each day (an image at another band, or "
+                "one observation imaged twice, is the usual cause)." % "\n".join(lines)
+            )
+
     def build_stack_image(self, preprocess=False, nsigma=0, keep_brightest_only=False):
         """Create a stacked image (:class:`libwise.imgutils.StackedImage` of all
            the project images, aligning them if necessary.
@@ -548,6 +579,7 @@ class AnalysisContext:
             If True, keep only the brightest connected structure (renamed from
             ``nsigma_connected`` in 1.0)
         """
+        self.check_unique_epochs()
         # The stack often becomes the reference image, so don't check against
         # an existing (possibly stale) one.
         self.check_common_grid(include_ref=False)

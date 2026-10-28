@@ -81,8 +81,9 @@ These are the three things that most commonly go wrong:
 3. **Epoch matching is by image date, not filename.** Rows are keyed by
    the day of ``img.get_epoch()`` (the FITS observation date), so a
    typo in the date column does not raise an error: the epoch fails to
-   match, and the image is left unshifted with a warning. Two maps from
-   the same day share one row. If maps look unaligned despite a
+   match, and the image is left unshifted with a warning. There is one
+   row per day, and WISE refuses two images from the same day. If maps
+   look unaligned despite a
    populated ``core.dat``, check the dates against ``wise show info``
    output before suspecting the offsets themselves.
 

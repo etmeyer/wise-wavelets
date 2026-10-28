@@ -60,6 +60,16 @@ Changed).
 
 ### Fixed
 
+- **Images from the same day are refused up front**: `detect`,
+  `match`, `stack` and `bootstrap_matching`, like the new `wise core`
+  and `wise prep`, stop before any work with an error listing the
+  images of each shared day. `detect` and `match` crashed with a bare
+  `AssertionError` after detecting the earlier epochs,
+  `bootstrap_matching` overwrote one image's detections with the
+  other's, and images a few hours apart passed every check. Days are
+  compared, so astrogeo's `(2)` second observations count. New:
+  `AnalysisContext.check_unique_epochs()` and `DuplicateEpochError`.
+
 - **Core offset rows match images by day**: an image whose DATE-OBS
   has a time of day was left unaligned, with a "No core position"
   warning, because rows are stored by date only.
