@@ -11,5 +11,5 @@ where needed to reflect the Python 3.11+ porting changes documented in
 are Florent's; any errors introduced by the mirror or by the modernization
 edits are mine.
 
-Mirrored: $(date +%Y-%m-%d)
-Source commit: $(cd /tmp/wise-upstream-docs 2>/dev/null && git rev-parse --short HEAD || echo "see git log of flomertens/wise gh-pages")
+Mirrored: 2026-05-08, from the documentation in flomertens/wise
+(unchanged upstream since April 2019).

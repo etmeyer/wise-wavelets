@@ -6,7 +6,7 @@ cross-correlation of those regions across multi-epoch observations. This is a
 Python 3.11+ modernization fork; the `wise` command-line tool is installed by
 the `wisetool` distribution and depends on `libwise`.
 
-Part of [wise-wavelets](https://github.com/eileen-meyer/wise-wavelets).
+Part of [wise-wavelets](https://github.com/etmeyer/wise-wavelets).
 
 ## Install
 

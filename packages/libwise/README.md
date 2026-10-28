@@ -4,7 +4,7 @@ Utilities for plotting, wavelet transforms, image processing, and a PyQt5 UI
 toolkit. Originally a spin-off of the Wavelet Image Segmentation and Evaluation
 (WISE) software; this is a Python 3.11+ modernization fork.
 
-Part of [wise-wavelets](https://github.com/eileen-meyer/wise-wavelets).
+Part of [wise-wavelets](https://github.com/etmeyer/wise-wavelets).
 
 ## Install
 
