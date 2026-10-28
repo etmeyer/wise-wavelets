@@ -439,7 +439,85 @@ def plot_link_builder_dfc(ax, projection, link_builder, min_link_size=2, mode='c
         plot_links_dfc_fit(ax, projection, links, fit_fct, fit_min_size=fit_min_size, mode=mode)
 
 
-def plot_links_dfc(ax, projection, links, mode='com', num=False, num_bbox=None, **kwargs):
+def offset_baselines(dfcs, step=None, gap=0.25):
+    """Baselines that keep the tracks of an offset distance from core plot apart.
+
+    Each track is drawn as its change in distance from core since its first
+    point, moved up to its baseline. Tracks are stacked by mean distance from
+    core, innermost at the bottom. The automatic step is the largest rise minus
+    the largest fall of any track, plus `gap` times that, so no two tracks
+    can overlap.
+
+    Parameters
+    ----------
+    dfcs : list of 1D arrays
+        Distances from core of each track, in epoch order.
+    step : float, optional
+        Separation between baselines. Automatic if None.
+    gap : float, optional
+        Extra space between tracks for the automatic step, as a fraction of it.
+
+    Returns
+    -------
+    baselines : array
+        Baseline of each track, in the order of `dfcs`.
+    step : float
+    """
+    rel = [np.asarray(d, dtype=float) - d[0] for d in dfcs]
+    if step is None:
+        span = max(r.max() for r in rel) - min(r.min() for r in rel) if rel else 0
+        step = (1 + gap) * span if span > 0 else 1.
+    order = np.argsort([np.mean(d) for d in dfcs], kind='stable')
+    baselines = np.empty(len(dfcs))
+    baselines[order] = np.arange(len(dfcs)) * step
+    return baselines, step
+
+
+def plot_links_dfc_baselines(ax, projection, links, step=None, mode='com'):
+    """Draw and label one baseline per link for an offset distance from core plot.
+
+    Pass the returned shifts as `y_shift` to :func:`plot_links_dfc` and
+    :func:`plot_links_dfc_fit`. Each link is then drawn as its change in
+    distance from core since its first epoch, on its own baseline (see
+    :func:`offset_baselines`). The y scale is unchanged, so slopes are the
+    real ones.
+
+    Parameters
+    ----------
+    ax : :class:`matplotlib.axes.Axes`
+    projection : :class:`libwise.imgutils.Projection`
+    links : a list of :class:`wise.matcher.FeaturesLink`
+    step : float, optional
+        Separation between baselines, in the projection unit. Automatic if None.
+    mode : str, optional
+        Coord mode for the location of the features: 'lm', 'com' or 'cos'.
+
+    Returns
+    -------
+    y_shift : dict
+        For each link, the value to add to its distances from core.
+
+
+    .. _tags: plt_matching
+    """
+    links = list(links)
+    if not links:
+        return dict()
+    dfcs = [[projection.dfc(p2i(f.get_coord(mode))) for f in link.get_features()] for link in links]
+    baselines, step = offset_baselines(dfcs, step=step)
+
+    y_shift = dict()
+    for link, link_dfcs, baseline in zip(links, dfcs, baselines):
+        y_shift[link] = baseline - link_dfcs[0]
+        ax.axhline(baseline, ls=':', lw=0.8, c='0.6', zorder=0)
+        label = "%s: $r_0$ = %.2f %s" % (link.get_id(), link_dfcs[0], projection.unit.to_string())
+        ax.annotate(label, xy=(0.01, baseline), xycoords=('axes fraction', 'data'), xytext=(0, -2),
+                    textcoords='offset points', ha='left', va='top', size='small')
+
+    return y_shift
+
+
+def plot_links_dfc(ax, projection, links, mode='com', num=False, num_bbox=None, y_shift=None, **kwargs):
     """Plot features link on a distance from core vs epoch plot.
 
     Parameters
@@ -452,6 +530,10 @@ def plot_links_dfc(ax, projection, links, mode='com', num=False, num_bbox=None, 
     num : bool, optional
         Whatever to optionally annotate the links with there ids.
     num_bbox : dict, optional
+    y_shift : dict, optional
+        Value added to the distances from core of each link, as returned by
+        :func:`plot_links_dfc_baselines`. The marks joining related features
+        of different links are then not drawn.
     **kwargs :
         Additional arguments to be passed to :func:`matplotlib.pyplot.plot`.
 
@@ -459,10 +541,11 @@ def plot_links_dfc(ax, projection, links, mode='com', num=False, num_bbox=None, 
     .. _tags: plt_matching
     """
     dfc_fct_coord = lambda coord: nputils.l2norm(projection.p2s(p2i(coord)))
-    dfc_fct = lambda feature: dfc_fct_coord(feature.get_coord(mode))
 
     for link in links:
         delta_info = link.get_delta_info()
+        shift = y_shift.get(link, 0) if y_shift is not None else 0
+        dfc_fct = lambda feature: dfc_fct_coord(feature.get_coord(mode)) + shift
 
         if num is True:
             if num_bbox is None:
@@ -476,10 +559,11 @@ def plot_links_dfc(ax, projection, links, mode='com', num=False, num_bbox=None, 
             line_color = kwargs['c']
         # plotutils.checkargs(kwargs, 'lw', 2.5)
 
-        for epoch, related in link.get_relations():
-            link_feature = link.get(epoch)
-            related_feature = related.get(epoch)
-            ax.plot([epoch, epoch], [dfc_fct(link_feature), dfc_fct(related_feature)], color='k', marker='+')
+        if y_shift is None:
+            for epoch, related in link.get_relations():
+                link_feature = link.get(epoch)
+                related_feature = related.get(epoch)
+                ax.plot([epoch, epoch], [dfc_fct(link_feature), dfc_fct(related_feature)], color='k', marker='+')
         for feature1, feature2 in nputils.pairwise(link.get_features()):
             epoch1 = feature1.get_epoch()
             epoch2 = feature2.get_epoch()
@@ -492,7 +576,7 @@ def plot_links_dfc(ax, projection, links, mode='com', num=False, num_bbox=None, 
         # ax.plot([epoch2], dfc2, ls='', marker='+', color='k')
 
 
-def plot_links_dfc_fit(ax, projection, links, fit_fct, fit_min_size=3, mode='com', **kwargs):
+def plot_links_dfc_fit(ax, projection, links, fit_fct, fit_min_size=3, mode='com', y_shift=None, **kwargs):
     """Plot features link fit on a distance from core vs epoch plot.
 
     Parameters
@@ -506,6 +590,9 @@ def plot_links_dfc_fit(ax, projection, links, fit_fct, fit_min_size=3, mode='com
         Fit only links with size >= fit_min_size.
     mode : str, optional
         Coord mode for the location of the features: 'lm', 'com' or 'cos'.
+    y_shift : dict, optional
+        Value added to the fit of each link when drawn, as returned by
+        :func:`plot_links_dfc_baselines`. The fits themselves are unchanged.
     **kwargs :
         Additional arguments to be passed to :func:`matplotlib.pyplot.plot`.
 
@@ -521,7 +608,8 @@ def plot_links_dfc_fit(ax, projection, links, fit_fct, fit_min_size=3, mode='com
             v_error = fct.error(epochs, dfcs)
             label = 'v = %.3f +- %.3f %s' % (v, v_error, (projection.unit / u.year).to_string())
             # datetime_epochs = [nputils.mjd_to_datetime(mjd) for mjd in epochs]
-            ax.plot(link.get_epochs(), fct(epochs), label=label, c=link.get_color(), **kwargs)
+            shift = y_shift.get(link, 0) if y_shift is not None else 0
+            ax.plot(link.get_epochs(), fct(epochs) + shift, label=label, c=link.get_color(), **kwargs)
 
     return results
 
