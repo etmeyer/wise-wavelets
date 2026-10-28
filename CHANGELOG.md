@@ -4,15 +4,18 @@ All notable changes to wise-wavelets are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0] — 2026-10-28
 
 Two commands for maps that weren't made with wise in mind, from the
 J1304-2106 astrogeo X-band analysis: `wise core` measures core
 positions and writes the core offset file, and `wise prep` puts maps
 from different arrays or pipelines on one pixel grid with the core on
-the reference pixel. Alignment on a core offset file is now sub-pixel
-by default, which moves results on existing projects slightly (see
-Changed).
+the reference pixel. 1.0.x projects need no migration; the one new
+setting, `data.align_subpixel`, defaults to true. Two changes can
+alter what an existing project does: alignment on a core offset file
+is now sub-pixel, which moves results slightly (see Changed), and
+images from the same day now stop `detect`, `match` and `stack` with
+an error (keep one image per day).
 
 ### Added
 

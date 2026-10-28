@@ -554,7 +554,7 @@ def settings(ctx: click.Context, args: tuple[str, ...]) -> None:
     elif args[0] == "doc":
         import warnings as _warnings
         _warnings.warn(
-            "'wise settings doc' is deprecated and will be removed in wise 1.0. "
+            "'wise settings doc' is deprecated and will be removed in a future release. "
             "Use 'wise settings show' instead.",
             DeprecationWarning,
             stacklevel=2,
@@ -744,14 +744,14 @@ def match(
 
     # A2: `wise match` re-runs detection before matching. The .wiseproj bundle
     # only persists feature centroids, so a saved detection cannot be re-matched
-    # in 1.0. Always inform the user (click.echo, not logger.info — suppressible
+    # (as of 1.1). Always inform the user (click.echo, not logger.info — suppressible
     # via --quiet but on by default).
     if not ctx.obj.get("quiet", False):
         click.echo(
             "Note: 'wise match' re-runs detection with the current finder.* "
             "settings before matching. The .wiseproj bundle layout in this "
             "release saves feature centroids only; re-matching a saved "
-            "detection isn't supported in 1.0 (planned for a future release). "
+            "detection isn't supported yet (planned for a future release). "
             "If you want matching with different finder settings, change "
             "finder.* in wise_config and re-run `wise match`."
         )
