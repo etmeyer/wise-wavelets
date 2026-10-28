@@ -444,27 +444,15 @@ def write_map(path, data, m, grid, offset, beam, history, centered=False):
     hdu.writeto(path, overwrite=True)
 
 
-def _check_duplicate_days(maps):
-    days = {}
-    for m in maps:
-        if m.epoch is None:
-            continue
-        day = m.epoch.strftime("%Y-%m-%d")
-        if day in days:
-            logger.warning("%s and %s are both from %s; a core offset file holds one position "
-                           "per day, so the later one is used.", days[day], m.name(), day)
-        days[day] = m.name()
-
-
 def measure_cores(ctx, search_radius=None, near=(0.0, 0.0)):
     """Fit the core of each of ctx's files. Return a list of (Map, CoreFit)."""
+    ctx.check_unique_epochs()
     results = []
     for path in ctx.files:
         m = Map(ctx, path)
         fit = fit_core(m, search_radius=search_radius, near=near)
         logger.info("%s: core at (%+.4f, %+.4f) mas", m.name(), fit.x, fit.y)
         results.append((m, fit))
-    _check_duplicate_days([m for m, _ in results])
     return results
 
 
@@ -504,6 +492,7 @@ def prepare_files(ctx, outdir, beam="native", pixel=None, size=None, center=True
     the grid, the beam used for all maps (None for "native") and the table
     of what was done.
     """
+    ctx.check_unique_epochs()
     maps = [Map(ctx, path) for path in ctx.files]
     outputs = [os.path.join(outdir, m.name()) for m in maps]
     if len(set(outputs)) < len(outputs):
@@ -528,7 +517,6 @@ def prepare_files(ctx, outdir, beam="native", pixel=None, size=None, center=True
     if target is not None:
         for m in maps:
             _check_beam(m, target)
-    _check_duplicate_days(maps)
 
     if center:
         fits_ = [fit_core(m, search_radius=search_radius, near=near) for m in maps]
