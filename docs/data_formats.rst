@@ -13,9 +13,10 @@ Core offset file (``core.dat``)
 -------------------------------
 
 The path pointed to by ``data.core_offset_filename`` (default
-``core.dat``, relative to ``data.data_dir``) holds the per-epoch position
+``core.dat``, relative to the project root) holds the per-epoch position
 of the radio core, which WISE uses to align maps before detection and
-matching. The file is parsed by
+matching. ``wise core FILES`` measures the core of each map and writes
+it. The file is parsed by
 :meth:`wise.wiseutils.CoreOffsetPositions.new_from_file` and written by
 :meth:`wise.wiseutils.CoreOffsetPositions.save`.
 
@@ -24,12 +25,13 @@ Format
 
 Plain text, whitespace-separated, one row per epoch. Lines beginning
 with ``#`` are treated as comments and skipped (NumPy ``loadtxt``
-default). No header row is supported by the parser.
+default); ``wise core`` writes one at the top, saying when and how the
+file was made. No header row is supported by the parser.
 
 ============  ==================  ====================================================================================
 Column        Type                Meaning
 ============  ==================  ====================================================================================
-1 — epoch     ISO date            Observation date, ``YYYY-MM-DD``. Must match the epoch reported by ``img.get_epoch()``.
+1 — epoch     ISO date            Observation date, ``YYYY-MM-DD``, matched to the day of ``img.get_epoch()``.
 2 — id        integer             Reserved; currently unused. Always written as ``0``. Discarded by the parser.
 3 — r         float               Radial offset of the core from the map's reference pixel, in ``data.projection_unit``.
 4 — pa        float (degrees)     Position angle in degrees, **east of north** (i.e. from celestial north toward east).
@@ -37,7 +39,11 @@ Column        Type                Meaning
 
 Internally the row is converted to a Cartesian offset
 ``(x, y) = (r·sin(pa), r·cos(pa))`` in projection units, and the image
-is shifted by ``(-x, -y)`` during alignment.
+is shifted by ``(-x, -y)`` during alignment. The shift is exact,
+interpolated with a cubic spline (``data.align_subpixel``, default
+``true``); with ``data.align_subpixel = false`` it is rounded to whole
+pixels, as in WISE 1.0. Maps that ``wise prep`` centered on their core
+(``PREP_CEN = T``, see :ref:`prepared_maps`) are not shifted.
 
 Annotated example
 ~~~~~~~~~~~~~~~~~
@@ -73,8 +79,54 @@ These are the three things that most commonly go wrong:
    valid float.
 
 3. **Epoch matching is by image date, not filename.** Rows are keyed by
-   ``img.get_epoch()`` (the FITS observation date), so a typo in the
-   date column does not error and does not warn — the epoch simply
-   fails to match and the image is left unshifted. If maps look
-   unaligned despite a populated ``core.dat``, check the dates against
-   ``wise info`` output before suspecting the offsets themselves.
+   the day of ``img.get_epoch()`` (the FITS observation date), so a
+   typo in the date column does not raise an error: the epoch fails to
+   match, and the image is left unshifted with a warning. Two maps from
+   the same day share one row. If maps look unaligned despite a
+   populated ``core.dat``, check the dates against ``wise show info``
+   output before suspecting the offsets themselves.
+
+.. _prepared_maps:
+
+Prepared maps (``wise prep``)
+-----------------------------
+
+``wise prep FILES -o DIR`` writes one FITS map per input into ``DIR``,
+under the input's file name, and a log, ``prep_log.txt``. The input
+files are not changed. All the maps share one square grid: by default
+the finest input pixel over the smallest input field (``--pixel-scale``
+and ``--size`` set it), with the reference pixel at
+``CRPIX1 = CRPIX2 = n/2 + 1``. Each map's core, fitted as by
+``wise core``, is on the reference pixel; with ``--no-center`` the
+first map's reference position is, and the maps are only regridded.
+
+A map with an AIPS CC table is restored from its clean components on
+the new grid, with the output beam, and only its residual map is
+interpolated (cubic spline). The output beam may be narrower than the
+map's own in some direction, but the residual then keeps its original
+resolution, and ``wise prep`` warns. A map without clean components is
+interpolated, then convolved if the output beam differs from its own,
+which it has to contain.
+
+The header keeps the input's frequency and Stokes axes and its
+``DATE-OBS``, ``OBJECT``, ``TELESCOP``, ``INSTRUME``, ``OBSERVER``,
+``BUNIT``, ``EQUINOX``, ``RADESYS``, ``OBSRA`` and ``OBSDEC``, and sets:
+
+=================  ===========================================================================
+Keyword            Meaning
+=================  ===========================================================================
+``CRVAL1/2``       Sky position of the reference pixel: the core, unless ``--no-center``.
+``BMAJ/BMIN/BPA``  The output beam: the input's own (``--beam native``) or the one asked for.
+``ORIGFILE``       File name of the input map.
+``PREP_DX/DY``     Offset (mas, east and north) of the new reference pixel from the input's.
+``PREP_CEN``       ``T`` when the core was moved to the reference pixel. WISE doesn't align
+                   such maps on a core offset file, so one measured on the input maps can't
+                   shift them a second time.
+``HISTORY``        The grid, the core offset, how the map was made, and the beam.
+=================  ===========================================================================
+
+``prep_log.txt`` starts with ``#`` lines giving the WISE version and
+date, the grid and the beam, then has one row per map: epoch, file,
+core offset and its formal error (mas), core signal-to-noise ratio,
+beam, and method (``clean components``, ``interpolated`` or
+``interpolated, convolved``).

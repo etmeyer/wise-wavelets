@@ -9,4 +9,5 @@ Contents:
    project
    tasks
    wiseutils
+   prep
    

@@ -261,6 +261,147 @@ def stack(
 
 
 # ---------------------------------------------------------------------------
+# core / prep
+# ---------------------------------------------------------------------------
+
+def _parse_floats(value: str, n: int, option: str) -> list[float]:
+    try:
+        values = [float(v) for v in value.split(",")]
+    except ValueError:
+        values = []
+    if len(values) != n:
+        raise click.BadParameter(
+            "expected %d comma-separated numbers, got %r" % (n, value), param_hint=option
+        )
+    return values
+
+
+_search_radius_option = click.option(
+    "--search-radius", type=float, default=None,
+    help="Look for the core within this distance of --near, in mas. "
+         "Default: twice each map's beam major axis.")
+_near_option = click.option(
+    "--near", default="0,0", show_default=True,
+    help="Offset X,Y in mas (east, north) from the reference pixel around "
+         "which to look for the core.")
+
+
+@cli.command()
+@click.argument("files", nargs=-1, required=True)
+@click.option("--output", "-o", default=None,
+              help="Core offset file to write. Default: data.core_offset_filename "
+                   "in the project.")
+@_search_radius_option
+@_near_option
+@click.option("--dry-run", is_flag=True, default=False,
+              help="Print the core positions without writing the file.")
+@click.option("--overwrite", is_flag=True, default=False,
+              help="Replace an existing core offset file.")
+@click.pass_context
+def core(
+    ctx: click.Context,
+    files: tuple[str, ...],
+    output: str | None,
+    search_radius: float | None,
+    near: str,
+    dry_run: bool,
+    overwrite: bool,
+) -> None:
+    """Measure core positions and write the core offset file.
+
+    Fits each map's core with a Gaussian of the restoring-beam shape and
+    writes its offset from the reference pixel, which wise then uses to
+    align the maps (see data.align_subpixel). For maps on different pixel
+    grids, use `wise prep` instead.
+    """
+    near_xy = _parse_floats(near, 2, "--near")
+    config = actions.get_config(False)
+    context = wise.AnalysisContext(config)
+    actions.select_files(context, list(files))
+    results = wise.prep.measure_cores(context, search_radius=search_radius, near=near_xy)
+    click.echo(wise.prep.core_table(results))
+    if dry_run:
+        return
+    if output is None:
+        output = context.get_core_offset_filename()
+        if output is None:
+            raise click.UsageError("data.core_offset_filename is not set: use --output.")
+    if os.path.exists(output) and not overwrite:
+        raise click.UsageError("%s already exists; use --overwrite to replace it." % output)
+    wise.prep.write_core_file(results, output, unit=config.data.projection_unit)
+    click.echo("Core offsets written to %s" % output)
+
+
+@cli.command("prep")
+@click.argument("files", nargs=-1, required=True)
+@click.option("--output-dir", "-o", required=True,
+              help="Directory for the prepared maps; created if needed.")
+@click.option("--beam", default="native", show_default=True,
+              help="Restoring beam: native (keep each map's beam), common (the "
+                   "smallest beam that contains all the input beams), or "
+                   "BMAJ,BMIN,PA in mas, mas and degrees.")
+@click.option("--pixel-scale", type=float, default=None,
+              help="Output pixel size in mas. Default: the finest input pixel.")
+@click.option("--size", type=int, default=None,
+              help="Output map size in pixels. Default: the smallest input field "
+                   "divided by the pixel size.")
+@click.option("--no-center", is_flag=True, default=False,
+              help="Keep the first map's reference position on the reference "
+                   "pixel instead of moving each map's core there.")
+@_search_radius_option
+@_near_option
+@click.option("--overwrite", is_flag=True, default=False,
+              help="Replace existing files in the output directory.")
+@click.pass_context
+def prep_cmd(
+    ctx: click.Context,
+    files: tuple[str, ...],
+    output_dir: str,
+    beam: str,
+    pixel_scale: float | None,
+    size: int | None,
+    no_center: bool,
+    search_radius: float | None,
+    near: str,
+    overwrite: bool,
+) -> None:
+    """Regrid maps and center them on the core.
+
+    Each map is resampled onto a common grid with its core, fitted as in
+    `wise core`, on the reference pixel, so the prepared maps need no core
+    offset file. A map with an AIPS CC table is rebuilt from its clean
+    components on the new grid, and only its residual map is interpolated.
+    A map without one is interpolated, and can only get a beam that
+    contains its own. The input files are not changed.
+
+    With --no-center the maps are only regridded, and can then be aligned
+    on a core offset file written by `wise core` on the prepared maps.
+    """
+    beam = beam.strip().lower()
+    if beam not in ("native", "common"):
+        bmaj, bmin, bpa = _parse_floats(beam, 3, "--beam")
+        if not 0 < bmin <= bmaj:
+            raise click.BadParameter("need 0 < BMIN <= BMAJ", param_hint="--beam")
+        beam = wise.prep.Beam(bmaj, bmin, bpa)
+    near_xy = _parse_floats(near, 2, "--near")
+    config = actions.get_config(False)
+    context = wise.AnalysisContext(config)
+    actions.select_files(context, list(files))
+    grid, target, table = wise.prep.prepare_files(
+        context, output_dir, beam=beam, pixel=pixel_scale, size=size,
+        center=not no_center, search_radius=search_radius, near=near_xy,
+        overwrite=overwrite,
+    )
+    click.echo(table)
+    click.echo("Grid: %s. Beam: %s." % (grid, "native" if target is None else target))
+    click.echo("%d maps written to %s, with a log in %s."
+               % (len(context.files), output_dir, wise.prep.LOG_FILENAME))
+    if not no_center:
+        click.echo("Each map's core is on the reference pixel (PREP_CEN = T), so wise "
+                   "doesn't align these maps on a core offset file.")
+
+
+# ---------------------------------------------------------------------------
 # settings
 # ---------------------------------------------------------------------------
 

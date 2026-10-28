@@ -28,6 +28,7 @@ import PIL.Image
 import skimage.data
 from astropy.time import TimeDelta
 from scipy.ndimage import center_of_mass, rotate, zoom
+from scipy.ndimage import shift as spline_shift
 
 RESOURCE_PATH = 'resources'
 
@@ -1136,12 +1137,23 @@ class Image:
         self.set_pix_ref(np.round(self.get_pix_ref() - xy_p1))
         return xy_p1, xy_p2
 
-    def shift(self, delta, projection=None):
-        ''' delta as xy_pix, except if projection is provided '''
+    def shift(self, delta, projection=None, subpixel=False):
+        ''' delta as xy_pix, except if projection is provided. With subpixel,
+        shift by the exact amount (cubic spline); otherwise round delta to
+        whole pixels. Pixels shifted in from outside the image are zero. '''
         if projection is not None:
             delta = delta / projection.pixel_scales()
-        # print "Shift:", delta
-        self.data = nputils.shift2d(self.data, np.round(p2i(delta)))
+        if not subpixel:
+            self.data = nputils.shift2d(self.data, np.round(p2i(delta)))
+            return
+        # The spline prefilter runs along whole rows and columns, so a single
+        # NaN would spread across the image: shift the NaN mask separately.
+        nan = np.isnan(self.data)
+        data = spline_shift(np.where(nan, 0, self.data), p2i(delta), order=3,
+                            mode='grid-constant', cval=0)
+        if nan.any():
+            data[spline_shift(nan.astype(float), p2i(delta), order=1) > 0.5] = np.nan
+        self.data = data
 
     def rotate(self, angle_rad, spline_order=0, smooth_len=3):
         self.data = rotate(self.data, - angle_rad / (2 * np.pi) * 360, reshape=False, order=spline_order)
@@ -1306,6 +1318,34 @@ class FitsImage(Image):
             # Warning: Pixel increment seams wrong (milli degree ? we will assume so)"
             scale = scale * 1 / 1000.
         return GaussianBeam(bmaj / scale, bmin / scale, np.radians(bpa))
+
+    def get_clean_components(self):
+        '''Return the clean components of the file's AIPS CC table, or None
+        if it has none. The result is an N x 6 array: flux (Jy), x and y
+        offset from the reference pixel (deg, x positive to the east), and
+        the major axis (deg), minor axis (deg) and position angle (deg) of
+        Gaussian components, which are zero for point components.'''
+        with pyfits.open(self.file) as fits:
+            tables = [hdu for hdu in fits[1:] if hdu.name == "AIPS CC"]
+            if not tables or tables[0].data is None:
+                return None
+            table = tables[0]
+            columns = table.columns.names
+            n = len(table.data)
+            cc = np.zeros((n, 6))
+            for i, name in enumerate(["FLUX", "DELTAX", "DELTAY", "MAJOR AX", "MINOR AX", "POSANGLE"]):
+                if name in columns:
+                    cc[:, i] = table.data[name]
+                elif i < 3:
+                    raise ValueError("%s: AIPS CC table has no %s column" % (self.file, name))
+            if "TYPE OBJ" in columns and np.any(table.data["TYPE OBJ"] > 1):
+                raise ValueError("%s: AIPS CC table has components that are neither "
+                                 "points nor Gaussians" % self.file)
+            unit = table.columns["DELTAX"].unit
+            if unit is not None and not unit.strip().lower().startswith("deg"):
+                raise ValueError("%s: AIPS CC positions are in %r, expected degrees"
+                                 % (self.file, unit))
+        return cc
 
     def check_aips_clean_beam(self):
         pattern = r'AIPS\s*CLEAN\s*BMAJ=(.*)BMIN=(.*)BPA=(.*)'

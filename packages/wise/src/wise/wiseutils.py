@@ -761,22 +761,30 @@ class CoreOffsetPositions:
 
     See :ref:`core_offset_file` for the full specification, including
     units, conventions, and common pitfalls.
+
+    Epochs are matched by calendar day, since the file stores dates only.
     '''
 
     def __init__(self):
         self.cores = dict()
 
+    @staticmethod
+    def _day(epoch):
+        if isinstance(epoch, datetime.date):
+            return datetime.datetime(epoch.year, epoch.month, epoch.day)
+        return epoch
+
     def get_all(self):
         return list(self.cores.items())
 
     def get(self, epoch):
-        return self.cores.get(epoch, np.array([0, 0]))
+        return self.cores.get(self._day(epoch), np.array([0, 0]))
 
-    def align_img(self, img, projection):
-        epoch = img.get_epoch()
+    def align_img(self, img, projection, subpixel=False):
+        epoch = self._day(img.get_epoch())
         if epoch in self.cores:
             x, y = self.cores[epoch]
-            img.shift([-x, -y], projection=projection)
+            img.shift([-x, -y], projection=projection, subpixel=subpixel)
         else:
             logger.warning(
                 "No core position for epoch %s in core.dat — image left "
@@ -785,20 +793,20 @@ class CoreOffsetPositions:
             )
 
     def set(self, epoch, xy_coord):
-        self.cores[epoch] = xy_coord
+        self.cores[self._day(epoch)] = xy_coord
 
-    def save(self, filename):
+    def save(self, filename, header=''):
         l = []
         for epoch, (x, y) in nputils.get_items_sorted_by_keys(self.cores):
             r, theta = nputils.coord_xy_to_rtheta(x, y)
             l.append([epoch.strftime("%Y-%m-%d"), 0, r, np.degrees(theta)])
 
-        np.savetxt(filename, l, ['%s', '%s', '%s', '%s'])
+        np.savetxt(filename, l, ['%s', '%s', '%s', '%s'], header=header)
 
     @staticmethod
     def new_from_file(file):
         core_desc = CoreOffsetPositions()
-        data = np.loadtxt(file, dtype=object)
+        data = np.loadtxt(file, dtype=object, ndmin=2)
 
         for epoch, i, r, pa in data:
             epoch = datetime.datetime.strptime(epoch, "%Y-%m-%d")

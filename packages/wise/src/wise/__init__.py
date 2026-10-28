@@ -7,7 +7,7 @@ os.environ.setdefault("QT_API", "pyqt5")
 import libwise
 
 # We need some extra bits to handle numpy array pickling correctly
-from . import jsonpickle_numpy, tasks
+from . import jsonpickle_numpy, prep, tasks
 from .features import *
 from .matcher import *
 from .project import *
